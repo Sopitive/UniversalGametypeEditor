@@ -56,7 +56,6 @@ jobs:
           - channel: Prod_Store
             Configuration: Release
             ChannelName: Prod_Store
-            DistributionUrl:
             MsixPackageId: MyWPFApp.DevOpsDemo.ProdStore
             MsixPublisherId: CN=GitHubActionsDemo
             MsixPackageDisplayName: MyWPFApp (ProdStore)
