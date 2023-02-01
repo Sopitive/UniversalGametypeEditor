@@ -34,6 +34,7 @@ namespace UniversalGametypeEditor
         public ObservableCollection<string> WatchedFilesList { get; set; } =
    new ObservableCollection<string>();
 
+
         public ObservableCollection<string> HotReloadFilesList { get; set; } =
    new ObservableCollection<string>();
 
@@ -45,6 +46,7 @@ namespace UniversalGametypeEditor
             InitializeComponent();
             UpdateSettingsFromFile();
 
+            FilesListWatched.SelectionChanged += FilesListWatched_SelectionChanged;
             this.DataContext = this;
             StateChanged += MainWindowStateChangeRaised;
 
@@ -69,6 +71,11 @@ namespace UniversalGametypeEditor
                 string folderName = Settings.Default.HotReloadPath;
                 GetFiles(folderName, HotReloadFilesList);
             }
+        }
+
+        private void FilesListWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            HandleFiles((string)e.AddedItems[0], Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
         }
 
         public void GetFiles(string dirName, ObservableCollection<string> collection)
@@ -201,6 +208,8 @@ namespace UniversalGametypeEditor
             UpdateLastEvent("Listening For File Changes...");
         }
 
+        
+
 
 
         private void CommandBinding_CanExecute(object sender, CanExecuteRoutedEventArgs e)
@@ -247,27 +256,35 @@ namespace UniversalGametypeEditor
             }
         }
 
-
-        private void OnChange(object sender, FileSystemEventArgs e)
+        
+        public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
         {
+            string? directory;
+            string? fullPath;
 
-            var name = e.Name;
-
-            if (e.ChangeType != WatcherChangeTypes.Changed)
+            if (changeType != WatcherChangeTypes.Changed)
             {
                 UpdateLastEvent($"Created: {name}");
             }
 
             if (name.Contains(".bin") && !name.EndsWith(".bin"))
             {
-                name = Regex.Replace(name, @"(.*)\..*", "$1"); 
+                name = Regex.Replace(name, @"(.*)\..*", "$1");
+                System.Threading.Thread.Sleep(100);
             }
 
-            var fullPath = Path.GetDirectoryName(e.FullPath) + "\\" + name;
-            var directory = Path.GetDirectoryName(e.FullPath);
+            if (setDirectory)
+            {
+                fullPath = Path.GetDirectoryName(path) + "\\" + name;
+                directory = Path.GetDirectoryName(path);
+            } else
+            {
+                directory = path;
+                fullPath = path + "\\" + name;
+            }
+                
 
             UpdateLastEvent($"Modified: {name}");
-            System.Threading.Thread.Sleep(100);
 
             var userFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             if (Settings.Default.HotReloadPath == "Undefined")
@@ -291,7 +308,12 @@ namespace UniversalGametypeEditor
             System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
                 UpdateHRListView(copyPath)
             ));
-            
+        }
+
+
+        private void OnChange(object sender, FileSystemEventArgs e)
+        {
+            HandleFiles(e.Name, e.FullPath, e.ChangeType, true);
 
         }
 

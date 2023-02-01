@@ -369,6 +369,7 @@
     </Window.Resources>
 
 
+
     <!--Add the WindowChrome object-->
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="34" />
@@ -423,8 +424,8 @@
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Exit" Click="HandleExitClick" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                 </MenuItem>-->
                 <MenuItem Height="30" Style="{DynamicResource MenuItemStyle1}" Header="Tools" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}">
-                    <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Set Watched Dir..." Click="HandleSetDirClick" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
-                    <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Set Hot Reload Dir..." Click="HandleSetHotReload" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                    <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Set Watched Folder" Click="HandleSetDirClick" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                    <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Set Hot Reload Folder" Click="HandleSetHotReload" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                 </MenuItem>
                 <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Settings" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}">
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ConvertBin" Header="Convert Bin To Mglo" IsCheckable="True" Checked="CheckConvertBin" Unchecked="CheckConvertBin" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
@@ -464,7 +465,7 @@
                     </Grid.RowDefinitions>
                     <TextBlock x:Name="LastEvent" Grid.Row="0" Text="LastEvent" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold"/>
                     <TextBlock x:Name="DirPath" Grid.Row="1" Text="File Path Is Unset" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold"/>
-                    <ListView Grid.Row="2" ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                    <ListView x:Name="FilesListWatched" Grid.Row="2" ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
                 </Grid>
                 
             </StackPanel>
@@ -478,7 +479,7 @@
                     </Grid.RowDefinitions>
                     
                     <TextBlock x:Name="HotReloadDir" Text="HotReloadDir" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1"/>
-                    <ListView Grid.Row="2" ItemsSource="{Binding HotReloadFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                    <ListView x:Name="FilesListHR" Grid.Row="2" ItemsSource="{Binding HotReloadFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
                 </Grid>
             </StackPanel>
         </Grid>
