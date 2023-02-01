@@ -1,6 +1,7 @@
 name: "Deploy Class Commands"
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "*"
