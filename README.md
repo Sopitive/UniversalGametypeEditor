@@ -11,4 +11,4 @@ Getting Started:
 
 
 In Development Build:
-    https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip
+    [Download](https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip)
