@@ -75,7 +75,11 @@ namespace UniversalGametypeEditor
 
         private void FilesListWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            HandleFiles((string)e.AddedItems[0], Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
+            if (e.AddedItems.Count != 0)
+            {
+                HandleFiles((string)e.AddedItems[0], Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
+            }
+            
         }
 
         public void GetFiles(string dirName, ObservableCollection<string> collection)
@@ -257,10 +261,15 @@ namespace UniversalGametypeEditor
         }
 
         
-        public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
+        public async void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
         {
             string? directory;
             string? fullPath;
+
+            if (changeType == WatcherChangeTypes.Deleted)
+            {
+                return;
+            }
 
             if (changeType != WatcherChangeTypes.Changed)
             {
@@ -301,12 +310,15 @@ namespace UniversalGametypeEditor
 
             if (name.EndsWith(".bin") == false)
             {
-                File.Copy($"{fullPath}", $"{copyPath}\\{name}", true);
                 File.Copy($"{fullPath}", $"{copyPath}\\.mglo", true);
-                UpdateLastEvent($"Copied: {name} to {copyPath}");
+                File.Copy($"{fullPath}", $"{copyPath}\\{name}", true);
+                UpdateLastEvent($"Copied: {name} to the HotReload Folder");
             }
             System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
                 UpdateHRListView(copyPath)
+            ));
+            System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                UpdateFilePathListView(directory, fullPath)
             ));
         }
 
@@ -314,7 +326,12 @@ namespace UniversalGametypeEditor
         private void OnChange(object sender, FileSystemEventArgs e)
         {
             HandleFiles(e.Name, e.FullPath, e.ChangeType, true);
+        }
 
+        public void UpdateFilePathListView(string filePath, string fullPath)
+        {
+            WatchedFilesList.Clear();
+            GetFiles(filePath, WatchedFilesList);
         }
 
         public void UpdateHRListView(string copyPath)

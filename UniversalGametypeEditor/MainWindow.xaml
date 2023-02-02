@@ -1,7 +1,7 @@
 ﻿<Window x:Class="UniversalGametypeEditor.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MainWindow" Height="600" Width="1300" Background="#333333" WindowStyle="None" ResizeMode="CanResizeWithGrip" AllowsTransparency="True">
+        Title="MainWindow" Height="600" Width="1300" Background="#333333" WindowStyle="None" ResizeMode="CanResizeWithGrip" AllowsTransparency="True" Opacity="0.9">
     <Window.Resources>
 
         <!--Base style for title bar buttons-->
@@ -387,7 +387,7 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="25"/>
+            <RowDefinition Height="30"/>
             <RowDefinition Height="30"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -440,31 +440,31 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="20" />
             </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.Column="0">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Grid.Column="0">
                 <Grid>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="50" />
+                        <RowDefinition Height="50" />
+                        <RowDefinition Height="50" />
                         <RowDefinition Height="20" />
-                        <RowDefinition Height="20" />
-                        <RowDefinition Height="20" />
-                        <RowDefinition Height="20" />
-                        <RowDefinition Height="20" />
-                        <RowDefinition Height="20" />
+                        <RowDefinition Height="300" />
+                        <RowDefinition Height="70" />
                     </Grid.RowDefinitions>
                     <TextBlock x:Name="Events" Text="Recent Events:" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold"/>
-                    <TextBlock x:Name="CurrentDir" Text="CurrentDirectory:" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1"/>
-                    <TextBlock x:Name="WatchedFiles" Text="WatchedFiles:"  Grid.Row="2" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold"/>
+                    <TextBlock x:Name="CurrentDir" Text="CurrentDirectory:" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="Help" Text="Select a desired gametype from the left panel to load it into the hot reload folder"  Grid.Row="5" Foreground="{StaticResource TextColor}" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />
                 </Grid>
                 
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.Column="1">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="20" />
-                        <RowDefinition Height="20" />
+                        <RowDefinition Height="50" />
+                        <RowDefinition Height="50" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock x:Name="LastEvent" Grid.Row="0" Text="LastEvent" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold"/>
-                    <TextBlock x:Name="DirPath" Grid.Row="1" Text="File Path Is Unset" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold"/>
+                    <TextBlock x:Name="LastEvent" Grid.Row="0" Text="LastEvent" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" TextWrapping="Wrap" />
+                    <TextBlock x:Name="DirPath" Grid.Row="1" Text="File Path Is Unset" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
                     <ListView x:Name="FilesListWatched" Grid.Row="2" ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
                 </Grid>
                 
@@ -473,12 +473,12 @@
             <StackPanel Grid.Column="2" HorizontalAlignment="Left" Orientation="Horizontal">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="20" />
-                        <RowDefinition Height="20" />
+                        <RowDefinition Height="50" />
+                        <RowDefinition Height="50" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     
-                    <TextBlock x:Name="HotReloadDir" Text="HotReloadDir" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1"/>
+                    <TextBlock x:Name="HotReloadDir" Text="HotReloadDir" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1" VerticalAlignment="Center"/>
                     <ListView x:Name="FilesListHR" Grid.Row="2" ItemsSource="{Binding HotReloadFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
                 </Grid>
             </StackPanel>
