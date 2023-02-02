@@ -122,6 +122,7 @@ namespace UniversalGametypeEditor
 
         public void HandleSetHotReload(object sender, RoutedEventArgs e)
         {
+
             OpenFolder("Hot Reload");
 
         }
@@ -167,6 +168,8 @@ namespace UniversalGametypeEditor
 
                 if (path == "Hot Reload")
                 {
+                    var userFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    dialog.InitialDirectory = $"{userFolder}\\AppData\\LocalLow\\MCC\\Temporary\\";
                     Settings.Default.HotReloadPath = folderName;
                     HotReloadDir.Text = folderName;
                     Settings.Default.Save();
@@ -261,7 +264,7 @@ namespace UniversalGametypeEditor
         }
 
         
-        public async void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
+        public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
         {
             string? directory;
             string? fullPath;
@@ -295,7 +298,7 @@ namespace UniversalGametypeEditor
 
             UpdateLastEvent($"Modified: {name}");
 
-            var userFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            
             if (Settings.Default.HotReloadPath == "Undefined")
             {
                 UpdateLastEvent("Error: Hot Reload Path Not Set");
@@ -343,8 +346,15 @@ namespace UniversalGametypeEditor
         private void ConvertToMglo(string name, string directory)
         {
             //Convert a .bin file to a .mglo file here
-            byte [] fileBytes = File.ReadAllBytes($"{directory}\\{name}");
-            int length = 20480;
+            byte[] fileBytes = File.ReadAllBytes($"{directory}\\{name}");
+            int length;
+            if (fileBytes.Length > 25000)
+            {
+                length = 31744;
+            } else
+            {
+                length = 20480;
+            }
             byte[] newArray = new byte[length - 1];
             for (int i = 0; i < newArray.Length; i++)
             {
