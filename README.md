@@ -11,4 +11,6 @@ Getting Started:
 
 
 In Development Build:
-    [![GitHub release](https://img.shields.io/github/release/Naereen/StrapDown.js.svg)](https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip)
+
+
+[![GitHub release](https://img.shields.io/github/release/Naereen/StrapDown.js.svg)](https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip)
