@@ -58,5 +58,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["HotReloadPath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("-1")]
+        public int GameIndex {
+            get {
+                return ((int)(this["GameIndex"]));
+            }
+            set {
+                this["GameIndex"] = value;
+            }
+        }
     }
 }

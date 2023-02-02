@@ -47,8 +47,14 @@ namespace UniversalGametypeEditor
             UpdateSettingsFromFile();
 
             FilesListWatched.SelectionChanged += FilesListWatched_SelectionChanged;
-            this.DataContext = this;
+            DataContext = this;
             StateChanged += MainWindowStateChangeRaised;
+
+            if (Settings.Default.GameIndex != -1)
+            {
+                GameSelector.SelectedIndex = Settings.Default.GameIndex;
+            }
+            
 
             var menuDropAlignmentField = typeof(SystemParameters).GetField("_menuDropAlignment", BindingFlags.NonPublic | BindingFlags.Static);
             Action setAlignmentValue = () => {
@@ -180,6 +186,8 @@ namespace UniversalGametypeEditor
                     Settings.Default.FilePath = folderName;
                     DirPath.Text = folderName;
                     Settings.Default.Save();
+                    WatchedFilesList.Clear();
+                    GetFiles(folderName, WatchedFilesList);
                 }
                 if (path == "File Path")
                 {
@@ -263,11 +271,30 @@ namespace UniversalGametypeEditor
             }
         }
 
+
+        public void GameSelectorSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            int index = GameSelector.SelectedIndex;
+            Settings.Default.GameIndex = index;
+            _ = index == 0 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\HaloReach\\HotReload" : "" ;
+            _ = index == 1 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\Halo4\\HotReload" : "";
+            _ = index == 2 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\Halo2A\\HotReload" : "";
+            Settings.Default.Save();
+            RegisterWatcher(Settings.Default.HotReloadPath);
+            if (HotReloadDir != null)
+            {
+                HotReloadDir.Text = Settings.Default.HotReloadPath;
+            }
+            HotReloadFilesList.Clear();
+            GetFiles(Settings.Default.HotReloadPath, HotReloadFilesList);
+        }
+
         
         public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
         {
             string? directory;
             string? fullPath;
+
 
             if (changeType == WatcherChangeTypes.Deleted)
             {
@@ -305,6 +332,13 @@ namespace UniversalGametypeEditor
                 return;
             }
             var copyPath = Settings.Default.HotReloadPath;
+
+             bool exists = Directory.Exists(copyPath);
+             if (!exists)
+            {
+                Directory.CreateDirectory(copyPath);
+            }
+
 
             if (name.EndsWith(".bin") && Settings.Default.ConvertBin)
             {
