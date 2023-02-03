@@ -46,6 +46,8 @@ namespace UniversalGametypeEditor
             InitializeComponent();
             UpdateSettingsFromFile();
 
+            Transparency.IsChecked = Settings.Default.Opacity;
+
             FilesListWatched.SelectionChanged += FilesListWatched_SelectionChanged;
             DataContext = this;
             StateChanged += MainWindowStateChangeRaised;
@@ -100,6 +102,20 @@ namespace UniversalGametypeEditor
         public void UpdateSettingsFromFile()
         {
             ConvertBin.IsChecked = Settings.Default.ConvertBin;
+        }
+
+        public void CheckTransparency(object sender, RoutedEventArgs e)
+        {
+            if (Transparency.IsChecked)
+            {
+                Settings.Default.Opacity = true;
+                Opacity = 0.9;
+            } else
+            {
+                Settings.Default.Opacity = false;
+                Opacity = 1;
+            }
+            Settings.Default.Save();
         }
 
         private void UpdateLastEvent(string e)
