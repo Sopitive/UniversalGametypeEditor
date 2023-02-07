@@ -699,6 +699,7 @@
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Settings" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ConvertBin" Header="Convert Bin To Mglo" ToolTip="Convert .bin files to .mglo files" IsCheckable="True" Checked="CheckConvertBin" Unchecked="CheckConvertBin" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="Transparency" Header="Transparent Window" ToolTip="Toggle Window Transparency" IsCheckable="True" Checked="CheckTransparency" Unchecked="CheckTransparency" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="PlayBeep" Header="Play Sound On Copy" ToolTip="Plays the standard windows beep on successful copy" IsCheckable="True" Checked="UpdatePlayBeep" Unchecked="UpdatePlayBeep" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
                 </Menu>
             </Grid>

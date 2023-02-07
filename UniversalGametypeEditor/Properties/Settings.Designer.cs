@@ -94,5 +94,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["Version"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool PlayBeep {
+            get {
+                return ((bool)(this["PlayBeep"]));
+            }
+            set {
+                this["PlayBeep"] = value;
+            }
+        }
     }
 }

@@ -43,7 +43,7 @@ namespace UniversalGametypeEditor
             InitializeComponent();
             UpdateSettingsFromFile();
 
-            Transparency.IsChecked = Settings.Default.Opacity;
+            
 
             FilesListWatched.SelectionChanged += FilesListWatched_SelectionChanged;
             DataContext = this;
@@ -99,6 +99,21 @@ namespace UniversalGametypeEditor
         public void UpdateSettingsFromFile()
         {
             ConvertBin.IsChecked = Settings.Default.ConvertBin;
+            Transparency.IsChecked = Settings.Default.Opacity;
+            PlayBeep.IsChecked = Settings.Default.PlayBeep;
+        }
+
+        public void UpdatePlayBeep(object sender, RoutedEventArgs e)
+        {
+            if (PlayBeep.IsChecked)
+            {
+                Settings.Default.PlayBeep = true;
+            }
+            else
+            {
+                Settings.Default.PlayBeep = false;
+            }
+            Settings.Default.Save();
         }
 
         public void CheckTransparency(object sender, RoutedEventArgs e)
@@ -306,11 +321,16 @@ namespace UniversalGametypeEditor
         {
             try
             {
-                using FileStream sourceStream = File.Open(sourceFile, FileMode.Open);
-                using FileStream destinationStream = File.Create(destinationFile);
-                await sourceStream.CopyToAsync(destinationStream);
-                sourceStream.Close();
-                File.Delete(sourceFile);
+                using (FileStream sourceStream = File.Open(sourceFile, FileMode.Open))
+                {
+                    using (FileStream destinationStream = File.Create(destinationFile))
+                    {
+                        await sourceStream.CopyToAsync(destinationStream);
+                        sourceStream.Close();
+                        File.Delete(sourceFile);
+                    }
+                }
+
             }
             catch (IOException ioex)
             {
@@ -327,6 +347,10 @@ namespace UniversalGametypeEditor
             string? directory;
             string? fullPath;
 
+            if (!File.Exists(path))
+            {
+                return;
+            }
             
 
             if (changeType == WatcherChangeTypes.Deleted)
@@ -383,7 +407,11 @@ namespace UniversalGametypeEditor
                 Debug.WriteLine(name);
                 MoveFile($"{fullPath}", $"{copyPath}\\.mglo");
                 //File.Copy($"{copyPath}\\{name}", $"{copyPath}\\.mglo", true);
-                SystemSounds.Beep.Play();
+                if (Settings.Default.PlayBeep)
+                {
+                    SystemSounds.Beep.Play();
+                }
+                
                 UpdateLastEvent($"Copied: {name} to the HotReload Folder");
                 
             }
@@ -454,7 +482,7 @@ namespace UniversalGametypeEditor
             catch (Exception)
             {
                 Debug.WriteLine("API Fail");
-                System.Windows.Forms.MessageBox.Show("Unable to check for updates. Please check your internet connection.");
+                UpdateLastEvent("Unable to check for updates. Please check your internet connection.");
                 return;
             }
             string storedVersion;
@@ -466,7 +494,7 @@ namespace UniversalGametypeEditor
             }
             catch (Exception)
             {
-                System.Windows.Forms.MessageBox.Show("Unable to check for updates. Please check your internet connection.");
+                UpdateLastEvent("Unable to check for updates. Please check your internet connection.");
                 return;
             }
             //Compare the two and if the stored version is less than the current version, display a message box asking if the user would like to download the latest version
@@ -514,7 +542,7 @@ namespace UniversalGametypeEditor
                     }
                     catch (Exception)
                     {
-                        System.Windows.Forms.MessageBox.Show("Unable to download the latest version. Please check your internet connection.");
+                        UpdateLastEvent("Unable to download the latest version. Please check your internet connection.");
                     }
                 }
             }
