@@ -486,6 +486,7 @@ namespace UniversalGametypeEditor
                     if (DateTime.Parse(date) > DateTime.UtcNow.AddMinutes(-15))
                     {
                         Debug.WriteLine("Update Available, Still Proceessing...");
+                        UpdateLastEvent("Client is up to date!");
                         return;
                     }
                     Debug.WriteLine("Node ID: " + node_id);
