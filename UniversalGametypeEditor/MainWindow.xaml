@@ -694,6 +694,7 @@
                     <MenuItem Height="30" Style="{DynamicResource MenuItemStyle1}" Header="File" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Set Watched Folder..." ToolTip="Set folder to watch for file changes" Click="HandleSetDirClick" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" Margin="0"/>
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Set Copy Folder..." ToolTip="Set Folder To Copy Files To" Click="HandleSetHotReload" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                        <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Check For Updates" ToolTip="Check for file updates" Click="CheckForUpdates" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Settings" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ConvertBin" Header="Convert Bin To Mglo" ToolTip="Convert .bin files to .mglo files" IsCheckable="True" Checked="CheckConvertBin" Unchecked="CheckConvertBin" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>

@@ -28,6 +28,7 @@
 
     <ItemGroup>
       <PackageReference Include="Microsoft.Extensions.Configuration" Version="7.0.0" />
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
     </ItemGroup>
 
     <ItemGroup>
@@ -42,6 +43,9 @@
       <None Update="Properties\Settings.settings">
         <Generator>PublicSettingsSingleFileGenerator</Generator>
         <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+      </None>
+      <None Update="unzip.bat">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 
