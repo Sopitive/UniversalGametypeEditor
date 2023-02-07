@@ -450,6 +450,7 @@ namespace UniversalGametypeEditor
             GetFiles(copyPath, HotReloadFilesList);
         }
 
+        Stopwatch sw = new();
         public void CheckForUpdates(object sender, RoutedEventArgs e)
         {
             //Check for recent commits on GitHub
@@ -499,6 +500,8 @@ namespace UniversalGametypeEditor
             }
             //Compare the two and if the stored version is less than the current version, display a message box asking if the user would like to download the latest version
             if (storedVersion != node_id)
+
+                
             {
                 DialogResult result = System.Windows.Forms.MessageBox.Show("A new version is available. Would you like to download the latest version?", "Update Available", MessageBoxButtons.YesNoCancel);
                 if (result == System.Windows.Forms.DialogResult.Yes)
@@ -509,13 +512,17 @@ namespace UniversalGametypeEditor
                     {
                         using (WebClient client = new WebClient())
                         {
+                            sw.Start();
                             UpdateLastEvent("Discovering File Size...");
                             client.DownloadProgressChanged += (s, e) =>
                             {
-                                UpdateLastEvent("Downloading..." + e.ProgressPercentage.ToString() + "%");
+                                string downloadedMBs = Math.Round(e.BytesReceived / 1024.0 / 1024.0) + " MB";
+                                string downloadSpeed = string.Format("{0} MB/s", (e.BytesReceived / 1024.0 / 1024.0 / sw.Elapsed.TotalSeconds).ToString("0.00"));
+                                UpdateLastEvent($"Downloading... {downloadedMBs} @ {downloadSpeed}");
                             };
                             client.DownloadFileCompleted += (s, e) =>
                             {
+                                sw.Stop();
                                 UpdateLastEvent("Download Complete");
                                 // any other code to process the file
                                 //Write the node id to the settings file
