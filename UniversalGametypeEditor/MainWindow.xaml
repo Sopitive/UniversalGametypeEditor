@@ -737,8 +737,7 @@
                         <RowDefinition Height="70" />
                     </Grid.RowDefinitions>
                     <TextBlock x:Name="Events" Text="Recent Events:" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold"/>
-                    <TextBlock x:Name="RecentFolders" Text="Recent Folders:" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="CurrentDir" Text="Watched Folder:" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="2" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="CurrentDir" Text="Watched Folder:" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1" VerticalAlignment="Center"/>
                     <TextBlock x:Name="Help" Text="Select a desired gametype from the left panel to load it into the output folder"  Grid.Row="5" Foreground="{StaticResource TextColor}" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />
                 </Grid>
                 
@@ -771,7 +770,6 @@
 
 
                     </ComboBox>
-                    <TextBlock x:Name="DirPath" Grid.Row="2" Text="File Path Is Unset" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
                     <ListView x:Name="FilesListWatched" Grid.Row="3" ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
                 </Grid>
                 

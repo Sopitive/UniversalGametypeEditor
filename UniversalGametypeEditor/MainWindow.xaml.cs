@@ -71,7 +71,6 @@ namespace UniversalGametypeEditor
 
             if (Settings.Default.FilePath != "Undefined")
             {
-                DirPath.Text = Settings.Default.FilePath;
                 string folderName = Settings.Default.FilePath;
                 GetFiles(folderName, WatchedFilesList);
                 RegisterWatcher(folderName);
@@ -122,13 +121,15 @@ namespace UniversalGametypeEditor
         {
             Settings.Default.FilePath = (string)e.AddedItems[0];
             Settings.Default.Save();
+            RegisterWatcher(Settings.Default.FilePath);
             System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                UpdateFilePathListView((string)e.AddedItems[0], (string)e.AddedItems[0])
+                UpdateFilePathListView((string)e.AddedItems[0])
             ));
         }
 
         public void GetFiles(string dirName, ObservableCollection<string> collection)
         {
+            collection.Clear();
             string [] fileEntries = Directory.GetFiles(dirName);
             foreach (string filename in fileEntries)
             {
@@ -255,7 +256,6 @@ namespace UniversalGametypeEditor
                     folders.Add(folderName);
                     dirHistory.Add(folderName);
                     Settings.Default.FilePathList = folders;
-                    DirPath.Text = folderName;
                     DirHistory.Visibility = Visibility.Visible;
                     DirHistory.Text = Settings.Default.FilePath;
                     Settings.Default.Save();
@@ -296,10 +296,8 @@ namespace UniversalGametypeEditor
             UpdateLastEvent("Listening For File Changes...");
         }
 
-        
 
-
-
+        #region WindowCommands
         private void CommandBinding_CanExecute(object sender, CanExecuteRoutedEventArgs e)
         {
             e.CanExecute = true;
@@ -343,7 +341,7 @@ namespace UniversalGametypeEditor
                 MaximizeButton.Visibility = Visibility.Visible;
             }
         }
-
+        #endregion
 
         public void GameSelectorSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -373,13 +371,21 @@ namespace UniversalGametypeEditor
                         copying = true;
                         await sourceStream.CopyToAsync(destinationStream);
                         sourceStream.Close();
+                        System.Threading.Thread.Sleep(10);
                         File.Delete(sourceFile);
                         if (Settings.Default.PlayBeep)
                         {
                             SystemSounds.Beep.Play();
                         }
-                        System.Threading.Thread.Sleep(50);
                         copying = false;
+                        string copyPath = Path.GetDirectoryName(destinationFile);
+                        string directory = Path.GetDirectoryName(sourceFile);
+                        System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                            UpdateHRListView(copyPath)
+                        ));
+                        System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                            UpdateFilePathListView(directory)
+                        ));
                     }
                 }
 
@@ -467,13 +473,6 @@ namespace UniversalGametypeEditor
                 UpdateLastEvent($"Copied: {name} to the HotReload Folder");
                 
             }
-            System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                UpdateHRListView(copyPath)
-            ));
-            System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                UpdateFilePathListView(directory, fullPath)
-            ));
-
             
         }
 
@@ -490,7 +489,7 @@ namespace UniversalGametypeEditor
             HandleFiles(e.Name, e.FullPath, e.ChangeType, true);
         }
 
-        public void UpdateFilePathListView(string filePath, string fullPath)
+        public void UpdateFilePathListView(string filePath)
         {
             WatchedFilesList.Clear();
             GetFiles(filePath, WatchedFilesList);
@@ -621,36 +620,24 @@ namespace UniversalGametypeEditor
             return;
         }
 
-        protected virtual bool IsFileLocked(string file)
-        {
-            try
-            {
-                using (FileStream stream = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.None))
-                {
-                    stream.Close();
-                }
-            }
-            catch (IOException)
-            {
-                //the file is unavailable because it is:
-                //still being written to
-                //or being processed by another thread
-                //or does not exist (has already been processed)
-                return true;
-            }
-
-            //file is not locked
-            return false;
-        }
 
         private void ConvertToMglo(string name, string directory)
         {
-            //Convert a .bin file to a .mglo file here
-            while (IsFileLocked($"{directory}\\{name}") == true)
+            byte[] fileBytes = {};
+            bool fileLocked = true;
+            while (fileLocked)
             {
-                Debug.WriteLine("File is still in use!");
+                try
+                {
+                    fileBytes = File.ReadAllBytes($"{directory}\\{name}");
+                    fileLocked = false;
+                }
+                catch (System.IO.IOException)
+                {
+                    fileLocked = true;
+                    Debug.WriteLine("File still in use!");
+                }
             }
-                byte[] fileBytes = File.ReadAllBytes($"{directory}\\{name}");
             int length;
             if (fileBytes.Length > 25000)
             {
@@ -665,11 +652,22 @@ namespace UniversalGametypeEditor
                 newArray[i] = fileBytes[i + header.Length];
             }
             newArray = BitShift(length, newArray);
-            while (IsFileLocked($"{directory}\\{name}") == true)
+            fileLocked = true;
+
+            while (fileLocked)
             {
-                Debug.WriteLine("File is still in use!");
+                try
+                {
+                    File.WriteAllBytes($"{directory}\\{name.Replace(".bin", "")}.mglo", newArray);
+                    fileLocked = false;
+                } catch (IOException)
+                {
+                    Debug.WriteLine("File still in use!");
+                    fileLocked = true;
+                }
             }
-            File.WriteAllBytes($"{directory}\\{name.Replace(".bin","")}.mglo", newArray);
+
+            
         }
 
 
