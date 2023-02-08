@@ -106,5 +106,16 @@ namespace UniversalGametypeEditor.Properties {
                 this["PlayBeep"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        public global::System.Collections.Specialized.StringCollection FilePathList {
+            get {
+                return ((global::System.Collections.Specialized.StringCollection)(this["FilePathList"]));
+            }
+            set {
+                this["FilePathList"] = value;
+            }
+        }
     }
 }

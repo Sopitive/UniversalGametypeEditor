@@ -13,6 +13,9 @@ using System.Windows.Forms;
 using System.Windows.Input;
 using UniversalGametypeEditor.Properties;
 using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+
 namespace UniversalGametypeEditor
 {
     /// <summary>
@@ -31,6 +34,8 @@ namespace UniversalGametypeEditor
         public ObservableCollection<string> WatchedFilesList { get; set; } =
    new ObservableCollection<string>();
         private bool copying;
+        StringCollection folders = new();
+        ObservableCollection<string> dirHistory = new();
 
 
         public ObservableCollection<string> HotReloadFilesList { get; set; } =
@@ -43,8 +48,9 @@ namespace UniversalGametypeEditor
         {
             InitializeComponent();
             UpdateSettingsFromFile();
+            UpdateDirHistoryComboBox();
 
-            
+
 
             FilesListWatched.SelectionChanged += FilesListWatched_SelectionChanged;
             DataContext = this;
@@ -54,7 +60,7 @@ namespace UniversalGametypeEditor
             {
                 GameSelector.SelectedIndex = Settings.Default.GameIndex;
             }
-            
+
 
             var menuDropAlignmentField = typeof(SystemParameters).GetField("_menuDropAlignment", BindingFlags.NonPublic | BindingFlags.Static);
             Action setAlignmentValue = () => {
@@ -83,10 +89,42 @@ namespace UniversalGametypeEditor
         {
             if (e.AddedItems.Count != 0)
             {
-                
+
                 HandleFiles((string)e.AddedItems[0], Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
             }
-            
+
+        }
+
+        public void UpdateDirHistoryComboBox()
+        {
+            if (Settings.Default.FilePathList != null)
+            {
+                if (Settings.Default.FilePathList.Count == 0)
+                {
+                    DirHistory.Visibility = Visibility.Collapsed;
+                } else
+                {
+                    DirHistory.ItemsSource = dirHistory;
+                    foreach (string? item in Settings.Default.FilePathList)
+                    {
+                        folders.Add(item);
+                        dirHistory.Add(item);
+                    }
+                    DirHistory.Text = Settings.Default.FilePath;
+                }
+            } else
+            {
+                DirHistory.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        public void DirHistorySelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            Settings.Default.FilePath = (string)e.AddedItems[0];
+            Settings.Default.Save();
+            System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                UpdateFilePathListView((string)e.AddedItems[0], (string)e.AddedItems[0])
+            ));
         }
 
         public void GetFiles(string dirName, ObservableCollection<string> collection)
@@ -214,7 +252,12 @@ namespace UniversalGametypeEditor
                 if (path == "File Path")
                 {
                     Settings.Default.FilePath = folderName;
+                    folders.Add(folderName);
+                    dirHistory.Add(folderName);
+                    Settings.Default.FilePathList = folders;
                     DirPath.Text = folderName;
+                    DirHistory.Visibility = Visibility.Visible;
+                    DirHistory.Text = Settings.Default.FilePath;
                     Settings.Default.Save();
                     WatchedFilesList.Clear();
                     GetFiles(folderName, WatchedFilesList);
@@ -603,7 +646,11 @@ namespace UniversalGametypeEditor
         private void ConvertToMglo(string name, string directory)
         {
             //Convert a .bin file to a .mglo file here
-            byte[] fileBytes = File.ReadAllBytes($"{directory}\\{name}");
+            while (IsFileLocked($"{directory}\\{name}") == true)
+            {
+                Debug.WriteLine("File is still in use!");
+            }
+                byte[] fileBytes = File.ReadAllBytes($"{directory}\\{name}");
             int length;
             if (fileBytes.Length > 25000)
             {
