@@ -150,6 +150,7 @@ namespace UniversalGametypeEditor
             ConvertBin.IsChecked = Settings.Default.ConvertBin;
             Transparency.IsChecked = Settings.Default.Opacity;
             PlayBeep.IsChecked = Settings.Default.PlayBeep;
+            SwitchWatched.IsChecked = Settings.Default.SwitchWatched;
         }
 
         public void UpdatePlayBeep(object sender, RoutedEventArgs e)
@@ -239,7 +240,14 @@ namespace UniversalGametypeEditor
 
         public void UpdateSwitchWatched(object sender, RoutedEventArgs e)
         {
-            Settings.Default.SwitchWatched = true;
+            if (SwitchWatched.IsChecked)
+            {
+                Settings.Default.SwitchWatched = true;
+            } else
+            {
+                Settings.Default.SwitchWatched = false;
+            }
+            Settings.Default.Save();
         }
 
         public void OpenFolder(string path)
@@ -527,100 +535,102 @@ namespace UniversalGametypeEditor
             menuTimer.Tick += (sender, e) =>
             {
                 thisAccess = File.GetLastAccessTime(path);
-
-                if (game == "Halo 4")
+                if (SwitchWatched.IsChecked)
                 {
-
-                    if (h4LastAccess == defaultDateTime)
+                    if (game == "Halo 4")
                     {
-                        h4LastAccess = thisAccess;
-                        return;
+
+                        if (h4LastAccess == defaultDateTime)
+                        {
+                            h4LastAccess = thisAccess;
+                            return;
+                        }
+
+                        if (thisAccess != h4LastAccess)
+                        {
+                            GameSelector.SelectedIndex = 1;
+                            UpdateLastEvent($"Opened {game} Custom Games Menu");
+                            string folderName = $"{Settings.Default.GameDir}\\halo4\\game_variants";
+                            Settings.Default.FilePath = folderName;
+                            folders.Add(folderName);
+                            List<string> folderList = folders.Cast<string>().ToList(); // convert to list
+                            List<string> uniqueFolders = folderList.Distinct().ToList(); // remove duplicates
+                            folders.Clear();
+                            folders.AddRange(uniqueFolders.ToArray()); // add elements to new StringCollection
+                            dirHistory.Add(folderName);
+                            dirHistory = new ObservableCollection<string>(dirHistory.Distinct());
+                            Settings.Default.FilePathList = folders;
+                            DirHistory.Visibility = Visibility.Visible;
+                            DirHistory.Text = Settings.Default.FilePath;
+                            Settings.Default.Save();
+                            WatchedFilesList.Clear();
+                            GetFiles(folderName, WatchedFilesList);
+                        }
+                        h4LastAccess = File.GetLastAccessTime(path);
                     }
 
-                    if (thisAccess != h4LastAccess)
+                    if (game == "Halo 2 Anniversary")
                     {
-                        GameSelector.SelectedIndex = 1;
-                        UpdateLastEvent($"Opened {game} Custom Games Menu");
-                        string folderName = $"{Settings.Default.GameDir}\\halo4\\game_variants";
-                        Settings.Default.FilePath = folderName;
-                        folders.Add(folderName);
-                        List<string> folderList = folders.Cast<string>().ToList(); // convert to list
-                        List<string> uniqueFolders = folderList.Distinct().ToList(); // remove duplicates
-                        folders.Clear();
-                        folders.AddRange(uniqueFolders.ToArray()); // add elements to new StringCollection
-                        dirHistory.Add(folderName);
-                        dirHistory = new ObservableCollection<string>(dirHistory.Distinct());
-                        Settings.Default.FilePathList = folders;
-                        DirHistory.Visibility = Visibility.Visible;
-                        DirHistory.Text = Settings.Default.FilePath;
-                        Settings.Default.Save();
-                        WatchedFilesList.Clear();
-                        GetFiles(folderName, WatchedFilesList);
-                    }
-                    h4LastAccess = File.GetLastAccessTime(path);
-                }
+                        if (h2LastAccess == defaultDateTime)
+                        {
+                            h2LastAccess = thisAccess;
+                            return;
+                        }
 
-                if (game == "Halo 2 Anniversary")
-                {
-                    if (h2LastAccess == defaultDateTime)
-                    {
-                        h2LastAccess = thisAccess;
-                        return;
-                    }
-
-                    if (thisAccess != h2LastAccess)
-                    {
-                        GameSelector.SelectedIndex = 2;
-                        UpdateLastEvent($"Opened {game} Custom Games Menu");
-                        string folderName = $"{Settings.Default.GameDir}\\groundhog\\game_variants";
-                        Settings.Default.FilePath = folderName;
-                        folders.Add(folderName);
-                        List<string> folderList = folders.Cast<string>().ToList(); // convert to list
-                        List<string> uniqueFolders = folderList.Distinct().ToList(); // remove duplicates
-                        folders.Clear();
-                        folders.AddRange(uniqueFolders.ToArray()); // add elements to new StringCollection
-                        dirHistory.Add(folderName);
-                        dirHistory = new ObservableCollection<string>(dirHistory.Distinct());
-                        Settings.Default.FilePathList = folders;
-                        DirHistory.Visibility = Visibility.Visible;
-                        DirHistory.Text = Settings.Default.FilePath;
-                        Settings.Default.Save();
-                        WatchedFilesList.Clear();
-                        GetFiles(folderName, WatchedFilesList);
-                    }
-                    h2LastAccess = File.GetLastAccessTime(path);
-                }
-
-                if (game == "Halo Reach")
-                {
-                    if (hrLastAccess == defaultDateTime)
-                    {
-                        hrLastAccess = thisAccess;
-                        return;
+                        if (thisAccess != h2LastAccess)
+                        {
+                            GameSelector.SelectedIndex = 2;
+                            UpdateLastEvent($"Opened {game} Custom Games Menu");
+                            string folderName = $"{Settings.Default.GameDir}\\groundhog\\game_variants";
+                            Settings.Default.FilePath = folderName;
+                            folders.Add(folderName);
+                            List<string> folderList = folders.Cast<string>().ToList(); // convert to list
+                            List<string> uniqueFolders = folderList.Distinct().ToList(); // remove duplicates
+                            folders.Clear();
+                            folders.AddRange(uniqueFolders.ToArray()); // add elements to new StringCollection
+                            dirHistory.Add(folderName);
+                            dirHistory = new ObservableCollection<string>(dirHistory.Distinct());
+                            Settings.Default.FilePathList = folders;
+                            DirHistory.Visibility = Visibility.Visible;
+                            DirHistory.Text = Settings.Default.FilePath;
+                            Settings.Default.Save();
+                            WatchedFilesList.Clear();
+                            GetFiles(folderName, WatchedFilesList);
+                        }
+                        h2LastAccess = File.GetLastAccessTime(path);
                     }
 
-                    if (thisAccess != hrLastAccess)
+                    if (game == "Halo Reach")
                     {
-                        GameSelector.SelectedIndex = 0;
-                        UpdateLastEvent($"Opened {game} Custom Games Menu");
-                        string folderName = $"{Settings.Default.GameDir}\\haloreach\\game_variants";
-                        Settings.Default.FilePath = folderName;
-                        folders.Add(folderName);
-                        List<string> folderList = folders.Cast<string>().ToList(); // convert to list
-                        List<string> uniqueFolders = folderList.Distinct().ToList(); // remove duplicates
-                        folders.Clear();
-                        folders.AddRange(uniqueFolders.ToArray()); // add elements to new StringCollection
-                        dirHistory.Add(folderName);
-                        dirHistory = new ObservableCollection<string>(dirHistory.Distinct());
-                        Settings.Default.FilePathList = folders;
-                        DirHistory.Visibility = Visibility.Visible;
-                        DirHistory.Text = Settings.Default.FilePath;
-                        Settings.Default.Save();
-                        WatchedFilesList.Clear();
-                        GetFiles(folderName, WatchedFilesList);
-                    }
+                        if (hrLastAccess == defaultDateTime)
+                        {
+                            hrLastAccess = thisAccess;
+                            return;
+                        }
 
-                    hrLastAccess = File.GetLastAccessTime(path);
+                        if (thisAccess != hrLastAccess)
+                        {
+                            GameSelector.SelectedIndex = 0;
+                            UpdateLastEvent($"Opened {game} Custom Games Menu");
+                            string folderName = $"{Settings.Default.GameDir}\\haloreach\\game_variants";
+                            Settings.Default.FilePath = folderName;
+                            folders.Add(folderName);
+                            List<string> folderList = folders.Cast<string>().ToList(); // convert to list
+                            List<string> uniqueFolders = folderList.Distinct().ToList(); // remove duplicates
+                            folders.Clear();
+                            folders.AddRange(uniqueFolders.ToArray()); // add elements to new StringCollection
+                            dirHistory.Add(folderName);
+                            dirHistory = new ObservableCollection<string>(dirHistory.Distinct());
+                            Settings.Default.FilePathList = folders;
+                            DirHistory.Visibility = Visibility.Visible;
+                            DirHistory.Text = Settings.Default.FilePath;
+                            Settings.Default.Save();
+                            WatchedFilesList.Clear();
+                            GetFiles(folderName, WatchedFilesList);
+                        }
+
+                        hrLastAccess = File.GetLastAccessTime(path);
+                    }
                 }
 
 
