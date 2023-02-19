@@ -117,5 +117,29 @@ namespace UniversalGametypeEditor.Properties {
                 this["FilePathList"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Undefined")]
+        public string GameDir {
+            get {
+                return ((string)(this["GameDir"]));
+            }
+            set {
+                this["GameDir"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool SwitchWatched {
+            get {
+                return ((bool)(this["SwitchWatched"]));
+            }
+            set {
+                this["SwitchWatched"] = value;
+            }
+        }
     }
 }
