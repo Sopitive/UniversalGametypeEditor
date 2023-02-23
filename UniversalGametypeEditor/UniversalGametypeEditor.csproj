@@ -12,6 +12,7 @@
 	    <UseWPF>true</UseWPF>
 	    <UseWindowsForms>true</UseWindowsForms>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<ApplicationIcon>UGE.ico</ApplicationIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -24,6 +25,10 @@
 
     <ItemGroup>
       <EditorConfigFiles Remove="C:\Users\wyatt\source\repos\UniversalGametypeEditor\UniversalGametypeEditor\.editorconfig" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="UGE.ico" />
     </ItemGroup>
 
     <ItemGroup>
