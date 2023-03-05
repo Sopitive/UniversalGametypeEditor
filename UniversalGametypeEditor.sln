@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.4.33122.133
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UniversalGametypeEditor", "UniversalGametypeEditor\UniversalGametypeEditor.csproj", "{B434F374-D9F0-4CE0-AEDE-5F0D217A52EA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UniversalGametypeEditor", "UniversalGametypeEditor\UniversalGametypeEditor.csproj", "{B434F374-D9F0-4CE0-AEDE-5F0D217A52EA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{1EC96288-D520-481F-801A-40B95F59CC9A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
