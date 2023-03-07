@@ -48,6 +48,30 @@
             <Setter Property="Content" Value="&#xE106;"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
+        
+        <!--Buttons-->
+        <Style x:Key="ButtonsStyle" TargetType="{x:Type Button}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" 
+                                Background="Transparent" 
+                                BorderThickness="1" 
+                                BorderBrush="White">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" 
+                                        Property="Background" 
+                                        Value="#2d2d2d"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
 
 
@@ -55,6 +79,8 @@
         <SolidColorBrush x:Key="AccentColor" Color="#3D3D3D"/>
         <SolidColorBrush x:Key="TextColor" Color="White" />
         <SolidColorBrush x:Key="Menu.Static.Background" Color="#FFF0F0F0"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#3D3D3D"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#3D3D3D"/>
         <Style x:Key="MenuStyle1" TargetType="{x:Type Menu}">
             <Setter Property="Background" Value="{StaticResource Menu.Static.Background}"/>
             <Setter Property="FontFamily" Value="{DynamicResource {x:Static SystemFonts.MenuFontFamilyKey}}"/>
@@ -80,7 +106,7 @@
         <SolidColorBrush x:Key="Menu.Disabled.Foreground" Color="#FF707070"/>
         <SolidColorBrush x:Key="MenuItem.Selected.Background" Color="#3D3D3D"/>
         <SolidColorBrush x:Key="MenuItem.Selected.Border" Color="#FF26A0DA"/>
-        <SolidColorBrush x:Key="MenuItem.Highlight.Background" Color="#3D26A0DA"/>
+        <SolidColorBrush x:Key="MenuItem.Highlight.Background" Color="#333333"/>
         <SolidColorBrush x:Key="MenuItem.Highlight.Border" Color="#FF26A0DA"/>
         <SolidColorBrush x:Key="MenuItem.Highlight.Disabled.Background" Color="#0A000000"/>
         <SolidColorBrush x:Key="MenuItem.Highlight.Disabled.Border" Color="#21000000"/>
@@ -167,7 +193,7 @@
                     <Setter Property="Visibility" TargetName="Icon" Value="Collapsed"/>
                 </Trigger>
                 <Trigger Property="IsHighlighted" Value="True">
-                    <Setter Property="Background" TargetName="templateRoot" Value="{StaticResource MenuItem.Highlight.Background}"/>
+                    <Setter Property="Background" TargetName="templateRoot" Value="{StaticResource AcceentColor}"/>
                     <Setter Property="BorderBrush" TargetName="templateRoot" Value="{StaticResource MenuItem.Highlight.Border}"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
@@ -478,7 +504,7 @@
                                     <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="true"/>
                                     <Condition Binding="{Binding IsEditable, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}" Value="true"/>
                                 </MultiDataTrigger.Conditions>
-                                <Setter Property="Background" TargetName="templateRoot" Value="{StaticResource ComboBox.MouseOver.Editable.Background}"/>
+                                <Setter Property="Background" TargetName="templateRoot" Value="{StaticResource AccentColor}"/>
                                 <Setter Property="BorderBrush" TargetName="templateRoot" Value="#333333"/>
                                 <Setter Property="Background" TargetName="splitBorder" Value="{StaticResource AccentColor}"/>
                                 <Setter Property="BorderBrush" TargetName="splitBorder" Value="{StaticResource ComboBox.MouseOver.Editable.Button.Border}"/>
@@ -492,7 +518,7 @@
                                     <Condition Binding="{Binding IsEditable, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}" Value="false"/>
                                 </MultiDataTrigger.Conditions>
                                 <Setter Property="Background" TargetName="templateRoot" Value="{StaticResource AccentColor}"/>
-                                <Setter Property="BorderBrush" TargetName="templateRoot" Value="{StaticResource ComboBox.Pressed.Border}"/>
+                                <Setter Property="BorderBrush" TargetName="templateRoot" Value="{StaticResource AccentColor}"/>
                             </MultiDataTrigger>
                             <MultiDataTrigger>
                                 <MultiDataTrigger.Conditions>
@@ -500,9 +526,9 @@
                                     <Condition Binding="{Binding IsEditable, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}" Value="true"/>
                                 </MultiDataTrigger.Conditions>
                                 <Setter Property="Background" TargetName="templateRoot" Value="{StaticResource AccentColor}"/>
-                                <Setter Property="BorderBrush" TargetName="templateRoot" Value="{StaticResource ComboBox.Pressed.Editable.Border}"/>
+                                <Setter Property="BorderBrush" TargetName="templateRoot" Value="{StaticResource AccentColor}"/>
                                 <Setter Property="Background" TargetName="splitBorder" Value="{StaticResource ComboBox.Pressed.Editable.Button.Background}"/>
-                                <Setter Property="BorderBrush" TargetName="splitBorder" Value="{StaticResource ComboBox.Pressed.Editable.Button.Border}"/>
+                                <Setter Property="BorderBrush" TargetName="splitBorder" Value="{StaticResource AccentColor}"/>
                             </MultiDataTrigger>
                             <Trigger Property="IsEnabled" Value="false">
                                 <Setter Property="Fill" TargetName="arrow" Value="{StaticResource ComboBox.Disabled.Glyph}"/>
@@ -708,9 +734,9 @@
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ShowTut" Header="Tutorial" ToolTip="Show tutorial" Click="ShowTutorial" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
                 </Menu>
-                <Popup Name="Tutorial" Height="150" Width="200" IsOpen="True" PlacementTarget="{Binding ElementName=Menu}" Placement="Bottom">
-                    <StackPanel>
-                        <TextBlock Padding="10" Name="McTextBlock" Foreground="{StaticResource TextColor}" Background="#333333" Height="110" TextWrapping="Wrap" FontSize="13">Welcome to Universal Gametype Editor!</TextBlock>
+                <Popup Name="Tutorial" Height="Auto" Width="200" IsOpen="True" PlacementTarget="{Binding ElementName=Menu}" Placement="Bottom">
+                    <StackPanel Background="Transparent">
+                        <TextBlock Padding="10" Name="McTextBlock" Foreground="{StaticResource TextColor}" Background="#333333" Height="Auto" TextWrapping="Wrap" FontSize="13">Welcome to Universal Gametype Editor!</TextBlock>
                         <Button x:Name="NextFinish" Content="Next" Foreground="{StaticResource TextColor}" Background="#333333" Height="20" Click="AdvanceTutorial"/>
                         <Button x:Name="Skip" Content="Skip Tutorial" Foreground="{StaticResource TextColor}" Background="#333333" Height="20" Click="SkipTutorial"/>
                     </StackPanel>
@@ -735,9 +761,8 @@
         <Grid Grid.Row="2" Grid.Column="0" Background="{StaticResource AccentColor}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="150"/>
+                <ColumnDefinition Width="1.1*" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="20" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
@@ -761,7 +786,7 @@
             </StackPanel>
 
             <StackPanel Grid.Row="1" Grid.ColumnSpan="1">
-                <Button x:Name="Pause" Content="Focus Game" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="FocusWindow"></Button>
+                <Button x:Name="Pause" Content="Focus Game" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="FocusWindow" Style="{DynamicResource ButtonsStyle}"></Button>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.Column="1">
                 <Grid>
@@ -772,23 +797,50 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <TextBlock x:Name="LastEvent" Grid.Row="0" Text="No Recent Events" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" TextWrapping="Wrap"/>
-                    <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="DirHistory" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" SelectionChanged="DirHistorySelectionChanged">
+                    <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="DirHistory" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" SelectionChanged="DirHistorySelectionChanged" FontSize="13">
                         <ComboBox.ItemContainerStyle>
-                            <Style TargetType="ComboBoxItem">
+                            <Style TargetType="{x:Type ComboBoxItem}">
+                                
                                 <Style.Triggers>
-                                    <Trigger Property="ComboBoxItem.IsMouseOver" Value="True">
+                                    <Trigger Property="IsMouseOver" Value="True">
                                         <Setter Property="Background" Value="#333333"></Setter>
                                     </Trigger>
                                     <Trigger Property="IsSelected" Value="True">
                                         <Setter Property="Background" Value="#3D3D3D" />
                                     </Trigger>
                                 </Style.Triggers>
-                                <Setter Property="Background" Value="#333333"/>
                                 <Setter Property="BorderBrush" Value="#333333"/>
+                                <Setter Property="Padding" Value="5"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+                                            <Border Name="Border"
+                                SnapsToDevicePixels="True"
+                                Background="{TemplateBinding Background}"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsHighlighted" Value="True">
+                                                    <Setter TargetName="Border" Property="Background" Value="#2D2D2D"/>
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Foreground" Value="{DynamicResource {StaticResource TextColor}}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Background" Value="#333333"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
                             </Style>
 
                         </ComboBox.ItemContainerStyle>
-
 
                     </ComboBox>
                     <ListView x:Name="FilesListWatched" Grid.Row="3" ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
@@ -805,7 +857,7 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="Game To Hot Reload" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" FontWeight="Bold" VerticalAlignment="Bottom"/>
-                    <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="GameSelector" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" Text="Game" SelectionChanged="GameSelectorSelectionChanged">
+                    <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="GameSelector" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" Text="Game" SelectionChanged="GameSelectorSelectionChanged" FontSize="13">
                         <ComboBoxItem Content="Halo Reach" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <ComboBoxItem Content="Halo 4" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <ComboBoxItem Content="Halo 2 Anniversary" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
@@ -819,8 +871,33 @@
                                         <Setter Property="Background" Value="#3D3D3D" />
                                     </Trigger>
                                 </Style.Triggers>
-                                <Setter Property="Background" Value="#333333"/>
+                                <Setter Property="Padding" Value="5"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
                                 <Setter Property="BorderBrush" Value="#333333"/>
+
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+                                            <Border Name="Border"
+                                SnapsToDevicePixels="True"
+                                Background="{TemplateBinding Background}"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsHighlighted" Value="True">
+                                                    <Setter TargetName="Border" Property="Background" Value="#2D2D2D"/>
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Foreground" Value="{DynamicResource {StaticResource TextColor}}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Background" Value="#333333"/>
+                                <Setter Property="Foreground" Value="White"/>
                             </Style>
 
                         </ComboBox.ItemContainerStyle>

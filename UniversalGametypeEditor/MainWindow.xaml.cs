@@ -17,13 +17,17 @@ using System.Collections.Specialized;
 using System.Windows.Forms.Design;
 using System.Collections.Generic;
 using System.Linq;
+using System.Drawing;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace UniversalGametypeEditor
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : System.Windows.Window
     {
 
         private readonly System.Windows.Forms.Timer timer = new();
@@ -120,7 +124,7 @@ namespace UniversalGametypeEditor
             Tutorial.VerticalOffset = 100;
             if (tutStep == 1)
             {
-                McTextBlock.Text = "To begin, set the path to the folder you wish to watch.";
+                McTextBlock.Text = "To begin, set the path to the folder you wish to watch for file changes.";
                 Tutorial.Margin = new Thickness(100, 0, 0, 0);
                 FileMenu.IsSubmenuOpen = true;
                 Watched.Opacity = 0.5;
@@ -141,18 +145,103 @@ namespace UniversalGametypeEditor
 
             if (tutStep == 4)
             {
-                McTextBlock.Text = "Happy Gametyping!";
-                NextFinish.Content = "Finish";
-                Tutorial.VerticalOffset = 0;
+                FullWindow.Opacity = 1;
+                McTextBlock.Text = "Select a gametype on the left column to copy it to the Hot Reload folder.";
+                //System.Windows.Media.Color col = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("gray");
+                //FilesListWatched.Background = new SolidColorBrush(col);
+                FilesListWatched.Opacity = 1;
+                // Create a new SolidColorBrush with the starting color
+                SolidColorBrush brush = new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3D3D3D"));
+
+                // Apply the brush to the FilesListWatched element
+                FilesListWatched.Background = brush;
+
+                // Create a new ColorAnimation object
+                ColorAnimation animation = new()
+                {
+                    // Set the animation properties
+                    From = Colors.Gray,
+                    To = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3D3D3D"),
+                    Duration = new Duration(TimeSpan.FromSeconds(1)),
+                    AutoReverse = true,
+                    FillBehavior = FillBehavior.Stop
+                };
+
+                // Apply the animation to the Color property of the SolidColorBrush
+                brush.BeginAnimation(SolidColorBrush.ColorProperty, animation);
+                Tutorial.PlacementTarget = FilesListWatched;
+                Tutorial.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+                Tutorial.VerticalOffset = -20;
             }
 
             if (tutStep == 5)
             {
-                Tutorial.IsOpen = false;
-                FullWindow.Opacity = 1;
-                Settings.Default.TutorialFinished = true;
-                Settings.Default.Save();
+                Tutorial.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                McTextBlock.Text = "Select recently watched directories using the dropdown menu.";
+                Tutorial.PlacementTarget = DirHistory;
+                Tutorial.VerticalOffset = 0;
+
+                // Create a new SolidColorBrush with the starting color
+                SolidColorBrush brush = new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3D3D3D"));
+
+                // Create a new Style for the ComboBoxItem
+                Style itemContainerStyle = new Style(typeof(ComboBoxItem));
+
+                // Create a new Setter for the Background property
+                Setter backgroundSetter = new Setter();
+                backgroundSetter.Property = ComboBoxItem.BackgroundProperty;
+                backgroundSetter.Value = brush;
+
+                // Add the Setter to the Style
+                itemContainerStyle.Setters.Add(backgroundSetter);
+
+                // Apply the Style to the ItemContainerStyle property of the ComboBox
+                DirHistory.ItemContainerStyle = itemContainerStyle;
+
+                // Create a new ColorAnimation object
+                ColorAnimation animation = new()
+                {
+                    // Set the animation properties
+                    From = Colors.Gray,
+                    To = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3D3D3D"),
+                    Duration = new Duration(TimeSpan.FromSeconds(1)),
+                    AutoReverse = true,
+                    FillBehavior = FillBehavior.Stop
+                };
+
+                // Apply the animation to the Color property of the SolidColorBrush
+                brush.BeginAnimation(SolidColorBrush.ColorProperty, animation);
             }
+
+            if (tutStep == 6)
+            {
+                Tutorial.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                Tutorial.VerticalOffset = 0;
+                McTextBlock.Text = "Happy Gametyping!";
+                NextFinish.Content = "Finish";
+                Skip.Height = 0;
+                Tutorial.PlacementTarget = Menu;
+            }
+
+            if (tutStep == 7)
+            {
+                ResetTutorial();
+            }
+        }
+
+        public void ResetTutorial()
+        {
+            Skip.Height = 20;
+            Tutorial.PlacementTarget = Menu;
+            NextFinish.Height = 20;
+            Tutorial.VerticalOffset = 0;
+            McTextBlock.Text = "Welcome to Universal Gametype Editor!";
+            NextFinish.Content = "Next";
+            tutStep = 0;
+            Tutorial.IsOpen = false;
+            FullWindow.Opacity = 1;
+            Settings.Default.TutorialFinished = true;
+            Settings.Default.Save();
         }
 
         public void CheckTutorialCompletion()
@@ -163,6 +252,7 @@ namespace UniversalGametypeEditor
                 FullWindow.Opacity = 1;
             } else
             {
+                ResetTutorial();
                 Tutorial.IsOpen = true;
                 FullWindow.Opacity = 0.4;
             }
@@ -223,6 +313,7 @@ namespace UniversalGametypeEditor
             Transparency.IsChecked = Settings.Default.Opacity;
             PlayBeep.IsChecked = Settings.Default.PlayBeep;
             SwitchWatched.IsChecked = Settings.Default.SwitchWatched;
+            AlwaysOnTop.IsChecked = Settings.Default.AlwaysOnTop;
         }
 
         public void UpdatePlayBeep(object sender, RoutedEventArgs e)
@@ -307,7 +398,7 @@ namespace UniversalGametypeEditor
 
         public void WindowDeactivated(object sender, EventArgs e)
         {
-            Window window = (Window)sender;
+            System.Windows.Window window = (System.Windows.Window)sender;
             if (AlwaysOnTop.IsChecked == true)
             {
                 window.Topmost = true;
