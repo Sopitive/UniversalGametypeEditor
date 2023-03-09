@@ -21,6 +21,7 @@ using System.Drawing;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using System.Xml.Linq;
 
 namespace UniversalGametypeEditor
 {
@@ -65,6 +66,7 @@ namespace UniversalGametypeEditor
             }
 
             FilesListWatched.SelectionChanged += FilesListWatched_SelectionChanged;
+            FilesListHR.SelectionChanged += FilesListHR_SelectionChanged;
             DataContext = this;
             StateChanged += MainWindowStateChangeRaised;
 
@@ -96,6 +98,14 @@ namespace UniversalGametypeEditor
             }
 
             CheckTutorialCompletion();
+        }
+
+        private void FilesListHR_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.AddedItems.Count != 0)
+            {
+                HandleFiles((string)e.AddedItems[0], Settings.Default.HotReloadPath, WatcherChangeTypes.Changed, false);
+            }
         }
 
         private void FilesListWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -146,7 +156,7 @@ namespace UniversalGametypeEditor
             if (tutStep == 4)
             {
                 FullWindow.Opacity = 1;
-                McTextBlock.Text = "Select a gametype on the left column to copy it to the Hot Reload folder.";
+                McTextBlock.Text = "Select a .bin or .mglo file on the left column to convert and copy it to the Hot Reload folder.";
                 //System.Windows.Media.Color col = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("gray");
                 //FilesListWatched.Background = new SolidColorBrush(col);
                 FilesListWatched.Opacity = 1;
@@ -188,7 +198,7 @@ namespace UniversalGametypeEditor
                 Style itemContainerStyle = new Style(typeof(ComboBoxItem));
 
                 // Create a new Setter for the Background property
-                Setter backgroundSetter = new Setter();
+                Setter backgroundSetter = new();
                 backgroundSetter.Property = ComboBoxItem.BackgroundProperty;
                 backgroundSetter.Value = brush;
 
@@ -210,10 +220,41 @@ namespace UniversalGametypeEditor
                 };
 
                 // Apply the animation to the Color property of the SolidColorBrush
-                brush.BeginAnimation(SolidColorBrush.ColorProperty, animation);
+                //brush.BeginAnimation(SolidColorBrush.ColorProperty, animation); //Sealed or frozen sometimes. Need to investigate to make animation work correctly.
             }
 
             if (tutStep == 6)
+            {
+                FullWindow.Opacity = 1;
+                McTextBlock.Text = "Select a .mglo file on the right column to convert it to a .bin and copy it to the watched folder.";
+                //System.Windows.Media.Color col = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("gray");
+                //FilesListWatched.Background = new SolidColorBrush(col);
+                FilesListWatched.Opacity = 1;
+                // Create a new SolidColorBrush with the starting color
+                SolidColorBrush brush = new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3D3D3D"));
+
+                // Apply the brush to the FilesListWatched element
+                FilesListHR.Background = brush;
+
+                // Create a new ColorAnimation object
+                ColorAnimation animation = new()
+                {
+                    // Set the animation properties
+                    From = Colors.Gray,
+                    To = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3D3D3D"),
+                    Duration = new Duration(TimeSpan.FromSeconds(1)),
+                    AutoReverse = true,
+                    FillBehavior = FillBehavior.Stop
+                };
+
+                // Apply the animation to the Color property of the SolidColorBrush
+                brush.BeginAnimation(SolidColorBrush.ColorProperty, animation);
+                Tutorial.PlacementTarget = FilesListHR;
+                Tutorial.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+                Tutorial.VerticalOffset = -20;
+            }
+
+            if (tutStep == 7)
             {
                 Tutorial.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
                 Tutorial.VerticalOffset = 0;
@@ -223,7 +264,7 @@ namespace UniversalGametypeEditor
                 Tutorial.PlacementTarget = Menu;
             }
 
-            if (tutStep == 7)
+            if (tutStep == 8)
             {
                 ResetTutorial();
             }
@@ -520,6 +561,7 @@ namespace UniversalGametypeEditor
 
             watcher.Changed += new FileSystemEventHandler(OnChange);
             watcher.Created += new FileSystemEventHandler(OnChange);
+            watcher.Deleted += new FileSystemEventHandler(OnChange);
 
             watcher.Filter = "*";
             watcher.IncludeSubdirectories = true;
@@ -612,7 +654,7 @@ namespace UniversalGametypeEditor
                         sourceStream.Close();
                         System.Threading.Thread.Sleep(10);
                         File.Delete(sourceFile);
-                        GetProcess.SendKey();
+                        //GetProcess.SendKey();
                         if (Settings.Default.PlayBeep)
                         {
                             SystemSounds.Beep.Play();
@@ -621,10 +663,10 @@ namespace UniversalGametypeEditor
                         string copyPath = Path.GetDirectoryName(destinationFile);
                         string directory = Path.GetDirectoryName(sourceFile);
                         System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                            UpdateHRListView(copyPath)
+                            UpdateHRListView(Settings.Default.HotReloadPath)
                         ));
                         System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                            UpdateFilePathListView(directory)
+                            UpdateFilePathListView(Settings.Default.FilePath)
                         ));
                     }
                 }
@@ -640,24 +682,44 @@ namespace UniversalGametypeEditor
             }
         }
 
-
-        
         public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
         {
             if (copying)
             {
                 return;
             }
-            string? directory;
-            string? fullPath;
-
-            
-            
 
             if (changeType == WatcherChangeTypes.Deleted)
             {
+                System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                    UpdateFilePathListView(Settings.Default.FilePath)
+                ));
+                System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                    UpdateHRListView(Settings.Default.HotReloadPath)
+                ));
                 return;
             }
+
+            string? directory;
+            string? fullPath;
+
+            if (path == Settings.Default.HotReloadPath)
+            {
+                if (name.EndsWith(".mglo"))
+                {
+                    ConvertToBin(path, name);
+                    MoveFile($"{path}\\{name.Replace(".mglo", "")}_054.bin", $"{Settings.Default.FilePath}\\{name.Replace(".mglo", "")}_054.bin");
+                    UpdateHRListView(path);
+                } else
+                {
+                    UpdateLastEvent("Error: File is not of type 'mglo' ");
+                }
+                
+                return;
+            }
+      
+
+            
 
 
             if (changeType != WatcherChangeTypes.Changed)
@@ -703,7 +765,6 @@ namespace UniversalGametypeEditor
 
             if (name.EndsWith(".bin") && Settings.Default.ConvertBin)
             {
-                
                 ConvertToMglo(name, directory);
             }
 
@@ -979,6 +1040,87 @@ namespace UniversalGametypeEditor
             return;
         }
 
+        public void ConvertToBin(string directory, string name)
+        {
+            bool fileLocked = true;
+            while (fileLocked)
+            {
+                try
+                {
+                    byte [] fileBytes = File.ReadAllBytes($"{directory}\\{name}");
+                    fileLocked = false;
+                } catch (IOException)
+                {
+                    fileLocked = true;
+                    Debug.WriteLine("File still in use!");
+                }
+            }
+            
+
+            int originalLength = fileBytes.Length;
+
+            int length;
+            if (fileBytes.Length > 25000)
+            {
+                length = 31744;
+            }
+            else
+            {
+                length = 20480;
+            }
+
+            byte[] newArray = fileBytes;
+            Array.Resize(ref newArray, length + newArray.Length);
+
+
+            newArray = BitShift(originalLength, fileBytes);
+
+            byte[] finalArray = { };
+            Array.Resize(ref finalArray, header.Length + ender.Length + length);
+            try
+            {
+
+
+                for (int i = 0; i < header.Length; i++)
+                {
+                    finalArray[i] = header[i];
+                }
+                
+                int insertionIndex = header.Length;
+
+                for (int i = 1; i < newArray.Length; i++)
+                {
+                    finalArray[(i - 1) + insertionIndex] = newArray[i];
+                }
+                
+                insertionIndex += newArray.Length - 1;
+                for (int i = 0; i < ender.Length; i++)
+                {
+                    finalArray[i + insertionIndex] = ender[i];
+                }
+                Debug.WriteLine("Test");
+            } catch (IndexOutOfRangeException e)
+            {
+                Debug.WriteLine(name);
+                UpdateLastEvent($"Error While Converting File {name}");
+                return;
+            }
+            fileLocked = true;
+            while (fileLocked)
+            {
+                try
+                {
+                    File.WriteAllBytes($"{directory}\\{name.Replace(".mglo", "")}_054.bin", finalArray);
+                    fileLocked = false;
+                }
+                catch (IOException)
+                {
+                    fileLocked = true;
+                    Debug.WriteLine("File still in use!");
+                }
+            }
+            UpdateLastEvent($"Converted {name} to {name.Replace(".mglo", "")}.bin");
+        }
 
         private void ConvertToMglo(string name, string directory)
         {
@@ -991,7 +1133,7 @@ namespace UniversalGametypeEditor
                     fileBytes = File.ReadAllBytes($"{directory}\\{name}");
                     fileLocked = false;
                 }
-                catch (System.IO.IOException)
+                catch (IOException)
                 {
                     fileLocked = true;
                     Debug.WriteLine("File still in use!");
@@ -1011,7 +1153,7 @@ namespace UniversalGametypeEditor
                 try
                 {
                     newArray[i] = fileBytes[i + header.Length];
-                } catch (System.IndexOutOfRangeException e)
+                } catch (IndexOutOfRangeException e)
                 {
                     Debug.WriteLine(name);
                     UpdateLastEvent($"Error While Converting File {name}");
@@ -1019,7 +1161,7 @@ namespace UniversalGametypeEditor
                 }
                 
             }
-            newArray = BitShift(length, newArray);
+            newArray = BitShift(newArray.Length, newArray);
             fileLocked = true;
 
             while (fileLocked)
@@ -1043,7 +1185,7 @@ namespace UniversalGametypeEditor
         {
             int previousUpperBits = 0;
 
-            for (int i = 0; i<array.Length; i++)
+            for (int i = 0; i<length; i++)
             {
                 var currentLowerBits = (array[i] << 4);
                 array[i] = (byte)(array[i] >> 4);
