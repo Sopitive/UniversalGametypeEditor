@@ -22,6 +22,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using System.Xml.Linq;
+using System.Threading;
 
 namespace UniversalGametypeEditor
 {
@@ -355,6 +356,19 @@ namespace UniversalGametypeEditor
             PlayBeep.IsChecked = Settings.Default.PlayBeep;
             SwitchWatched.IsChecked = Settings.Default.SwitchWatched;
             AlwaysOnTop.IsChecked = Settings.Default.AlwaysOnTop;
+            KeepNamedMglo.IsChecked = Settings.Default.KeepNamedMglo;
+        }
+
+        public void UpdateNamedMglo(object sender, RoutedEventArgs e)
+        {
+            if (KeepNamedMglo.IsChecked)
+            {
+                Settings.Default.KeepNamedMglo = true;
+            } else
+            {
+                Settings.Default.KeepNamedMglo = false;
+            }
+            Settings.Default.Save();
         }
 
         public void UpdatePlayBeep(object sender, RoutedEventArgs e)
@@ -640,10 +654,12 @@ namespace UniversalGametypeEditor
             OpenFolder("Game");
         }
 
-        private async void MoveFile(string sourceFile, string destinationFile)
+        private async void MoveFile(string sourceFile, string destinationFile, string name)
         {
             try
             {
+                string copyPath;
+                string directory;
                 File.Delete(destinationFile);
                 using (FileStream sourceStream = File.Open(sourceFile, FileMode.Open))
                 {
@@ -660,8 +676,8 @@ namespace UniversalGametypeEditor
                             SystemSounds.Beep.Play();
                         }
                         copying = false;
-                        string copyPath = Path.GetDirectoryName(destinationFile);
-                        string directory = Path.GetDirectoryName(sourceFile);
+                        copyPath = Path.GetDirectoryName(destinationFile);
+                        directory = Path.GetDirectoryName(sourceFile);
                         System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
                             UpdateHRListView(Settings.Default.HotReloadPath)
                         ));
@@ -670,7 +686,19 @@ namespace UniversalGametypeEditor
                         ));
                     }
                 }
-
+                if (Settings.Default.KeepNamedMglo == true)
+                {
+                    if(File.Exists($"{copyPath}\\{name}"))
+                    {
+                        File.Delete($"{copyPath}\\{name}");
+                        Thread.Sleep(15);
+                    }
+                    File.Copy($"{copyPath}\\.mglo", $"{copyPath}\\{name}");
+                    System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                        UpdateHRListView(Settings.Default.HotReloadPath)
+                    ));
+                }
+                
             }
             catch (IOException ioex)
             {
@@ -708,7 +736,7 @@ namespace UniversalGametypeEditor
                 if (name.EndsWith(".mglo"))
                 {
                     ConvertToBin(path, name);
-                    MoveFile($"{path}\\{name.Replace(".mglo", "")}_054.bin", $"{Settings.Default.FilePath}\\{name.Replace(".mglo", "")}_054.bin");
+                    MoveFile($"{path}\\{name.Replace(".mglo", "")}_054.bin", $"{Settings.Default.FilePath}\\{name.Replace(".mglo", "")}_054.bin", name);
                     UpdateHRListView(path);
                 } else
                 {
@@ -773,7 +801,7 @@ namespace UniversalGametypeEditor
             if (name.EndsWith(".bin") == false)
             {
                 Debug.WriteLine(name);
-                MoveFile($"{fullPath}", $"{copyPath}\\.mglo");
+                MoveFile($"{fullPath}", $"{copyPath}\\.mglo", name);
                 //File.Copy($"{copyPath}\\{name}", $"{copyPath}\\.mglo", true);
                 
                 

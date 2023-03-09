@@ -165,5 +165,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["AlwaysOnTop"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool KeepNamedMglo {
+            get {
+                return ((bool)(this["KeepNamedMglo"]));
+            }
+            set {
+                this["KeepNamedMglo"] = value;
+            }
+        }
     }
 }
