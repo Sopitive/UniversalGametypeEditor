@@ -88,7 +88,7 @@ namespace UniversalGametypeEditor
             {
                 string folderName = Settings.Default.FilePath;
                 GetFiles(folderName, WatchedFilesList);
-                RegisterWatcher(folderName);
+                RegisterWatcher(folderName, watcher);
             }
 
             if (Settings.Default.HotReloadPath != "Undefined")
@@ -333,7 +333,7 @@ namespace UniversalGametypeEditor
         {
             Settings.Default.FilePath = (string)e.AddedItems[0];
             Settings.Default.Save();
-            RegisterWatcher(Settings.Default.FilePath);
+            RegisterWatcher(Settings.Default.FilePath, watcher);
             System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
                 UpdateFilePathListView((string)e.AddedItems[0])
             ));
@@ -520,6 +520,7 @@ namespace UniversalGametypeEditor
                     Settings.Default.HotReloadPath = folderName;
                     HotReloadDir.Text = folderName;
                     Settings.Default.Save();
+                    RegisterHRWatcher(Settings.Default.HotReloadPath, hrWatcher);
                 }
 
                 if (path == "File Path")
@@ -536,7 +537,7 @@ namespace UniversalGametypeEditor
                 }
                 if (path == "File Path")
                 {
-                    RegisterWatcher(folderName);
+                    RegisterWatcher(folderName, watcher);
                 }
                 
                 if (path == "Game")
@@ -558,11 +559,11 @@ namespace UniversalGametypeEditor
         }
   
         private FileSystemWatcher watcher = new();
-        public void RegisterWatcher(string foldername)
+        public void RegisterWatcher(string foldername, FileSystemWatcher watcher)
         {
             timer.Enabled = true;
             timer.Start();
-            timer.Interval = 20;
+            timer.Interval = 500;
             watcher.Path = foldername;
 
             watcher.NotifyFilter = NotifyFilters.Attributes
@@ -581,7 +582,7 @@ namespace UniversalGametypeEditor
             watcher.IncludeSubdirectories = true;
             watcher.EnableRaisingEvents = true;
 
-            UpdateLastEvent("Listening For File Changes...");
+            //UpdateLastEvent("Listening For File Changes...");
         }
 
 
@@ -631,6 +632,41 @@ namespace UniversalGametypeEditor
         }
         #endregion
 
+        FileSystemWatcher hrWatcher = new();
+
+        public void RegisterHRWatcher(string foldername, FileSystemWatcher watcher)
+        {
+            timer.Enabled = true;
+            timer.Start();
+            timer.Interval = 500;
+            watcher.Path = foldername;
+
+            watcher.NotifyFilter = NotifyFilters.Attributes
+                                 | NotifyFilters.CreationTime
+                                 | NotifyFilters.DirectoryName
+                                 | NotifyFilters.FileName
+                                 | NotifyFilters.LastWrite
+                                 | NotifyFilters.Security
+                                 | NotifyFilters.Size;
+
+            watcher.Changed += new FileSystemEventHandler(OnHRChange);
+            watcher.Created += new FileSystemEventHandler(OnHRChange);
+            watcher.Deleted += new FileSystemEventHandler(OnHRChange);
+
+            watcher.Filter = "*";
+            watcher.IncludeSubdirectories = true;
+            watcher.EnableRaisingEvents = true;
+
+            //UpdateLastEvent("Listening For File Changes...");
+        }
+
+        public void OnHRChange(object sender, FileSystemEventArgs e)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                UpdateHRListView(Settings.Default.HotReloadPath)
+            ));
+        }
+
         public void GameSelectorSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             int index = GameSelector.SelectedIndex;
@@ -639,7 +675,7 @@ namespace UniversalGametypeEditor
             _ = index == 1 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\Halo4\\HotReload" : "";
             _ = index == 2 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\Halo2A\\HotReload" : "";
             Settings.Default.Save();
-            RegisterWatcher(Settings.Default.HotReloadPath);
+            RegisterHRWatcher(Settings.Default.HotReloadPath, hrWatcher);
             if (HotReloadDir != null)
             {
                 HotReloadDir.Text = Settings.Default.HotReloadPath;
@@ -709,7 +745,7 @@ namespace UniversalGametypeEditor
                 Debug.WriteLine("An Exception occured during move, " + ex.Message);
             }
         }
-
+        private string convertedBin;
         public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
         {
             if (copying)
@@ -735,8 +771,9 @@ namespace UniversalGametypeEditor
             {
                 if (name.EndsWith(".mglo"))
                 {
+                    convertedBin = $"{name.Replace(".mglo", "")}_mod.bin";
                     ConvertToBin(path, name);
-                    MoveFile($"{path}\\{name.Replace(".mglo", "")}_054.bin", $"{Settings.Default.FilePath}\\{name.Replace(".mglo", "")}_054.bin", name);
+                    MoveFile($"{path}\\{name.Replace(".mglo", "")}_mod.bin", $"{Settings.Default.FilePath}\\{name.Replace(".mglo", "")}_mod.bin", name);
                     UpdateHRListView(path);
                 } else
                 {
@@ -793,6 +830,11 @@ namespace UniversalGametypeEditor
 
             if (name.EndsWith(".bin") && Settings.Default.ConvertBin)
             {
+                if (name == convertedBin)
+                {
+                    return;
+                }
+                convertedBin = "";
                 ConvertToMglo(name, directory);
             }
 
@@ -1071,44 +1113,50 @@ namespace UniversalGametypeEditor
         public void ConvertToBin(string directory, string name)
         {
             bool fileLocked = true;
+            byte[] fileBytes = new byte[0];
+            int originalLength = 0;
+            int length = 0;
             while (fileLocked)
             {
                 try
                 {
-                    byte [] fileBytes = File.ReadAllBytes($"{directory}\\{name}");
+                    byte[] bytes = File.ReadAllBytes($"{directory}\\{name}");
+                    fileBytes = new byte[bytes.Length];
+                    fileBytes = bytes;
                     fileLocked = false;
+                    originalLength = bytes.Length;
+                    if (bytes.Length > 25000)
+                    {
+                        length = 31744;
+                    }
+                    else
+                    {
+                        length = 20480;
+                    }
                 } catch (IOException)
                 {
                     fileLocked = true;
                     Debug.WriteLine("File still in use!");
                 }
             }
+
             
 
-            int originalLength = fileBytes.Length;
-
-            int length;
-            if (fileBytes.Length > 25000)
-            {
-                length = 31744;
-            }
-            else
-            {
-                length = 20480;
-            }
+            
+            
 
             byte[] newArray = fileBytes;
-            Array.Resize(ref newArray, length + newArray.Length);
+            Array.Resize(ref newArray, length);
 
+            Debug.WriteLine(newArray.Length);
 
-            newArray = BitShift(originalLength, fileBytes);
+            newArray = BitShift(originalLength, newArray);
+
 
             byte[] finalArray = { };
             Array.Resize(ref finalArray, header.Length + ender.Length + length);
             try
             {
-
-
                 for (int i = 0; i < header.Length; i++)
                 {
                     finalArray[i] = header[i];
@@ -1138,7 +1186,7 @@ namespace UniversalGametypeEditor
             {
                 try
                 {
-                    File.WriteAllBytes($"{directory}\\{name.Replace(".mglo", "")}_054.bin", finalArray);
+                    File.WriteAllBytes($"{directory}\\{name.Replace(".mglo", "")}_mod.bin", finalArray);
                     fileLocked = false;
                 }
                 catch (IOException)

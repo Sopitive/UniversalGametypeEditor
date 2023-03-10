@@ -797,7 +797,7 @@
                         <RowDefinition Height="50" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock x:Name="LastEvent" Grid.Row="0" Text="No Recent Events" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="LastEvent" Grid.Row="0" Text="Listening For File Changes..." Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" TextWrapping="Wrap"/>
                     <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="DirHistory" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" SelectionChanged="DirHistorySelectionChanged" FontSize="13">
                         <ComboBox.ItemContainerStyle>
                             <Style TargetType="{x:Type ComboBoxItem}">
