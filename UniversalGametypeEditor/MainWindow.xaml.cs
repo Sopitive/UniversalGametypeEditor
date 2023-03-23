@@ -59,6 +59,11 @@ namespace UniversalGametypeEditor
             UpdateSettingsFromFile();
             UpdateDirHistoryComboBox();
 
+
+            //ReadBin.ReadFile("D:\\SteamLibrary\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\assault_mod.bin");
+
+            //BinaryParser.ProcessBin("ExTypes", ""); //Uncomment to continue work on parsing binary data.
+
             if (Settings.Default.GameDir != "Undefined")
             {
                 DetectMenus($"{Settings.Default.GameDir}\\haloreach\\game_variants\\koth_054.bin", "Halo Reach");
@@ -675,6 +680,11 @@ namespace UniversalGametypeEditor
             _ = index == 1 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\Halo4\\HotReload" : "";
             _ = index == 2 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\Halo2A\\HotReload" : "";
             Settings.Default.Save();
+            bool exists = Directory.Exists(Settings.Default.HotReloadPath);
+            if (!exists)
+            {
+                Directory.CreateDirectory(Settings.Default.HotReloadPath);
+            }
             RegisterHRWatcher(Settings.Default.HotReloadPath, hrWatcher);
             if (HotReloadDir != null)
             {

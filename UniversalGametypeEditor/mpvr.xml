@@ -1,0 +1,324 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<base>
+	<RefTypes>
+		<Var name="PlayerTraits" type="Container" bits="0" >
+			<Var name="DamageResistance" type="Int" bits="4" />
+			<Var name="Healthmultiplyer" type="Int" bits="3" />
+			<Var name="Healthregenrate" type="Int" bits="4" />
+			<Var name="ShieldMultiplyer" type="Int" bits="3" />
+			<Var name="ShieldRegenrate" type="Int" bits="4" />
+			<Var name="Overshieldregenrate" type="Int" bits="4" />
+			<Var name="HeadshotImmunity" type="Int" bits="2" />
+			<Var name="shieldvampirism" type="Int" bits="3" />
+			<Var name="Assasinationimmunity" type="Int" bits="2" />
+			<Var name="invincible" type="Int" bits="2" />
+			<Var name="WeaponDamagemultiplier" type="Int" bits="4" />
+			<Var name="MeleeDamagemultiplier" type="Int" bits="4" />
+			<Var name="Primaryweapon" type="Int" bits="8" />
+			<Var name="Secondaryweapon" type="Int" bits="8" />
+			<Var name="Grenades" type="Int" bits="4" />
+			<Var name="Infiniteammo" type="Int" bits="2" />
+			<Var name="Grenaderegen" type="Int" bits="2" />
+			<Var name="WeaponPickup" type="Int" bits="2" />
+			<Var name="AbilityUsage" type="Int" bits="2" />
+			<Var name="Abilitiesdropondeath" type="Int" bits="2" />
+			<Var name="InfiniteAbility" type="Int" bits="2" />
+			<Var name="ArmorAbility" type="Int" bits="8" />
+			<Var name="MovementSpeed" type="Int" bits="5" />
+			<Var name="Playergravity" type="Int" bits="4" />
+			<Var name="VehicleUse" type="Int" bits="4" />
+			<Var name="Unknown" type="Int" bits="2" />
+			<Var name="JumpHeight" type="Enum" bits="1" >
+				<Var ID="0" name="Unchanged" />
+				<Var ID="1" name="Override" >
+					<Var name="JumpHeight" type="Int" bits="9" />
+				</Var>
+			</Var>
+			<Var name="Camo" type="Int" bits="3" />
+			<Var name="Visiblewaypoint" type="Int" bits="2" />
+			<Var name="VisibleName" type="Int" bits="2" />
+			<Var name="Aura" type="Int" bits="3" />
+			<Var name="Forcedcolor" type="Int" bits="4" />
+			<Var name="Motiontrackermode" type="Int" bits="3" />
+			<Var name="MotiontrackerRange" type="Int" bits="3" />
+			<Var name="DirectionalDamageindicator" type="Int" bits="2" />
+		</Var>
+
+		<Var name="TeamOptions" type="Container" bits="0" >
+			<Var name="TertiarycolorOverride" type="Int" bits="1" />
+			<Var name="SecondarycolorOverride" type="Int" bits="1" />
+			<Var name="PrimarycolorOverride" type="Int" bits="1" />
+			<Var name="TeamEnabled" type="Int" bits="1" />
+			<Var name="Teamstring" type="HCount" bits="1" chars="5" />
+			<Var name="InitialDesignator" type="Int" bits="4" />
+			<Var name="Elitespecies" type="Int" bits="1" />
+			<Var name="PrimaryColor" type="Hex" bits="32" />
+			<Var name="SecondaryColor" type="Hex" bits="32" />
+			<Var name="TertiaryColor" type="Hex" bits="32" />
+			<Var name="FireteamCount" type="Int" bits="5" />
+		</Var>
+
+		<Var name="LoadoutOptions" type="Container" bits="0" >
+			<Var name="LoadoutVisibleingame" type="Int" bits="1" />
+			<Var name="LoadoutName" type="Enum" bits="1" >
+				<Var ID="0" name="True" >
+					<Var name="NameIndex" type="Int" bits="7" />
+				</Var>
+				<Var ID="1" name="False" />
+			</Var>
+			<Var name="PrimaryWeapon" type="Int" bits="8" />
+			<Var name="SecondaryWeapon" type="Int" bits="8" />
+			<Var name="Armorability" type="Int" bits="8" />
+			<Var name="Grenades" type="Int" bits="4" />
+		</Var>
+
+		<Var name="loadoutCLuster" type="Container" bits="0" >
+			<Var name="Loadout1" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout2" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout3" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout4" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout5" type="Enumref:LoadoutOptions" bits="0" />
+		</Var>
+	</RefTypes>
+	<ExTypes>
+		<Var name="FileHeader" type="Container" bits="0" >
+			<Var name="mpvr" type="String" bits="32" />
+			<Var name="megaloversion" type="Int" bits="32" />
+			<Var name="Unknown0x2F8" type="Int" bits="16" />
+			<Var name="Unknown0x2FA" type="Int" bits="16" />
+
+			<Var name="UnknownHash0x2FC" type="Hex" bits="160" />
+
+			<Var name="Blank0x310" type="Hex" bits="32" />
+			<Var name="Fileusedsize" type="UInt" bits="32" />
+			<Var name="Unknown0x318" type="Int" bits="8" />
+			<Var name="Unknown0x319" type="Int" bits="32" />
+			<Var name="Unknown0x31D" type="Int" bits="32" />
+			<Var name="FileLength" type="Int" bits="32" />
+		</Var>
+		<Var name="GametypeHeaders" type="Container" bits="0" >
+			<Var name="ID0x48" type="Hex" bits="64" />
+			<Var name="ID0x50" type="Hex" bits="64" />
+			<Var name="ID0x58" type="Hex" bits="64" />
+			<Var name="Blank0x60" type="Hex" bits="64" />
+
+			<Var name="UnknownFlags" type="Blank" bits="9" />
+			<Var name="Unknown-1" type="Int" bits="32" />
+			<Var name="Unknown0x1" type="Int" bits="8" />
+			<Var name="Blank04" type="Int" bits="32" />
+
+			<Var name="TimeStampUint" type="Hex" bits="32" />
+			<Var name="XUID" type="Hex" bits="64" />
+			<Var name="Gamertag" type="UString8" bits="0" />
+
+			<Var name="Blank041bit" type="Blank" bits="33" />
+
+
+			<Var name="EditTimeStampUint" type="Hex" bits="32" />
+			<Var name="EditXUID" type="Hex" bits="64" />
+			<Var name="EditGamertag" type="UString8" bits="0" />
+
+			<Var name="UnknownFlag1" type="UInt" bits="1" />
+
+			<Var name="Title" type="UString16" bits="0" />
+			<Var name="Description" type="UString16" bits="0" />
+			<Var name="GameIcon" type="Int" bits="8" />
+		</Var>
+		<Var name="ModeSettings" type="Container" bits="0" >
+			<Var name="UnknownFlag2" type="Int" bits="1" />
+			<Var name="Teamsenabled" type="Int" bits="1" />
+			<Var name="Resetmaponnewroundunused" type="Int" bits="1" />
+			<Var name="Resetplayersonnewroundunused" type="Int" bits="1" />
+			<Var name="Perfectionmedalenabled" type="Int" bits="1" />
+			<Var name="RoundTimeLimit" type="Int" bits="8" />
+			<Var name="NumberOfRounds" type="Int" bits="5" />
+			<Var name="RoundsToWin" type="Int" bits="4" />
+			<Var name="SuddenDeathTime" type="Int" bits="7" />
+			<Var name="GracePeriod" type="Int" bits="5" />
+		</Var>
+		<Var name="SpawnSettings" type="Container" bits="0" >
+			<Var name="RespawnOnKills" type="Int" bits="1" />
+			<Var name="respawnatlocationunused" type="Int" bits="1" />
+			<Var name="respawnwithteammateunused" type="Int" bits="1" />
+			<Var name="RespawnSyncwithteam" type="Int" bits="1" />
+			<Var name="LivesPerround" type="Int" bits="6" />
+			<Var name="TeamLivesPerround" type="Int" bits="7" />
+			<Var name="RespawnTime" type="Int" bits="8" />
+			<Var name="Suicidepenalty" type="Int" bits="8" />
+			<Var name="Betrayalpenalty" type="Int" bits="8" />
+			<Var name="RespawnTimegrowth" type="Int" bits="4" />
+			<Var name="LoadoutCamTime" type="Int" bits="4" />
+
+			<Var name="Respawntraitsduration" type="Int" bits="6" />
+			<Var name="RespawnPlayerTraits" type="Enumref:PlayerTraits" bits="0" />
+		</Var>
+
+		<Var name="GameSettings" type="Container" bits="0" >
+			<Var name="EnableObservers" type="Int" bits="1" />
+			<Var name="Teamchanging" type="Int" bits="2" />
+			<Var name="FriendlyFire" type="Int" bits="1" />
+			<Var name="BetrayalBooting" type="Int" bits="1" />
+			<Var name="ProximityVoice" type="Int" bits="1" />
+			<Var name="Dontrestrictteamvoicechat" type="Int" bits="1" />
+			<Var name="allowdeadplayerstotalk" type="Int" bits="1" />
+
+			<Var name="Indestructiblevehicles" type="Int" bits="1" />
+			<Var name="turretsonmap" type="Int" bits="1" />
+			<Var name="powerupsonmap" type="Int" bits="1" />
+			<Var name="abilitiesonmap" type="Int" bits="1" />
+			<Var name="shortcutsonmap" type="Int" bits="1" />
+			<Var name="grenadesonmap" type="Int" bits="1" />
+
+			<Var name="BasePlayerTraits" type="Enumref:PlayerTraits" bits="0" />
+
+			<Var name="WeaponSet" type="Int" bits="8" />
+			<Var name="VehicleSet" type="Int" bits="8" />
+		</Var>
+
+		<Var name="PowerupTraits" type="Container" bits="0" >
+			<Var name="RedPlayerTraits" type="Enumref:PlayerTraits" bits="0" />
+			<Var name="BluePlayerTraits" type="Enumref:PlayerTraits" bits="0" />
+			<Var name="YellowPlayerTraits" type="Enumref:PlayerTraits" bits="0" />
+
+			<Var name="RedPowerupDuration" type="Int" bits="7" />
+			<Var name="BluePowerupDuration" type="Int" bits="7" />
+			<Var name="YellowPowerupDuration" type="Int" bits="7" />
+		</Var>
+
+		<Var name="TeamSettings" type="Container" bits="0" >
+			<Var name="TeamScoringMethod" type="Int" bits="3" />
+			<Var name="PlayerSpecies" type="Int" bits="3" />
+			<Var name="DesignatorSwitchtype" type="Int" bits="2" />
+			<Var name="Team1Options" type="Enumref:TeamOptions" bits="0" />
+			<Var name="Team2Options" type="Enumref:TeamOptions" bits="0" />
+			<Var name="Team3Options" type="Enumref:TeamOptions" bits="0" />
+			<Var name="Team4Options" type="Enumref:TeamOptions" bits="0" />
+			<Var name="Team5Options" type="Enumref:TeamOptions" bits="0" />
+			<Var name="Team6Options" type="Enumref:TeamOptions" bits="0" />
+			<Var name="Team7Options" type="Enumref:TeamOptions" bits="0" />
+			<Var name="Team8Options" type="Enumref:TeamOptions" bits="0" />
+		</Var>
+
+		<Var name="LoadoutPalettes" type="Container" bits="0" >
+			<Var name="EliteLoadoutsEnabled" type="Int" bits="1" />
+			<Var name="SpartanLoadoutsEnabled" type="Int" bits="1" />
+			<Var name="loudouts1" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts2" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts3" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts4" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts5" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts6" type="Enumref:LoadoutOptions" bits="0" />
+		</Var>
+
+		<Var name="ScriptedPlayerTraits" type="Count" bits="5" >
+			<Var name="String1" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+			<Var name="String2" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+			<Var name="PlayerTraits" type="Enumref:PlayerTraits" bits="0" />
+		</Var>
+		<Var name="ScriptOptions" type="Count" bits="5" >
+			<Var name="String1" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+			<Var name="String2" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+			<Var name="ScriptOption" type="Enum" bits="1" >
+				<Var ID="0" name="Scriptoption" >
+					<Var name="ChildIndex" type="Int" bits="3" />
+					<Var name="ScriptOptionChild" type="Count" bits="4" >
+						<Var name="Value" type="Int" bits="10" />
+						<Var name="String1" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+						<Var name="String2" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+					</Var>
+					<Var name="Unknown" type="Int" bits="3" />
+				</Var>
+				<Var ID="1" name="Range" >
+					<Var name="range1" type="Int" bits="10" />
+					<Var name="range2" type="Int" bits="10" />
+					<Var name="range3" type="Int" bits="10" />
+					<Var name="range4" type="Int" bits="10" />
+				</Var>
+			</Var>
+		</Var>
+
+		<Var name="Strings" type="Container" bits="0" >
+			<Var name="Stringtable" type="HCount" bits="7" chars="15" />
+			<Var name="StringNameIndex" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+			<Var name="metanameStrings" type="HCount" bits="1" chars="9" />
+			<Var name="metadescStrings" type="HCount" bits="1" chars="12" />
+			<Var name="metagroupStrings" type="HCount" bits="1" chars="9" />
+		</Var>
+
+		<Var name="ActualGameicon" type="Int" bits="5" />
+		<Var name="ActualGamecategory" type="Int" bits="5" />
+
+		<Var name="mapperms" type="Count" bits="6" >
+			<Var name="MapID" type="Hex" bits="16" />
+		</Var>
+		<Var name="mappermsflip" type="Int" bits="1" />
+
+		<Var name="PlayerRatings" type="Container" bits="0" >
+			<Var name="Playerrating-ratingscale" type="Hex" bits="32" />
+			<Var name="Playerrating-kilweight" type="Hex" bits="32" />
+			<Var name="Playerrating-assistweight" type="Hex" bits="32" />
+			<Var name="Playerrating-betrayalweight" type="Hex" bits="32" />
+			<Var name="Playerrating-deathweight" type="Hex" bits="32" />
+			<Var name="Playerrating-normalizebymaxkills" type="Hex" bits="32" />
+			<Var name="Playerrating-base" type="Hex" bits="32" />
+			<Var name="Playerrating-range" type="Hex" bits="32" />
+			<Var name="Playerrating-lossscalar" type="Hex" bits="32" />
+			<Var name="Playerrating-customstat0" type="Hex" bits="32" />
+			<Var name="Playerrating-customstat1" type="Hex" bits="32" />
+			<Var name="Playerrating-customstat2" type="Hex" bits="32" />
+			<Var name="Playerrating-customstat3" type="Hex" bits="32" />
+			<Var name="Playerrating-expansion0" type="Hex" bits="32" />
+			<Var name="Playerrating-expansion1" type="Hex" bits="32" />
+			<Var name="showplayerratings" type="Int" bits="1" />
+		</Var>
+
+		<Var name="unknown2643" type="Blank" bits="2642" />
+
+		<Var name="megl" type="External:\Halo reach\var enums.xml" bits="0" />
+
+		<Var name="requiredobjects" type="Blank" bits="224" />
+		<Var name="unknown1824" type="Blank" bits="1824" />
+
+		<Var name="Labels" type="Count" bits="5" >
+			<Var name="StringID" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+
+			<Var name="usenumber" type="Enum" bits="1" offset="3">
+				<Var ID="0" name="Null" />
+				<Var ID="1" name="In-Use" >
+					<Var name="Number" type="Int" bits="16" />
+				</Var>
+			</Var>
+			<Var name="useteamype" type="Enum" bits="1" offset="1">
+				<Var ID="0" name="Null" />
+				<Var ID="1" name="In-Use" >
+					<Var name="Team" type="Int" bits="4" />
+				</Var>
+			</Var>
+			<Var name="useobjectype" type="Enum" bits="1" >
+				<Var ID="0" name="Null" />
+				<Var ID="1" name="In-Use" >
+					<Var name="Objecttype" type="Int" bits="12" />
+				</Var>
+			</Var>
+			<Var name="MapMinimum" type="Int" bits="7" />
+		</Var>
+		<Var name="unknown26" type="Blank" bits="26" />
+		<Var name="WeaponTunings" type="Container" bits="0" >
+			<Var name="FullAutomagnum" type="Int" bits="1" />
+			<Var name="MustHaveEnergySwordToBlock" type="Int" bits="1" />
+			<Var name="EnableActiveCamoModifiers" type="Int" bits="1" />
+			<Var name="ArmorLockCanBeStuck" type="Int" bits="1" />
+			<Var name="Armorlockdoesntshednades" type="Int" bits="1" />
+			<Var name="ShieldBleedthrough" type="Int" bits="1" />
+
+			<Var name="PrecisionWeaponBloom" type="Blank" bits="8" />
+			<Var name="ArmorLockDamageDrain" type="Blank" bits="8" />
+			<Var name="ArmorLockDamageDrainLimit" type="Blank" bits="8" />
+			<Var name="ActivecamoEnergyDraincurveMax" type="Blank" bits="8" />
+			<Var name="ActivecamoEnergyDraincurveMin" type="Blank" bits="8" />
+			<Var name="MagnumDamage" type="Blank" bits="8"/>
+			<Var name="MagnumFireDelayModifier" type="Blank" bits="8" />
+		</Var>
+	</ExTypes>
+</base>
