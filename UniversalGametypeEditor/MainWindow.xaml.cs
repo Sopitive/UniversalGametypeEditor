@@ -98,7 +98,7 @@ namespace UniversalGametypeEditor
 
             if (Settings.Default.HotReloadPath != "Undefined")
             {
-                HotReloadDir.Text = Settings.Default.HotReloadPath;
+                //HotReloadDir.Text = Settings.Default.HotReloadPath;
                 string folderName = Settings.Default.HotReloadPath;
                 GetFiles(folderName, HotReloadFilesList);
             }
@@ -118,11 +118,17 @@ namespace UniversalGametypeEditor
         {
             if (e.AddedItems.Count != 0 && e.AddedItems[0].ToString().EndsWith("bin"))
             {
+                LoadGametype.Visibility = Visibility.Visible;
                 string title = BinaryParser.ProcessBin("ExTypes", $"{Settings.Default.FilePath}\\{e.AddedItems[0]}", "Title");
                 MetaName.Text = title;
                 string description = BinaryParser.ProcessBin("ExTypes", $"{Settings.Default.FilePath}\\{e.AddedItems[0]}", "Description");
                 MetaDesc.Text = description;
                 //HandleFiles((string)e.AddedItems[0], Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
+            } else
+            {
+                LoadGametype.Visibility = Visibility.Collapsed;
+                MetaName.Text = "";
+                MetaDesc.Text = "";
             }
 
         }
@@ -342,6 +348,25 @@ namespace UniversalGametypeEditor
             }
         }
 
+        private void SortBySelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (SortBy.SelectedIndex == 0)
+            {
+                Settings.Default.OrderBy = 0;
+            }
+            if (SortBy.SelectedIndex == 1)
+            {
+                Settings.Default.OrderBy = 1;
+            }
+            if (SortBy.SelectedIndex == 2)
+            {
+                Settings.Default.OrderBy = 2;
+            }
+            Settings.Default.Save();
+            GetFiles(Settings.Default.HotReloadPath, HotReloadFilesList);
+            GetFiles(Settings.Default.FilePath, WatchedFilesList);
+        }
+
         public void DirHistorySelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             Settings.Default.FilePath = (string)e.AddedItems[0];
@@ -352,13 +377,33 @@ namespace UniversalGametypeEditor
             ));
         }
 
+        ObservableCollection<FileInfo> filesCollection = new ObservableCollection<FileInfo>();
+        List<FileInfo> fileEntries = new List<FileInfo>();
         public void GetFiles(string dirName, ObservableCollection<string> collection)
         {
-            collection.Clear();
-            string [] fileEntries = Directory.GetFiles(dirName);
-            foreach (string filename in fileEntries)
+            filesCollection.Clear();
+            fileEntries.Clear();
+            
+            foreach (string filename in Directory.GetFiles(dirName))
             {
-                collection.Add(Path.GetFileName(filename));
+                fileEntries.Add(new FileInfo(filename));
+            }
+            if (Settings.Default.OrderBy == 2)
+            {
+                fileEntries = fileEntries.OrderByDescending(f => f.LastWriteTime).ToList();
+            }
+            if (Settings.Default.OrderBy == 1)
+            {
+                fileEntries = fileEntries.OrderByDescending(name => name.Name).ToList();
+            }
+            collection.Clear();
+            foreach (FileInfo file in fileEntries)
+            {
+                filesCollection.Add(file);
+            }
+            foreach (FileInfo fileInfo in filesCollection)
+            {
+                collection.Add(fileInfo.Name);
             }
         }
 
@@ -370,6 +415,7 @@ namespace UniversalGametypeEditor
             SwitchWatched.IsChecked = Settings.Default.SwitchWatched;
             AlwaysOnTop.IsChecked = Settings.Default.AlwaysOnTop;
             KeepNamedMglo.IsChecked = Settings.Default.KeepNamedMglo;
+            SortBy.SelectedIndex = Settings.Default.OrderBy;
         }
 
         public void UpdateNamedMglo(object sender, RoutedEventArgs e)
@@ -531,7 +577,7 @@ namespace UniversalGametypeEditor
                     var userFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                     dialog.InitialDirectory = $"{userFolder}\\AppData\\LocalLow\\MCC\\Temporary\\";
                     Settings.Default.HotReloadPath = folderName;
-                    HotReloadDir.Text = folderName;
+                    //HotReloadDir.Text = folderName;
                     Settings.Default.Save();
                     RegisterHRWatcher(Settings.Default.HotReloadPath, hrWatcher);
                 }
@@ -694,10 +740,10 @@ namespace UniversalGametypeEditor
                 Directory.CreateDirectory(Settings.Default.HotReloadPath);
             }
             RegisterHRWatcher(Settings.Default.HotReloadPath, hrWatcher);
-            if (HotReloadDir != null)
-            {
-                HotReloadDir.Text = Settings.Default.HotReloadPath;
-            }
+            //if (HotReloadDir != null)
+            //{
+            //    HotReloadDir.Text = Settings.Default.HotReloadPath;
+            //}
             HotReloadFilesList.Clear();
             GetFiles(Settings.Default.HotReloadPath, HotReloadFilesList);
         }

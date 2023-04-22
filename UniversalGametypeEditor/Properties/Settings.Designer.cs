@@ -177,5 +177,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["KeepNamedMglo"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int OrderBy {
+            get {
+                return ((int)(this["OrderBy"]));
+            }
+            set {
+                this["OrderBy"] = value;
+            }
+        }
     }
 }

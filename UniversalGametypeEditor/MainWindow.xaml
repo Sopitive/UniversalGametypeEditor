@@ -776,13 +776,67 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
                         <RowDefinition Height="25" />
-                        <RowDefinition Height="50" />
-                        <RowDefinition Height="20" />
+                        <RowDefinition Height="75" />
+                        <RowDefinition Height="25" />
                         <RowDefinition Height="300" />
                         <RowDefinition Height="70" />
                     </Grid.RowDefinitions>
                     <TextBlock x:Name="Events" Text="Recent Events:" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold"/>
                     <TextBlock x:Name="CurrentDir" Text="Watched Folder:" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1" VerticalAlignment="Center"/>
+
+
+                    <TextBlock Grid.Row="2" Text="Sort By:" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Bottom"/>
+                    <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="SortBy" Grid.Row="3" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" SelectionChanged="SortBySelectionChanged" FontSize="12" Height="25">
+                        <ComboBoxItem Content="Name: A-Z"/>
+                        <ComboBoxItem Content="Name: Z-A"/>
+                        <ComboBoxItem Content="Date Modified"/>
+                        <ComboBox.ItemContainerStyle>
+                            <Style TargetType="{x:Type ComboBoxItem}">
+
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#333333"></Setter>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#3D3D3D" />
+                                    </Trigger>
+                                </Style.Triggers>
+                                <Setter Property="BorderBrush" Value="#333333"/>
+                                <Setter Property="Padding" Value="5"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+                                            <Border Name="Border"
+                                SnapsToDevicePixels="True"
+                                Background="{TemplateBinding Background}"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsHighlighted" Value="True">
+                                                    <Setter TargetName="Border" Property="Background" Value="#2D2D2D"/>
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Foreground" Value="{DynamicResource {StaticResource TextColor}}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Background" Value="#333333"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                            </Style>
+
+                        </ComboBox.ItemContainerStyle>
+
+                    </ComboBox>
+
+
                     <TextBlock x:Name="Help" Text="Select a desired gametype from the left panel to load it into the output folder"  Grid.Row="5" Foreground="{StaticResource TextColor}" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />
                 </Grid>
                 
@@ -795,6 +849,7 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
+                        <RowDefinition Height="25" />
                         <RowDefinition Height="25" />
                         <RowDefinition Height="50" />
                         <RowDefinition Height="*" />
@@ -847,7 +902,9 @@
 
                     </ComboBox>
 
-                    <ScrollViewer VerticalScrollBarVisibility="Disabled" Grid.Row="3">
+                    
+
+                    <ScrollViewer VerticalScrollBarVisibility="Disabled" Grid.Row="4">
                         <ListView x:Name="FilesListWatched"  ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="300"/>
                     </ScrollViewer>
                     
@@ -859,6 +916,7 @@
                 <Grid Margin="20 0 0 0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
+                        <RowDefinition Height="25" />
                         <RowDefinition Height="25" />
                         <RowDefinition Height="50" />
                         <RowDefinition Height="*" />
@@ -911,8 +969,8 @@
 
 
                     </ComboBox>
-                    <TextBlock x:Name="HotReloadDir" Text="HotReloadDir" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="2" VerticalAlignment="Center"/>
-                    <ScrollViewer VerticalScrollBarVisibility="Disabled" Grid.Row="3">
+                    
+                    <ScrollViewer VerticalScrollBarVisibility="Disabled" Grid.Row="4">
                         <ListView x:Name="FilesListHR"  ItemsSource="{Binding HotReloadFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="300"/>
                     </ScrollViewer>
                     
@@ -935,9 +993,9 @@
                         <RowDefinition Height="100"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock x:Name="MetaName" Text="Meta Name" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="0" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                    <TextBlock x:Name="MetaDesc" Text="Meta Desc" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                    <Button Click="HandleLoadClick" Grid.Row="5" VerticalAlignment="Bottom" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}"></Button>
+                    <TextBlock x:Name="MetaName" Text="" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="0" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="MetaDesc" Text="" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <Button Click="HandleLoadClick" Grid.Row="5" VerticalAlignment="Bottom" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Collapsed"></Button>
                 </Grid>
                 
                 
