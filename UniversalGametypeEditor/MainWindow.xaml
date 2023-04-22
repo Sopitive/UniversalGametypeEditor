@@ -762,14 +762,16 @@
         <Grid Grid.Row="2" Grid.Column="0" Background="{StaticResource AccentColor}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="150"/>
-                <ColumnDefinition Width="1.1*" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="50" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="30"/>
             </Grid.RowDefinitions>
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Grid.Column="0" Margin="10 0 0 0">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Grid.Column="0" Margin="10 0 0 0" MaxWidth="400">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
@@ -789,7 +791,7 @@
             <StackPanel Grid.Row="1" Grid.ColumnSpan="1">
                 <Button x:Name="Pause" Content="Focus Game" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="FocusWindow" Style="{DynamicResource ButtonsStyle}"></Button>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.Column="1">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Grid.Column="1">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
@@ -844,13 +846,17 @@
                         </ComboBox.ItemContainerStyle>
 
                     </ComboBox>
-                    <ListView x:Name="FilesListWatched" Grid.Row="3" ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
+
+                    <ScrollViewer VerticalScrollBarVisibility="Disabled" Grid.Row="3">
+                        <ListView x:Name="FilesListWatched"  ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="300"/>
+                    </ScrollViewer>
+                    
                 </Grid>
                 
             </StackPanel>
 
-            <StackPanel Grid.Column="2" HorizontalAlignment="Left" Orientation="Horizontal">
-                <Grid>
+            <StackPanel Grid.Column="2" HorizontalAlignment="Left" Orientation="Vertical">
+                <Grid Margin="20 0 0 0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
                         <RowDefinition Height="25" />
@@ -906,8 +912,35 @@
 
                     </ComboBox>
                     <TextBlock x:Name="HotReloadDir" Text="HotReloadDir" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="2" VerticalAlignment="Center"/>
-                    <ListView x:Name="FilesListHR" Grid.Row="3" ItemsSource="{Binding HotReloadFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Disabled" Grid.Row="3">
+                        <ListView x:Name="FilesListHR"  ItemsSource="{Binding HotReloadFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="300"/>
+                    </ScrollViewer>
+                    
                 </Grid>
+            </StackPanel>
+            <StackPanel Grid.Column="3" HorizontalAlignment="Left" Orientation="Vertical" Margin="20 0 0 0" Width="Auto">
+
+                <Grid>
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="100"/>
+                        <RowDefinition Height="100"/>
+                        <RowDefinition Height="100"/>
+                        <RowDefinition Height="100"/>
+                        <RowDefinition Height="100"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="MetaName" Text="Meta Name" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="0" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="MetaDesc" Text="Meta Desc" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <Button Click="HandleLoadClick" Grid.Row="5" VerticalAlignment="Bottom" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}"></Button>
+                </Grid>
+                
+                
             </StackPanel>
         </Grid>
         

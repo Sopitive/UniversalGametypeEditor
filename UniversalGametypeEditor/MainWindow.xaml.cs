@@ -116,12 +116,20 @@ namespace UniversalGametypeEditor
 
         private void FilesListWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (e.AddedItems.Count != 0)
+            if (e.AddedItems.Count != 0 && e.AddedItems[0].ToString().EndsWith("bin"))
             {
-
-                HandleFiles((string)e.AddedItems[0], Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
+                string title = BinaryParser.ProcessBin("ExTypes", $"{Settings.Default.FilePath}\\{e.AddedItems[0]}", "Title");
+                MetaName.Text = title;
+                string description = BinaryParser.ProcessBin("ExTypes", $"{Settings.Default.FilePath}\\{e.AddedItems[0]}", "Description");
+                MetaDesc.Text = description;
+                //HandleFiles((string)e.AddedItems[0], Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
             }
 
+        }
+
+        private void HandleLoadClick(object sender, RoutedEventArgs e)
+        {
+            HandleFiles((string)FilesListWatched.SelectedValue, Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
         }
         public void SkipTutorial(object sender, RoutedEventArgs e)
         {
@@ -771,7 +779,11 @@ namespace UniversalGametypeEditor
                 System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
                     UpdateHRListView(Settings.Default.HotReloadPath)
                 ));
-                return;
+                if (File.Exists($"{path}") == false)
+                {
+                    return;
+                }
+                
             }
 
             string? directory;
@@ -986,7 +998,11 @@ namespace UniversalGametypeEditor
             //    SoundPlayer player = new(ms);
             //    player.Play();
             //}
-            HandleFiles(e.Name, e.FullPath, e.ChangeType, true);
+            if (e.Name.EndsWith("mglo") || e.Name.EndsWith("bin"))
+            {
+                HandleFiles(e.Name, e.FullPath, e.ChangeType, true);
+            }
+            
         }
 
         public void UpdateFilePathListView(string filePath)

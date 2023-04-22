@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace UniversalGametypeEditor
 {
+using Newtonsoft.Json.Linq;
     using System;
     using System.Diagnostics;
     using System.IO;
@@ -94,8 +95,9 @@ using static System.Net.WebRequestMethods;
 
 
         static string binaryString = "";
-        public static void ProcessBin(string thisType, string processNode)
+        public static string ProcessBin(string thisType, string path, string returnValue = "")
         {
+            binaryString = "";
             // Load the XML file that maps out the binary file
             XmlDocument xml = new XmlDocument();
             xml.Load("mpvr.xml");
@@ -104,7 +106,7 @@ using static System.Net.WebRequestMethods;
             XmlNode exTypesNode = xml.SelectSingleNode($"/base/{thisType}");
 
             // Open the binary file
-            using (var file = System.IO.File.OpenRead("D:\\SteamLibrary\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\castle_wars.bin"))
+            using (var file = System.IO.File.OpenRead(path))
             {
 
                 // Set the starting offset to 0x2F0
@@ -118,9 +120,20 @@ using static System.Net.WebRequestMethods;
                     string type = node.Attributes["type"].Value;
 
                     
+                    
+                    
 
                     // Get the number of bits to read from the binary file
                     int bits = int.Parse(node.Attributes["bits"].Value);
+
+                    if (type == "Count")
+                    {
+                        string ex = binaryString.Substring(0, bits);
+                        binaryString = binaryString.Substring(bits);
+                        string val = GetValueFromBits(ref ex, type, "", xml, file, name, name);
+
+                        Debug.WriteLine("{0}: {1}", name, val);
+                    }
 
                     // Check if the current node is a container
                     if (type == "Container")
@@ -145,8 +158,11 @@ using static System.Net.WebRequestMethods;
                                 file.Read(buffer, 0, buffer.Length);
                                 binaryString += string.Concat(buffer.Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
                             }
-                            
-                            
+
+                            if (childType == "Blank")
+                            {
+
+                            }
 
                             string fullString = "";
                             bool skipRead = false;
@@ -179,7 +195,7 @@ using static System.Net.WebRequestMethods;
                                     //Debug.WriteLine(remainingBits);
 
                                     skipRead = false;
-                                    string val = GetValueFromBits(ref extracted, childType, fullString, xml, file, childName);
+                                    string val = GetValueFromBits(ref extracted, childType, fullString, xml, file, childName, name);
                                     fullText += val;
                                     byte[] buff = new byte[2];
 
@@ -193,6 +209,10 @@ using static System.Net.WebRequestMethods;
                                     if (extracted == "00000000" && childBits == 8 || extracted == "0000000000000000" && childBits == 16)
                                     {
                                         Debug.WriteLine("{0}.{1}: {2}", name, childName, fullText);
+                                        if (childName == returnValue)
+                                        {
+                                            return fullText;
+                                        }
                                         break;
                                     }
 
@@ -206,8 +226,13 @@ using static System.Net.WebRequestMethods;
                                 int childChars = int.Parse(childNode.Attributes["chars"].Value);
                                 string extracted = binaryString;
                                 binaryString = binaryString.Substring(childChars);
-                                string val = GetValueFromBits(ref extracted, childType, fullString, xml, file, childName, childChars);
+                                Debug.WriteLine(binaryString);
+                                string val = GetValueFromBits(ref extracted, childType, fullString, xml, file, childName, name, childChars, childBits);
                                 Debug.WriteLine("{0}.{1}: {2}", name, childName, val);
+                                if (childName == returnValue)
+                                {
+                                    return val;
+                                }
 
                                 continue;
                             }
@@ -217,18 +242,45 @@ using static System.Net.WebRequestMethods;
                             //Debug.WriteLine(ReadBits(buffer, 0, childBits));
                             //Debug.WriteLine(remainingBits);
 
-                            string value = GetValueFromBits(ref extractedString, childType, fullString, xml, file, childName);
+                            string value = GetValueFromBits(ref extractedString, childType, fullString, xml, file, childName, name);
 
                             // Print the variable name and value
                             Debug.WriteLine("{0}.{1}: {2}", name, childName, value);
+                            if (childName == returnValue)
+                            {
+                                return value;
+                            }
+                        }
+                        if (name == "LoadoutOptions")
+                        {
+                            binaryString = binaryString.Substring(1);
                         }
                     }
                 }
+
+                
             }
+            return "No Value";
         }
 
+        static int IncrementPosSmall(ref string newString, int increment, ref string data, bool getResult, bool inc = true)
+        {
+            int result = 1;
+            if (getResult)
+            {
+                result = Convert.ToInt32(newString.Substring(0, increment), 2);
+            }
+            newString = data.Substring(increment);
+            if (inc)
+            {
+                data = data.Substring(increment);
+            }
 
-        static string GetValueFromBits(ref string bits, string type, string fullString, XmlNode xml, FileStream file, string nodeName, int chars = 5, int bitCount = 1)
+
+            return result;
+        }
+
+        static string GetValueFromBits(ref string bits, string type, string fullString, XmlNode xml, FileStream file, string nodeName, string parentName, int chars = 5, int bitCount = 1)
         {
 
             switch (type)
@@ -270,10 +322,81 @@ using static System.Net.WebRequestMethods;
                     string fin = ch.ToString();
                     return fin;
 
+
+                case "Count":
+                    Debug.WriteLine(binaryString);
+                    int m = Convert.ToInt32(bits, 2);
+                    string res = "";
+                    for (int i = 0; i < m; i += 1)
+                    {
+                        XmlNode sel = xml.SelectSingleNode($"/base/ExTypes/Var[@name='{nodeName}']");
+                        string selName = sel.Attributes["name"].Value;
+                        
+
+                        if (selName == "ScriptOptions")
+                        {
+                            sel = xml.SelectSingleNode($"/base/ExTypes/Var[@name='ScriptOptions']");
+                        }
+
+                        if (parentName == "ScriptOptionChild")
+                        {
+                            sel = xml.SelectSingleNode($"/base/ExTypes/Var[@name='{nodeName}']/Var[@name='ScriptOption']/Var[@name='Scriptoption']/Var[@name='ScriptOptionChild']");
+                        }
+                        foreach (XmlNode node in sel)
+                        {
+                            int nestedBits = int.Parse(node.Attributes["bits"].Value);
+                            string nestedType = node.Attributes["type"].Value;
+                            string extracted = binaryString.Substring(0, nestedBits);
+                            binaryString = binaryString.Substring(nestedBits);
+                            res = GetValueFromBits(ref extracted, nestedType, fullString, xml, file, nodeName, parentName);
+                            Debug.WriteLine("{0}.{1}: {2}", parentName, node.Attributes["name"].Value, res);
+                        }
+                    }
+
+                    Debug.WriteLine(binaryString);
+                    //binaryString = binaryString.Substring(1);
+
+                    return res;
+
+                case "StringTableRef":
+                    return Convert.ToInt32(bits, 2).ToString();
+
                 case "Enum":
                     string i1 = bits.Substring(0, bitCount);
 
-                    return i1;
+                    XmlNode select = xml.SelectSingleNode($"/base/RefTypes/Var[@name='{parentName}']/Var[@type='Enum']");
+
+                    if (select == null)
+                    {
+                        select = xml.SelectSingleNode($"/base/ExTypes/Var[@name='{parentName}']/Var[@type='Enum']");
+                    }
+
+                    if (parentName == "ScriptOptions")
+                    {
+
+                    }
+
+                    string result = "";
+                    foreach (XmlNode node in select)
+                    {
+                        
+                        string nodeID = node.Attributes["ID"].Value;
+                        if (nodeID == i1)
+                        {
+                            foreach(XmlNode nestedNode in node.ChildNodes)
+                            {
+                                int nestedBits = int.Parse(nestedNode.Attributes["bits"].Value);
+                                string nestedType = nestedNode.Attributes["type"].Value;
+                                string extracted = binaryString.Substring(0, nestedBits);
+                                string nestedName = nestedNode.Attributes["name"].Value;
+                                binaryString = binaryString.Substring(nestedBits);
+                                result = GetValueFromBits(ref extracted, nestedType, fullString, xml, file, nodeName, nestedName);
+                                Debug.WriteLine("{0}.{1}: {2}", parentName, node.Attributes["name"].Value, result);
+                            }
+                        }
+                    }
+
+                    return result;
 
                 case "HCount":
                     List<LanguageStrings> string_indexes = new();
@@ -292,19 +415,30 @@ using static System.Net.WebRequestMethods;
                         LanguageStrings z = new();
                         //x = IncrementPos(x, ref newString, chars, ref bits, file);
                         //newString = newString.Substring(1);
-                        z.EnglishStringIndex = (Convert.ToInt32(newString.Substring(0,1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.JapaneseStringIndex = (Convert.ToInt32(newString.Substring(0,1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.GermanStringIndex = (Convert.ToInt32(newString.Substring(0, 1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.FrenchStringIndex = (Convert.ToInt32(newString.Substring(0, 1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.SpanishStringIndex = (Convert.ToInt32(newString.Substring(0, 1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.MexicanStringIndex = (Convert.ToInt32(newString.Substring(0, 1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.ItalianStringIndex = (Convert.ToInt32(newString.Substring(0, 1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.KoreanStringIndex = (Convert.ToInt32(newString.Substring(0, 1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.Chinese1StringIndex = (Convert.ToInt32(newString.Substring(0, 1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.Chinese2StringIndex = (Convert.ToInt32(newString.Substring(0, 1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.PortugeseStringIndex = (Convert.ToInt32(newString.Substring(0, 1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
-                        z.PolishStringIndex = (Convert.ToInt32(newString.Substring(0, 1), 2) == 0) ? -1 : x = IncrementPos(x, ref newString, chars, ref bits, file);
+                        z.EnglishStringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.JapaneseStringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.GermanStringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.FrenchStringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.SpanishStringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.MexicanStringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.ItalianStringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.KoreanStringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.Chinese1StringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.Chinese2StringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.PortugeseStringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
+                        z.PolishStringIndex = (IncrementPosSmall(ref newString, 1, ref bits, true) == 0) ? -1 : x = IncrementPosSmall(ref newString, chars, ref bits, true);
                         string_indexes.Add(z);
+                        int itemCount = 0;
+
+                        //if (string_indexes.Count == 0)
+                        //{
+                        //    for (int h=0; h<12; h++)
+                        //    {
+                        //        IncrementPos(x, ref newString, chars, ref bits, file);
+                        //    }
+                            
+                        //}
+                        
                     }
                     string compressed = "";
                     bool compressionState = true;
@@ -313,13 +447,14 @@ using static System.Net.WebRequestMethods;
                     if (converted > 0)
                     {
                         int m3 = 0;
-                        m3 = IncrementPos(x, ref newString, chars, ref bits, file, 32767);
+                        m3 = IncrementPos(x, ref newString, chars, ref bits, file, 50000*bitCount);
 
 
                         int d = IncrementPosSmall(ref newString, 1, ref bits, true);
 
                         if (d == 0)
                         {
+
                             string substring = newString.Substring(0, m3 * 8);
                             compressed = BinaryToHex(substring);
                             IncrementPosSmall(ref newString, m3 * 8, ref bits, false);
@@ -327,9 +462,45 @@ using static System.Net.WebRequestMethods;
                         }
                         else
                         {
-                            int m1 = IncrementPos(x, ref newString, chars, ref bits, file, 5000);
+                            int m1 = IncrementPos(x, ref newString, chars, ref bits, file, chars * 100000);
                             string b = BinaryToHex(newString.Substring(0, m1*8));
                             IncrementPosSmall(ref newString, m1 * 8, ref bits, false);
+                        }
+
+                        for (int l = 0; l<string_indexes.Count; l++)
+                        {
+                            LanguageStrings currentString = string_indexes[l];
+                            if (currentString.EnglishStringIndex >= 0)
+                            {
+                                bool searching = true;
+                                string hextringthing = "";
+                                int depth = currentString.EnglishStringIndex;
+                                while (searching)
+                                {
+                                    string s_byte = compressed.Substring(depth * 2, 2);
+                                    depth++;
+                                    if (s_byte == "00")
+                                    {
+                                        searching = false;
+                                    }
+                                    else // is a probably normal character
+                                    {
+                                        hextringthing += s_byte;
+                                    }
+                                }
+
+                                var bytes = new byte[hextringthing.Length / 2];
+                                for (var iw = 0; iw < bytes.Length; iw++)
+                                {
+                                    string s = hextringthing.Substring(iw * 2, 2);
+                                    bytes[iw] = Convert.ToByte(s, 16);
+                                }
+                                string stringValue = Encoding.UTF8.GetString(bytes);
+                                if (stringValue == null)
+                                {
+
+                                }
+                            }
                         }
                     }
 
@@ -379,6 +550,8 @@ using static System.Net.WebRequestMethods;
 
                                     }
 
+                                    
+
                                     // Get the number of bits to read from the binary file
                                     int childBits = int.Parse(childNode.Attributes["bits"].Value);
 
@@ -426,7 +599,7 @@ using static System.Net.WebRequestMethods;
                                             //Debug.WriteLine(remainingBits);
 
                                             skipRead = false;
-                                            string val = GetValueFromBits(ref extracted, childType, reffullString, xml, file, childName);
+                                            string val = GetValueFromBits(ref extracted, childType, reffullString, xml, file, childName, name);
                                             fullText += val;
                                             byte[] buff = new byte[2];
 
@@ -453,8 +626,9 @@ using static System.Net.WebRequestMethods;
                                         int childChars = int.Parse(childNode.Attributes["chars"].Value);
                                         string extracted = binaryString;
                                         //binaryString = binaryString.Substring(childChars);
-                                        string val = GetValueFromBits(ref extracted, childType, fullString, xml, file, childName, childChars, childBits);
+                                        string val = GetValueFromBits(ref extracted, childType, fullString, xml, file, childName, name, childChars, childBits);
                                         Debug.WriteLine("{0}.{1}: {2}", name, childName, val);
+
 
                                         continue;
                                     }
@@ -465,7 +639,7 @@ using static System.Net.WebRequestMethods;
                                     //Debug.WriteLine(remainingBits);
 
                                     skipRead = false;
-                                    string value = GetValueFromBits(ref extractedString, childType, reffullString, xml, file, childName);
+                                    string value = GetValueFromBits(ref extractedString, childType, reffullString, xml, file, childName, name);
 
                                     // Print the variable name and value
                                     Debug.WriteLine("{0}.{1}.{2}: {3}", parentType, name, childName, value);
@@ -479,22 +653,7 @@ using static System.Net.WebRequestMethods;
 
         }
 
-        static int IncrementPosSmall(ref string newString, int increment, ref string data, bool getResult, bool inc = true)
-        {
-            int result = 1;
-            if (getResult)
-            {
-                result = Convert.ToInt32(newString.Substring(0, increment));
-            }
-            newString = data.Substring(increment);
-            if (inc)
-            {
-                data = data.Substring(increment);
-            }
-            
-
-            return result;
-        }
+        
 
         static int IncrementPos(int x, ref string newString, int increment, ref string data, FileStream file, int customSize = 80)
         {

@@ -79,6 +79,36 @@
 			<Var name="Loadout3" type="Enumref:LoadoutOptions" bits="0" />
 			<Var name="Loadout4" type="Enumref:LoadoutOptions" bits="0" />
 			<Var name="Loadout5" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout1" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout2" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout3" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout4" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout5" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout6" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout7" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout8" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout9" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout10" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout11" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout12" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout13" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout14" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout15" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout16" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout17" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout18" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout19" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout20" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout21" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout22" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout23" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout24" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout25" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout26" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout27" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout28" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout29" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="Loadout30" type="Enumref:LoadoutOptions" bits="0" />
 		</Var>
 	</RefTypes>
 	<ExTypes>
@@ -209,23 +239,47 @@
 			<Var name="loudouts4" type="Enumref:LoadoutOptions" bits="0" />
 			<Var name="loudouts5" type="Enumref:LoadoutOptions" bits="0" />
 			<Var name="loudouts6" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts7" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts8" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts9" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts10" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts11" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts12" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts13" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts14" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts15" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts16" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts17" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts18" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts19" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts20" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts21" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts22" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts23" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts24" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts25" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts26" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts27" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts28" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts29" type="Enumref:LoadoutOptions" bits="0" />
+			<Var name="loudouts30" type="Enumref:LoadoutOptions" bits="0" />
 		</Var>
 
 		<Var name="ScriptedPlayerTraits" type="Count" bits="5" >
-			<Var name="String1" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
-			<Var name="String2" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+			<Var name="String1" type="StringTableRef" bits="7" />
+			<Var name="String2" type="StringTableRef" bits="7" />
 			<Var name="PlayerTraits" type="Enumref:PlayerTraits" bits="0" />
 		</Var>
 		<Var name="ScriptOptions" type="Count" bits="5" >
-			<Var name="String1" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
-			<Var name="String2" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+			<Var name="String1" type="StringTableRef" bits="7" />
+			<Var name="String2" type="StringTableRef" bits="7" />
 			<Var name="ScriptOption" type="Enum" bits="1" >
 				<Var ID="0" name="Scriptoption" >
 					<Var name="ChildIndex" type="Int" bits="3" />
 					<Var name="ScriptOptionChild" type="Count" bits="4" >
 						<Var name="Value" type="Int" bits="10" />
-						<Var name="String1" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
-						<Var name="String2" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+						<Var name="String1" type="StringTableRef" bits="7" />
+						<Var name="String2" type="StringTableRef" bits="7" />
 					</Var>
 					<Var name="Unknown" type="Int" bits="3" />
 				</Var>
@@ -240,14 +294,17 @@
 
 		<Var name="Strings" type="Container" bits="0" >
 			<Var name="Stringtable" type="HCount" bits="7" chars="15" />
-			<Var name="StringNameIndex" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+			<Var name="StringNameIndex" type="StringTableRef" bits="7" />
 			<Var name="metanameStrings" type="HCount" bits="1" chars="9" />
 			<Var name="metadescStrings" type="HCount" bits="1" chars="12" />
 			<Var name="metagroupStrings" type="HCount" bits="1" chars="9" />
 		</Var>
 
-		<Var name="ActualGameicon" type="Int" bits="5" />
-		<Var name="ActualGamecategory" type="Int" bits="5" />
+		<Var name="Game" type="Container" bits="0">
+			<Var name="ActualGameicon" type="Int" bits="5" />
+			<Var name="ActualGamecategory" type="Int" bits="5" />
+		</Var>
+		
 
 		<Var name="mapperms" type="Count" bits="6" >
 			<Var name="MapID" type="Hex" bits="16" />
@@ -281,7 +338,7 @@
 		<Var name="unknown1824" type="Blank" bits="1824" />
 
 		<Var name="Labels" type="Count" bits="5" >
-			<Var name="StringID" type="Ref1:Gametype/base/mpvr/Strings/Stringtable/Strings" bits="7" />
+			<Var name="StringID" type="StringTableRef" bits="7" />
 
 			<Var name="usenumber" type="Enum" bits="1" offset="3">
 				<Var ID="0" name="Null" />
