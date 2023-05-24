@@ -40,15 +40,25 @@ class MemoryScanner
         IntPtr processHandle = process.Handle;
 
         // Find the specific module by name
+        
         ProcessModule targetModule = null;
-        foreach (ProcessModule module in process.Modules)
+        try
         {
-            if (module.ModuleName.Equals(moduleName, StringComparison.OrdinalIgnoreCase))
+            foreach (ProcessModule module in process.Modules)
             {
-                targetModule = module;
-                break;
+                if (module.ModuleName.Equals(moduleName, StringComparison.OrdinalIgnoreCase))
+                {
+                    targetModule = module;
+                    break;
+                }
             }
+        } catch (Exception ex)
+        {
+            address = (IntPtr)0x0;
+            result = 0;
+            return false;
         }
+        
 
         if (targetModule == null)
         {
