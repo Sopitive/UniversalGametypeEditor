@@ -155,18 +155,26 @@ namespace UniversalGametypeEditor
 
         private IntPtr address;
         private int playerNum;
+        private bool result;
         private void CheckPlayerNumbers()
         {
             playerNumTimer.Interval = 1;
             playerNumTimer.Tick += (sender, e) =>
             {
-                int[] offsets = { 0x02767E4C, 0x560, lastOffset };
+                int[] offsets = { 0x024FDF24, 0x1B0, 0x60, 0x78, 0x130, 0x560, lastOffset };
                 
-                MemoryScanner.ScanPointer(offsets, out playerNum, out address);
+                result = MemoryScanner.ScanPointer(offsets, out playerNum, out address);
+
+                if (result == false)
+                {
+                    playerNumTimer.Stop();
+                }
 
                 PlayerNumb.Text = "Player Number " + playerNumIndex + ": " + playerNum.ToString(); ;
             };
-            playerNumTimer.Start();
+
+                playerNumTimer.Start();
+            
         }
 
         private void WriteNewVal(object sender, System.Windows.Input.KeyEventArgs e)
@@ -193,6 +201,11 @@ namespace UniversalGametypeEditor
                 NewValToWrite.Text = "";
             }
 
+        }
+
+        private void TryLoadNumbers(object sender, RoutedEventArgs e)
+        {
+            CheckPlayerNumbers();
         }
 
         private void TextWritten(object sender, TextCompositionEventArgs e)

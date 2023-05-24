@@ -916,8 +916,8 @@
                     <RepeatButton HorizontalAlignment="Right" Margin="0 0 30 0" Grid.Row="5" Width="30" Content="&#8592;" Click="DecrementPlayer_Click" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" />
 
                     <TextBlock HorizontalAlignment="Right" x:Name="PlayerIndex" Text="Player 1"  Grid.Row="6" Foreground="{StaticResource TextColor}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
-                    
 
+                    <Button x:Name="TryLoadNum" HorizontalAlignment="Right" Width="100" Grid.Row="7" Content="Try Load Numbers" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="TryLoadNumbers" Style="{DynamicResource ButtonsStyle}"></Button>
                 </Grid>
                 
             </StackPanel>

@@ -20,10 +20,19 @@ class MemoryScanner
         string moduleName = "haloreach.dll";
 
         // Set the offsets
-        
+        Process process;
 
         // Open the target process
-        Process process = Process.GetProcessesByName(processName)[0];
+        try
+        {
+            process = Process.GetProcessesByName(processName)[0];
+        } catch (Exception ex)
+        {
+            address = (IntPtr)0x0;
+            result = 0;
+            return false;
+        }
+        
         // Alternatively, you can use the process ID
         // Process process = Process.GetProcessById(processId);
 
