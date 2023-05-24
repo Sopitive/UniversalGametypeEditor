@@ -853,6 +853,9 @@
                         <RowDefinition Height="25" />
                         <RowDefinition Height="50" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="30" />
                     </Grid.RowDefinitions>
                     <TextBlock x:Name="LastEvent" Grid.Row="0" Text="Listening For File Changes..." Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" TextWrapping="Wrap"/>
                     <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="DirHistory" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" SelectionChanged="DirHistorySelectionChanged" FontSize="13">
@@ -907,7 +910,14 @@
                     <ScrollViewer VerticalScrollBarVisibility="Disabled" Grid.Row="4">
                         <ListView x:Name="FilesListWatched"  ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="300"/>
                     </ScrollViewer>
+
+                    <RepeatButton HorizontalAlignment="Right" Grid.Row="5" Width="30" Content="&#8594;" Click="IncrementPlayer_Click" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" />
+
+                    <RepeatButton HorizontalAlignment="Right" Margin="0 0 30 0" Grid.Row="5" Width="30" Content="&#8592;" Click="DecrementPlayer_Click" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" />
+
+                    <TextBlock HorizontalAlignment="Right" x:Name="PlayerIndex" Text="Player 1"  Grid.Row="6" Foreground="{StaticResource TextColor}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
                     
+
                 </Grid>
                 
             </StackPanel>
@@ -920,6 +930,9 @@
                         <RowDefinition Height="25" />
                         <RowDefinition Height="50" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="30" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="Game To Hot Reload" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" FontWeight="Bold" VerticalAlignment="Bottom"/>
                     <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="GameSelector" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" Text="Game" SelectionChanged="GameSelectorSelectionChanged" FontSize="13">
@@ -973,7 +986,18 @@
                     <ScrollViewer VerticalScrollBarVisibility="Disabled" Grid.Row="4">
                         <ListView x:Name="FilesListHR"  ItemsSource="{Binding HotReloadFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="300"/>
                     </ScrollViewer>
-                    
+
+                    <!-- Decrement Button -->
+                    <RepeatButton HorizontalAlignment="Left" Grid.Row="5" Width="30" Content="&#8592;" Click="DecrementButton_Click" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" />
+
+                    <TextBlock x:Name="PlayerNumb" Text="PlayerNum0"  Grid.Row="6" Foreground="{StaticResource TextColor}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+
+                    <!-- Increment Button -->
+                    <RepeatButton HorizontalAlignment="Left" Margin="30 0 00 0" Grid.Row="5" Width="30" Content="&#8594;" Click="IncrementButton_Click" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" />
+
+                    <TextBlock VerticalAlignment="Center" Text="New Value"  Grid.Row="7" Foreground="{StaticResource TextColor}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+
+                    <TextBox x:Name="NewValToWrite" TextAlignment="Center" FontSize="15" VerticalAlignment="Center" Grid.Row="7" Width="80" HorizontalAlignment="Right" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" KeyDown="WriteNewVal" PreviewTextInput="TextWritten"/>
                 </Grid>
             </StackPanel>
             <StackPanel Grid.Column="3" HorizontalAlignment="Left" Orientation="Vertical" Margin="20 0 0 0" Width="Auto">
