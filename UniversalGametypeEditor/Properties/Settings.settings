@@ -44,5 +44,8 @@
     <Setting Name="OrderBy" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
+    <Setting Name="NumberSetting" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Player</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

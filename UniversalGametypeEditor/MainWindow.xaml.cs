@@ -24,6 +24,7 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using System.Xml.Linq;
 using System.Threading;
 using UniversalGametypeEditor;
+using System.Text;
 
 namespace UniversalGametypeEditor
 {
@@ -33,9 +34,15 @@ namespace UniversalGametypeEditor
     public partial class MainWindow : System.Windows.Window
     {
         private int lastOffset = 0xD34;
+        private int lastGlobalOffset = 0xC52;
         private int playerNumIndex = 0;
+        private int globalNumIndex = 15;
+        private int objectNumIndex = 0;
+        private int lastObjectOffset = 0xBE;
         private readonly System.Windows.Forms.Timer timer = new();
         private readonly System.Windows.Forms.Timer playerNumTimer = new();
+        private readonly System.Windows.Forms.Timer globalNumTimer = new();
+        private readonly System.Windows.Forms.Timer objectNumTimer = new();
         private readonly System.Windows.Forms.Timer menuTimer = new();
         static byte[] header = { 0x5F, 0x62, 0x6C, 0x66, 0x00, 0x00, 0x00, 0x30, 0x00, 0x01, 0x00, 0x02, 0xFF, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x68, 0x64, 0x72, 0x00, 0x00, 0x02, 0xC0, 0x00, 0x0A, 0x00, 0x02, 0xFF, 0xFF, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x29, 0x53, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x03, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6D, 0x70, 0x76, 0x72, 0x00, 0x00, 0x50, 0x28, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20 };
         static byte[] ender = { 0x5F, 0x65, 0x6F, 0x66, 0x00, 0x00, 0x00, 0x11, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x53, 0x18, 0x00 };
@@ -63,12 +70,46 @@ namespace UniversalGametypeEditor
             UpdateDirHistoryComboBox();
 
             CheckPlayerNumbers();
+            CheckGlobalNumbers();
+            CheckObjectNumbers();
 
             //ReadBin.ReadFile("D:\\SteamLibrary\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\assault_mod.bin");
 
-            //BinaryParser.ProcessBin("ExTypes", ""); //Uncomment to continue work on parsing binary data.
 
+            string filepath = "D:\\SteamLibrary\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\castle_wars.bin";
+            //byte[] bytes = File.ReadAllBytes("D:\\SteamLibrary\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\castle_wars.bin");
+            //Open castle_wars.bin and read starting at file offset 2F0
+            byte[] bytes;
+            using (var stream = new FileStream(filepath, FileMode.Open))
+            {
+                stream.Seek(0x2F0, SeekOrigin.Begin);
+                using (var reader = new BinaryReader(stream))
+                {
+                    byte[] byteArr = new byte[stream.Length];
+                    int read = 0;
+                    int chunk = 1;
+                    int totalRead = 0;
+
+                    while (chunk > 0)
+                    {
+                        chunk = reader.Read(byteArr, totalRead, (int)stream.Length - totalRead);
+                        totalRead += chunk;
+                    }
+                    bytes = byteArr.Skip(0x2F0).ToArray();
+                }
+            }
+
+
+
+
+            //BitReader br = new();
             
+            //br.m_process.instaniaterwrite("output.xml", "mpvr.xml");
+            //BinaryParser.ProcessBin("ExTypes"); //Uncomment to continue work on parsing binary data.
+
+
+
+
 
             if (Settings.Default.GameDir != "Undefined")
             {
@@ -112,69 +153,251 @@ namespace UniversalGametypeEditor
             CheckTutorialCompletion();
         }
 
+
+
         private void DecrementButton_Click(object sender, RoutedEventArgs e)
         {
-            if (lastOffset > 0xD34)
+
+            if (Settings.Default.NumberSetting == "Global")
             {
-                lastOffset -= 2;
-                playerNumIndex -= 1;
+                if (lastGlobalOffset > 0xC34)
+                {
+                    lastGlobalOffset -= 2;
+                    globalNumIndex -= 1;
+                }
             }
+
+            if (Settings.Default.NumberSetting == "Player")
+            {
+                if (lastOffset == 0xD34)
+                {
+                    Settings.Default.NumberSetting = "Global";
+                }
+
+                if (lastOffset > 0xD34)
+                {
+                    lastOffset -= 2;
+                    playerNumIndex -= 1;
+                }
+
+                
+            }
+
+            if (Settings.Default.NumberSetting == "Object")
+            {
+                if (lastObjectOffset == 0xBE)
+                {
+                    Settings.Default.NumberSetting = "Player";
+                }
+
+                if (lastObjectOffset > 0xBE)
+                {
+                    lastObjectOffset -= 2;
+                    objectNumIndex -= 1;
+                }
+
+
+            }
+
+
+
         }
 
         private void IncrementButton_Click(object sender, RoutedEventArgs e)
         {
-            if (lastOffset < 0xD40)
+
+
+            if (Settings.Default.NumberSetting == "Object")
             {
-                lastOffset += 2;
-                playerNumIndex += 1;
+                if (lastObjectOffset < 0xCC + ((playerIndex - 1) * 0x84) )
+                {
+                    lastObjectOffset += 2;
+                    objectNumIndex += 1;
+                }
+
             }
+
+            if (Settings.Default.NumberSetting == "Player")
+            {
+                if (lastOffset == 0xD42)
+                {
+                    Settings.Default.NumberSetting = "Object";
+                    PlayerIndex.Text = "Object";
+                }
+
+                if (lastOffset < 0xD42 + ((playerIndex - 1) * 0xD4))
+                {
+                    lastOffset += 2;
+                    playerNumIndex += 1;
+                }
+
+                
+
+            }
+
             
+
+
+
+            if (Settings.Default.NumberSetting == "Global")
+            {
+                if (lastGlobalOffset == 0xC52)
+                {
+                    Settings.Default.NumberSetting = "Player";
+                    PlayerIndex.Text = "Player 1";
+                }
+
+                if (lastGlobalOffset < 0xC52)
+                {
+                    lastGlobalOffset += 2;
+                    globalNumIndex += 1;
+                }
+
+                
+            }
+
         }
         private int playerIndex = 1;
         private void IncrementPlayer_Click(object sender, RoutedEventArgs e)
         {
-            if (playerIndex < 16)
+            if (Settings.Default.NumberSetting == "Player")
+            {
+                if (playerIndex < 16)
+                {
+                    playerIndex += 1;
+                    lastOffset += 0xD4;
+                }
+                PlayerIndex.Text = "Player " + playerIndex.ToString();
+            }
+
+            if (Settings.Default.NumberSetting == "Global")
+            {
+                PlayerIndex.Text = "Global";
+            }
+
+            if (Settings.Default.NumberSetting == "Object")
             {
                 playerIndex += 1;
-                lastOffset += 0xD4;
+                lastObjectOffset += 0x84;
+                PlayerIndex.Text = "Object " + playerIndex.ToString();
             }
-            PlayerIndex.Text = "Player " + playerIndex.ToString();
+
+
         }
 
         private void DecrementPlayer_Click(object sender, RoutedEventArgs e)
         {
-            if (playerIndex > 1)
+
+            if (Settings.Default.NumberSetting == "Player")
+            {
+                if (playerIndex > 1)
+                {
+                    playerIndex -= 1;
+                    lastOffset -= 0xD4;
+                }
+                PlayerIndex.Text = "Player " + playerIndex.ToString();
+            }
+
+            if (Settings.Default.NumberSetting == "Global")
+            {
+                PlayerIndex.Text = "Global";
+            }
+
+            if (Settings.Default.NumberSetting == "Object")
             {
                 playerIndex -= 1;
-                lastOffset -= 0xD4;
+                lastObjectOffset -= 0x84;
+                PlayerIndex.Text = "Object " + playerIndex.ToString();
             }
-            PlayerIndex.Text = "Player " + playerIndex.ToString();
         }
 
 
 
         private IntPtr address;
         private int playerNum;
-        private bool result;
+        private bool resultPlayer;
+        private bool resultGlobal;
+        private bool resultObject;
+        
         private void CheckPlayerNumbers()
         {
-            playerNumTimer.Interval = 1;
+            playerNumTimer.Interval = 100;
             playerNumTimer.Tick += (sender, e) =>
             {
-                int[] offsets = { 0x024FDF24, 0x1B0, 0x60, 0x78, 0x130, 0x560, lastOffset };
-                
-                result = MemoryScanner.ScanPointer(offsets, out playerNum, out address);
+                if (Settings.Default.NumberSetting == "Player")
+                {
+                    //int[] offsets = { 0x024FDF24, 0x1B0, 0x60, 0x78, 0x130, 0x560, lastOffset };
+                    int[] offsets = { 0x02767E4C, 0x560, lastOffset };
 
-                if (result == false)
+                resultPlayer = MemoryScanner.ScanPointer(offsets, out playerNum, out address);
+
+                if (resultPlayer == false)
                 {
                     playerNumTimer.Stop();
                 }
 
-                PlayerNumb.Text = "Player Number " + playerNumIndex + ": " + playerNum.ToString(); ;
+                
+                    PlayerNumb.Text = "Player Number " + playerNumIndex + ": " + playerNum.ToString();
+                }
+                
             };
 
                 playerNumTimer.Start();
             
+        }
+        
+        private void CheckObjectNumbers()
+        {
+            objectNumTimer.Interval = 100;
+            objectNumTimer.Tick += (sender, e) =>
+            {
+                if (Settings.Default.NumberSetting == "Object")
+                {
+                    //int[] offsets = { 0x024FDF24, 0x1B0, 0x60, 0x78, 0x130, 0x560, lastOffset };
+                    int[] offsets = { 0x02767E4C, 0x4F8, lastObjectOffset };
+
+                    resultObject = MemoryScanner.ScanPointer(offsets, out int objectNum, out address);
+
+                    if (resultObject == false)
+                    {
+                        objectNumTimer.Stop();
+                    }
+                    
+
+                    PlayerNumb.Text = "Object Number " + objectNumIndex + ": " + objectNum.ToString();
+                }
+
+            };
+
+            objectNumTimer.Start();
+
+        }
+
+        private void CheckGlobalNumbers()
+        {
+            //Scan and return the result periodically for offsets 024FE0A0, 1BC, 10, 40, 60, 40, 150, and BF4
+            //If the result is false, stop the timer
+
+            globalNumTimer.Interval = 100;
+            globalNumTimer.Tick += (sender, e) =>
+            {
+                if (Settings.Default.NumberSetting == "Global")
+                {
+                    int[] offsets = { 0x02767E4C, 0x560, lastGlobalOffset };
+
+                resultGlobal = MemoryScanner.ScanPointer(offsets, out int globalNum, out address);
+
+                if (resultGlobal == false)
+                {
+                    globalNumTimer.Stop();
+                }
+                    PlayerNumb.Text = "Global Number " + globalNumIndex + ": " + globalNum.ToString();
+                    PlayerIndex.Text = "Global";
+                    //Debug.WriteLine(address.ToString("X16"));
+                }
+            };
+
+            globalNumTimer.Start();
         }
 
         private void WriteNewVal(object sender, System.Windows.Input.KeyEventArgs e)
@@ -190,8 +413,7 @@ namespace UniversalGametypeEditor
 
 
                 e.Handled = true;
-                int result;
-                if (!int.TryParse(NewValToWrite.Text, out result))
+                if (!int.TryParse(NewValToWrite.Text, out int result))
                 {
                     return;
                 }
@@ -206,6 +428,7 @@ namespace UniversalGametypeEditor
         private void TryLoadNumbers(object sender, RoutedEventArgs e)
         {
             CheckPlayerNumbers();
+            CheckGlobalNumbers();
         }
 
         private void TextWritten(object sender, TextCompositionEventArgs e)
@@ -224,7 +447,15 @@ namespace UniversalGametypeEditor
             }
 
             string combinedVal = NewValToWrite.Text + e.Text;
-            int num = int.Parse(combinedVal);
+            int num = 0;
+            try
+            {
+                num = int.Parse(combinedVal);
+            } catch (System.FormatException ex)
+            {
+                e.Handled = true;
+            }
+            
             if (num < -32767 || num > 32767)
             {
                 e.Handled = true;
@@ -261,7 +492,8 @@ namespace UniversalGametypeEditor
                 string description = BinaryParser.ProcessBin("ExTypes", $"{Settings.Default.FilePath}\\{e.AddedItems[0]}", "Description");
                 MetaDesc.Text = description;
                 //HandleFiles((string)e.AddedItems[0], Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
-            } else
+            }
+            else
             {
                 LoadGametype.Visibility = Visibility.Collapsed;
                 MetaName.Text = "";

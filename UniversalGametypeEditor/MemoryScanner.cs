@@ -20,23 +20,29 @@ class MemoryScanner
         string moduleName = "haloreach.dll";
 
         // Set the offsets
+        // Add a check to see if the process is still running before trying to access it. Use a try-catch block to handle any exceptions that might occur.
         Process process;
-
-        // Open the target process
         try
         {
             process = Process.GetProcessesByName(processName)[0];
-        } catch (Exception ex)
+            if (!process.Responding || process.HasExited)
+            {
+                throw new Exception("Process not responding or has exited");
+            }
+        }
+        catch (Exception ex)
         {
             address = (IntPtr)0x0;
             result = 0;
             return false;
         }
-        
+
+
         // Alternatively, you can use the process ID
         // Process process = Process.GetProcessById(processId);
 
         // Get the handle of the target process
+
         IntPtr processHandle = process.Handle;
 
         // Find the specific module by name

@@ -917,7 +917,7 @@
 
                     <TextBlock HorizontalAlignment="Right" x:Name="PlayerIndex" Text="Player 1"  Grid.Row="6" Foreground="{StaticResource TextColor}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
 
-                    <Button x:Name="TryLoadNum" HorizontalAlignment="Right" Width="100" Grid.Row="7" Content="Try Load Numbers" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="TryLoadNumbers" Style="{DynamicResource ButtonsStyle}"></Button>
+                    <Button x:Name="TryLoadNum" HorizontalAlignment="Right" Width="100" Grid.Row="7" Content="Load Numbers" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="TryLoadNumbers" Style="{DynamicResource ButtonsStyle}"></Button>
                 </Grid>
                 
             </StackPanel>

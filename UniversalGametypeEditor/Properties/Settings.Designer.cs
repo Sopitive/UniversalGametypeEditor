@@ -189,5 +189,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["OrderBy"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Player")]
+        public string NumberSetting {
+            get {
+                return ((string)(this["NumberSetting"]));
+            }
+            set {
+                this["NumberSetting"] = value;
+            }
+        }
     }
 }
