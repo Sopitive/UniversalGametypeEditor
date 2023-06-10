@@ -4,6 +4,10 @@ using System.Runtime.InteropServices;
 
 class MemoryWriter
 {
+
+
+ 
+
     // Import the WriteProcessMemory function from the Windows API
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool WriteProcessMemory(
@@ -20,7 +24,9 @@ class MemoryWriter
         byte[] buffer = BitConverter.GetBytes(value);
 
         // Open the target process
-        Process process = Process.GetProcessesByName(processName)[0];
+        
+        Process? process = MemoryScanner.process;
+
         // Alternatively, you can use the process ID
         // Process process = Process.GetProcessById(processId);
 
@@ -33,11 +39,11 @@ class MemoryWriter
 
         if (success)
         {
-            Console.WriteLine("Value written successfully!");
+            Debug.WriteLine("Value written successfully!");
         }
         else
         {
-            Console.WriteLine("Failed to write the value.");
+            Debug.WriteLine("Failed to write the value.");
         }
     }
 }

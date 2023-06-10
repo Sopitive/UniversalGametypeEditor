@@ -48,7 +48,7 @@
             <Setter Property="Content" Value="&#xE106;"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
-        
+
         <!--Buttons-->
         <Style x:Key="ButtonsStyle" TargetType="{x:Type Button}">
             <Setter Property="Template">
@@ -757,13 +757,14 @@
             </StackPanel>
         </Grid>
 
-        
+
 
         <Grid Grid.Row="2" Grid.Column="0" Background="{StaticResource AccentColor}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="150"/>
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="600" />
+                <ColumnDefinition Width="202.227"/>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="50" />
             </Grid.ColumnDefinitions>
@@ -771,7 +772,7 @@
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="30"/>
             </Grid.RowDefinitions>
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Grid.Column="0" Margin="10 0 0 0" MaxWidth="400">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" MaxWidth="400">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
@@ -839,13 +840,13 @@
 
                     <TextBlock x:Name="Help" Text="Select a desired gametype from the left panel to load it into the output folder"  Grid.Row="5" Foreground="{StaticResource TextColor}" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />
                 </Grid>
-                
+
             </StackPanel>
 
             <StackPanel Grid.Row="1" Grid.ColumnSpan="1">
                 <Button x:Name="Pause" Content="Focus Game" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="FocusWindow" Style="{DynamicResource ButtonsStyle}"></Button>
             </StackPanel>
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Left" Grid.Column="1">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Grid.Column="1">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
@@ -861,7 +862,7 @@
                     <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="DirHistory" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" SelectionChanged="DirHistorySelectionChanged" FontSize="13">
                         <ComboBox.ItemContainerStyle>
                             <Style TargetType="{x:Type ComboBoxItem}">
-                                
+
                                 <Style.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter Property="Background" Value="#333333"></Setter>
@@ -905,10 +906,10 @@
 
                     </ComboBox>
 
-                    
+
 
                     <ScrollViewer VerticalScrollBarVisibility="Disabled" Grid.Row="4">
-                        <ListView x:Name="FilesListWatched"  ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="300"/>
+                        <ListView x:Name="FilesListWatched"  ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="270"/>
                     </ScrollViewer>
 
                     <RepeatButton HorizontalAlignment="Right" Grid.Row="5" Width="30" Content="&#8594;" Click="IncrementPlayer_Click" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" />
@@ -919,10 +920,10 @@
 
                     <Button x:Name="TryLoadNum" HorizontalAlignment="Right" Width="100" Grid.Row="7" Content="Load Numbers" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="TryLoadNumbers" Style="{DynamicResource ButtonsStyle}"></Button>
                 </Grid>
-                
+
             </StackPanel>
 
-            <StackPanel Grid.Column="2" HorizontalAlignment="Left" Orientation="Vertical">
+            <StackPanel Grid.Column="2" HorizontalAlignment="Left" Orientation="Vertical" Grid.ColumnSpan="3">
                 <Grid Margin="20 0 0 0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
@@ -932,7 +933,7 @@
                         <RowDefinition Height="*" />
                         <RowDefinition Height="30" />
                         <RowDefinition Height="30" />
-                        <RowDefinition Height="30" />
+                        <RowDefinition Height="40" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="Game To Hot Reload" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" FontWeight="Bold" VerticalAlignment="Bottom"/>
                     <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="GameSelector" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" Text="Game" SelectionChanged="GameSelectorSelectionChanged" FontSize="13">
@@ -982,9 +983,9 @@
 
 
                     </ComboBox>
-                    
+
                     <ScrollViewer VerticalScrollBarVisibility="Disabled" Grid.Row="4">
-                        <ListView x:Name="FilesListHR"  ItemsSource="{Binding HotReloadFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="300"/>
+                        <ListView x:Name="FilesListHR"  ItemsSource="{Binding HotReloadFilesList}" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="270"/>
                     </ScrollViewer>
 
                     <!-- Decrement Button -->
@@ -995,12 +996,16 @@
                     <!-- Increment Button -->
                     <RepeatButton HorizontalAlignment="Left" Margin="30 0 00 0" Grid.Row="5" Width="30" Content="&#8594;" Click="IncrementButton_Click" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" />
 
-                    <TextBlock VerticalAlignment="Center" Text="New Value"  Grid.Row="7" Foreground="{StaticResource TextColor}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
-
-                    <TextBox x:Name="NewValToWrite" TextAlignment="Center" FontSize="15" VerticalAlignment="Center" Grid.Row="7" Width="80" HorizontalAlignment="Right" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" KeyDown="WriteNewVal" PreviewTextInput="TextWritten"/>
+                    <StackPanel Grid.Row="7" Orientation="Horizontal" Height="50">
+                        <TextBlock VerticalAlignment="Center" Text="New Value"  Grid.Row="7" Foreground="{StaticResource TextColor}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBox x:Name="NewValToWrite" Margin="10 0 0 0" TextAlignment="Center" FontSize="15" VerticalAlignment="Center" Grid.Row="7" Width="80" HorizontalAlignment="Right" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" KeyDown="WriteNewVal" PreviewTextInput="TextWritten"/>
+                        <CheckBox x:Name="CheckBox" Content="Freeze Value" Margin="10 0 0 0"  VerticalAlignment="Center"  Grid.Row="7" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" Checked="FreezeValue" Unchecked="FreezeValue" />
+                        <Slider x:Name="Slider" Margin="10 0 0 0" HorizontalAlignment="Center" VerticalAlignment="Center" Width="100" Grid.Row="7" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" ValueChanged="Slider_ValueChanged" Minimum="0" Maximum="5000" Value="0" ToolTip="Write Delay" IsSnapToTickEnabled="True" TickFrequency="100" />
+                        <TextBlock x:Name="WriteDelay" Text="Write Frequency (ms): 0" Margin="10 0 0 0" Height="20" HorizontalAlignment="Left" Foreground="{StaticResource TextColor}" />
+                    </StackPanel>
                 </Grid>
             </StackPanel>
-            <StackPanel Grid.Column="3" HorizontalAlignment="Left" Orientation="Vertical" Margin="20 0 0 0" Width="Auto">
+            <StackPanel Grid.Column="4" HorizontalAlignment="Left" Orientation="Vertical" Margin="20,0,0,0" Width="Auto" Grid.ColumnSpan="2">
 
                 <Grid>
 
@@ -1021,10 +1026,10 @@
                     <TextBlock x:Name="MetaDesc" Text="" Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" Grid.Row="1" VerticalAlignment="Center" TextWrapping="Wrap"/>
                     <Button Click="HandleLoadClick" Grid.Row="5" VerticalAlignment="Bottom" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Collapsed"></Button>
                 </Grid>
-                
-                
+
+
             </StackPanel>
         </Grid>
-        
+
     </Grid>
 </Window>

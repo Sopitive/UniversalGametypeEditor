@@ -1,15 +1,43 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Management;
+using System.Net;
 using System.Runtime.InteropServices;
+using System.Windows.Media.Imaging;
+using System.Windows;
+using UniversalGametypeEditor;
+using System.Windows.Forms;
+using Microsoft.VisualBasic.ApplicationServices;
 
 class MemoryScanner
 {
-    // Import the ReadProcessMemory function from the Windows API
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern bool ReadProcessMemory(
-        IntPtr hProcess, IntPtr lpBaseAddress, [Out] byte[] lpBuffer, int dwSize, out int lpNumberOfBytesRead);
 
-    public static bool ScanPointer(int[] offsets, out int result, out IntPtr address)
+
+    public static string GetProcessOwner(int processId)
+    {
+        string query = "Select * From Win32_Process Where ProcessID = " + processId;
+        ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
+        ManagementObjectCollection processList = searcher.Get();
+
+        foreach (ManagementObject obj in processList)
+        {
+            string[] argList = new string[] { string.Empty, string.Empty };
+            int returnVal = Convert.ToInt32(obj.InvokeMethod("GetOwner", argList));
+            if (returnVal == 0)
+            {
+                string owner = argList[0];
+                return owner;
+            }
+        }
+        
+        return "NO OWNER";
+    }
+    public static Process? process;
+    private static string moduleName = "haloreach.dll";
+    private static void GetMCCProcess()
     {
         // Set the process name or process ID of the target process
         string processName = "MCC-Win64-Shipping";
@@ -17,14 +45,27 @@ class MemoryScanner
         // int processId = 1234;
 
         // Set the module name of interest
-        string moduleName = "haloreach.dll";
+
 
         // Set the offsets
         // Add a check to see if the process is still running before trying to access it. Use a try-catch block to handle any exceptions that might occur.
-        Process process;
+
+        Process[] processArr = Process.GetProcessesByName(processName);
+        process = processArr[0];
         try
         {
-            process = Process.GetProcessesByName(processName)[0];
+
+            foreach (Process proc in processArr)
+            {
+                string processOwner = GetProcessOwner(proc.Id);
+                string currentUserName = Environment.UserName;
+
+                if (processOwner == currentUserName)
+                {
+                    process = proc;
+                }
+
+            }
             if (!process.Responding || process.HasExited)
             {
                 throw new Exception("Process not responding or has exited");
@@ -32,11 +73,22 @@ class MemoryScanner
         }
         catch (Exception ex)
         {
-            address = (IntPtr)0x0;
-            result = 0;
-            return false;
+            
         }
+    }
 
+    // Import the ReadProcessMemory function from the Windows API
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool ReadProcessMemory(
+        IntPtr hProcess, IntPtr lpBaseAddress, [Out] byte[] lpBuffer, int dwSize, out int lpNumberOfBytesRead);
+
+    public static bool ScanPointer(int[] offsets, out int result, out IntPtr address)
+    {
+        
+        if (process == null)
+        {
+            GetMCCProcess();
+        }
 
         // Alternatively, you can use the process ID
         // Process process = Process.GetProcessById(processId);

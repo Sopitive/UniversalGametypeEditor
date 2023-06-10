@@ -25,6 +25,7 @@ using System.Xml.Linq;
 using System.Threading;
 using UniversalGametypeEditor;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace UniversalGametypeEditor
 {
@@ -153,7 +154,18 @@ namespace UniversalGametypeEditor
             CheckTutorialCompletion();
         }
 
+        private void FreezeValue(object sender, RoutedEventArgs e)
+        {
+            if ((bool)CheckBox.IsChecked)
+            {
+                Settings.Default.FreezeValue = true;
+            }
 
+            if (!(bool)CheckBox.IsChecked)
+            {
+                Settings.Default.FreezeValue = false;
+            }
+        }
 
         private void DecrementButton_Click(object sender, RoutedEventArgs e)
         {
@@ -265,7 +277,7 @@ namespace UniversalGametypeEditor
                 if (playerIndex < 16)
                 {
                     playerIndex += 1;
-                    lastOffset += 0xD4;
+                    lastOffset += 0xE0;
                 }
                 PlayerIndex.Text = "Player " + playerIndex.ToString();
             }
@@ -293,7 +305,7 @@ namespace UniversalGametypeEditor
                 if (playerIndex > 1)
                 {
                     playerIndex -= 1;
-                    lastOffset -= 0xD4;
+                    lastOffset -= 0xE0;
                 }
                 PlayerIndex.Text = "Player " + playerIndex.ToString();
             }
@@ -321,7 +333,7 @@ namespace UniversalGametypeEditor
         
         private void CheckPlayerNumbers()
         {
-            playerNumTimer.Interval = 100;
+            playerNumTimer.Interval = 500;
             playerNumTimer.Tick += (sender, e) =>
             {
                 if (Settings.Default.NumberSetting == "Player")
@@ -348,7 +360,7 @@ namespace UniversalGametypeEditor
         
         private void CheckObjectNumbers()
         {
-            objectNumTimer.Interval = 100;
+            objectNumTimer.Interval = 500;
             objectNumTimer.Tick += (sender, e) =>
             {
                 if (Settings.Default.NumberSetting == "Object")
@@ -378,7 +390,7 @@ namespace UniversalGametypeEditor
             //Scan and return the result periodically for offsets 024FE0A0, 1BC, 10, 40, 60, 40, 150, and BF4
             //If the result is false, stop the timer
 
-            globalNumTimer.Interval = 100;
+            globalNumTimer.Interval = 500;
             globalNumTimer.Tick += (sender, e) =>
             {
                 if (Settings.Default.NumberSetting == "Global")
@@ -400,6 +412,12 @@ namespace UniversalGametypeEditor
             globalNumTimer.Start();
         }
 
+        private void Slider_ValueChanged(object sender, RoutedEventArgs e)
+        {
+            WriteDelay.Text = $"Write Frequency (ms): {Slider.Value}";
+            Settings.Default.WriteDelay = Slider.Value;
+        }
+
         private void WriteNewVal(object sender, System.Windows.Input.KeyEventArgs e)
         {
             
@@ -417,8 +435,20 @@ namespace UniversalGametypeEditor
                 {
                     return;
                 }
-
-                MemoryWriter.WriteValue(address, Convert.ToInt16(NewValToWrite.Text));
+                string valueToWrite = NewValToWrite.Text;
+                MemoryWriter.WriteValue(address, Convert.ToInt16(valueToWrite));
+                
+                Task.Run(() =>
+                {
+                    while (Settings.Default.FreezeValue)
+                    {
+                        MemoryWriter.WriteValue(address, Convert.ToInt16(valueToWrite));
+                        if (Settings.Default.WriteDelay > 0)
+                        {
+                            Thread.Sleep((int)Settings.Default.WriteDelay);
+                        }
+                    }
+                });
 
                 NewValToWrite.Text = "";
             }
