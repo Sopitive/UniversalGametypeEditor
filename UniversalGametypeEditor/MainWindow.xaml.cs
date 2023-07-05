@@ -77,28 +77,7 @@ namespace UniversalGametypeEditor
             //ReadBin.ReadFile("D:\\SteamLibrary\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\assault_mod.bin");
 
 
-            string filepath = "D:\\SteamLibrary\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\castle_wars.bin";
-            //byte[] bytes = File.ReadAllBytes("D:\\SteamLibrary\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\castle_wars.bin");
-            //Open castle_wars.bin and read starting at file offset 2F0
-            byte[] bytes;
-            using (var stream = new FileStream(filepath, FileMode.Open))
-            {
-                stream.Seek(0x2F0, SeekOrigin.Begin);
-                using (var reader = new BinaryReader(stream))
-                {
-                    byte[] byteArr = new byte[stream.Length];
-                    int read = 0;
-                    int chunk = 1;
-                    int totalRead = 0;
-
-                    while (chunk > 0)
-                    {
-                        chunk = reader.Read(byteArr, totalRead, (int)stream.Length - totalRead);
-                        totalRead += chunk;
-                    }
-                    bytes = byteArr.Skip(0x2F0).ToArray();
-                }
-            }
+            
 
 
 

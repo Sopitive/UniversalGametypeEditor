@@ -51,10 +51,10 @@ class MemoryScanner
         // Add a check to see if the process is still running before trying to access it. Use a try-catch block to handle any exceptions that might occur.
 
         Process[] processArr = Process.GetProcessesByName(processName);
-        process = processArr[0];
+        
         try
         {
-
+            process = processArr[0];
             foreach (Process proc in processArr)
             {
                 string processOwner = GetProcessOwner(proc.Id);
@@ -95,6 +95,12 @@ class MemoryScanner
 
         // Get the handle of the target process
 
+        if (process == null)
+        {
+            result = 0;
+            address = IntPtr.Zero;
+            return false;
+        }
         IntPtr processHandle = process.Handle;
 
         // Find the specific module by name
