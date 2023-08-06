@@ -518,10 +518,15 @@ namespace UniversalGametypeEditor
             if (e.AddedItems.Count != 0 && e.AddedItems[0].ToString().EndsWith("bin"))
             {
                 LoadGametype.Visibility = Visibility.Visible;
-                //string title = BinaryParser.ProcessBin("ExTypes", $"{Settings.Default.FilePath}\\{e.AddedItems[0]}", "Title");
-                //MetaName.Text = title;
+                ReadGametype rg = new();
+                string filePath = $"{Settings.Default.FilePath}\\{e.AddedItems[0]}";
+                rg.ReadBinary(filePath);
+                var gametypeHeaders = rg.gth;
+                string title = gametypeHeaders.Title;
+                string description = gametypeHeaders.Description;
+                MetaName.Text = title;
                 //string description = BinaryParser.ProcessBin("ExTypes", $"{Settings.Default.FilePath}\\{e.AddedItems[0]}", "Description");
-                //MetaDesc.Text = description;
+                MetaDesc.Text = description;
                 //HandleFiles((string)e.AddedItems[0], Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
             }
             else

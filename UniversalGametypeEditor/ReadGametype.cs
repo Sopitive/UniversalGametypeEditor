@@ -396,13 +396,17 @@ namespace UniversalGametypeEditor
 
 
 
-
+        public FileHeader fh = new();
+        public GametypeHeader gth = new();
+        public ModeSettings ms = new();
+        public SpawnSettings ss = new();
+        public GameSettings gs = new();
         public string binaryString = "";
-        public void ReadBinary()
+        public void ReadBinary(string filePath)
         {
 
             
-            byte[] binaryData = File.ReadAllBytes("C:\\Program Files (x86)\\Steam\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\castle_wars.bin");
+            byte[] binaryData = File.ReadAllBytes(filePath);
 
             //Convert binaryData to a string of 1s and 0s
             binaryString = GetBinaryString(binaryData, 752, binaryData.Length*7);
@@ -413,7 +417,7 @@ namespace UniversalGametypeEditor
 
 
             //Read FileHeader
-            FileHeader fh = new();
+            
             fh.mpvr = GetValue(32);
             fh.megaloversion = ConvertToInt(GetValue(32));
             fh.Unknown0x2F8 = ConvertToInt(GetValue(16));
@@ -430,7 +434,7 @@ namespace UniversalGametypeEditor
             //ConvertAndSaveToXml(fh, "gametype.xml");
 
             //Read GametypeHeader
-            GametypeHeader gth = new();
+            
             gth.ID0x48 = GetValue(64);
             gth.ID0x50 = GetValue(64);
             gth.ID0x58 = GetValue(64);
@@ -455,7 +459,7 @@ namespace UniversalGametypeEditor
             //ConvertAndSaveToXml(gth, "gametype.xml");
 
             //Read ModeSettings
-            ModeSettings ms = new();
+            
             ms.UnknownFlag2 = ConvertToInt(GetValue(1));
             ms.Teamsenabled = ConvertToInt(GetValue(1));
             ms.Resetmaponnewroundunused = ConvertToInt(GetValue(1));
@@ -471,7 +475,7 @@ namespace UniversalGametypeEditor
             //ConvertAndSaveToXml(ms, "gametype.xml");
 
             //Read SpawnSettings
-            SpawnSettings ss = new();
+            
             ss.RespawnOnKills = ConvertToInt(GetValue(1));
             ss.respawnatlocationunused = ConvertToInt(GetValue(1));
             ss.respawnwithteammateunused = ConvertToInt(GetValue(1));
@@ -490,7 +494,7 @@ namespace UniversalGametypeEditor
             //ConvertAndSaveToXml(ss, "gametype.xml");
 
             //Read GameSettings
-            GameSettings gs = new();
+            
             gs.EnableObservers = ConvertToInt(GetValue(1));
             gs.Teamchanging = ConvertToInt(GetValue(2));
             gs.FriendlyFire = ConvertToInt(GetValue(1));
