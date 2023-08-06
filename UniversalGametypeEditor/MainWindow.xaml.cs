@@ -520,7 +520,13 @@ namespace UniversalGametypeEditor
                 LoadGametype.Visibility = Visibility.Visible;
                 ReadGametype rg = new();
                 string filePath = $"{Settings.Default.FilePath}\\{e.AddedItems[0]}";
-                rg.ReadBinary(filePath);
+                try { rg.ReadBinary(filePath); }
+                catch (Exception ex)
+                {
+                    MetaName.Text = "Error";
+                    MetaDesc.Text = "Failed to decompile. Is this a firefight variant?";
+                    return;
+                }
                 var gametypeHeaders = rg.gth;
                 string title = gametypeHeaders.Title;
                 string description = gametypeHeaders.Description;
