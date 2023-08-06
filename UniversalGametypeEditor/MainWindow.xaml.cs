@@ -84,21 +84,9 @@ namespace UniversalGametypeEditor
             //Print the bytes
             //Debug.WriteLine(script);
             ReadGametype rg = new();
-            //rg.ReadBinaryFile("C:\\Program Files (x86)\\Steam\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\SvE AnvilEditor.bin");
-
-
-
-
-
-
-
-
-
-            //BitReader br = new();
-            rg.ReadBinary();
-            //br.m_process.instaniaterwrite("output.xml", "mpvr.xml");
-            //BinaryParser.ProcessBin("ExTypes", "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\castle_wars.bin"); //Uncomment to continue work on parsing binary data.
-
+          
+            //rg.ReadBinary();
+            
 
 
 
