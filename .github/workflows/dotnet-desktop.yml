@@ -31,6 +31,7 @@ jobs:
         name: UniversalGametypeEditor
         path: UniversalGametypeEditor/bin/Release/net6.0-windows
         retention-days: 90
+    
 
   create-release:
     needs: build
@@ -38,6 +39,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Install jq
+      run: sudo apt-get -y install jq
+    
     - name: Extract Version
       id: extract_version
       run: echo "::set-output name=version::$(echo ${GITHUB_EVENT_PATH} | jq -r '.commits[0].message | capture("Release(?<version>v\\d+\\.\\d+\\.\\d+)").version')"
