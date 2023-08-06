@@ -70,15 +70,11 @@ namespace UniversalGametypeEditor
             UpdateSettingsFromFile();
             UpdateDirHistoryComboBox();
 
-            CheckForUpdates(null, null);
+            //CheckForUpdates(null, null);
 
-            CheckPlayerNumbers();
-            CheckGlobalNumbers();
-            CheckObjectNumbers();
-            if (Settings.Default.ScriptsPath != "Undefined")
-            {
-                MonitorScripts(Settings.Default.ScriptsPath);
-            }
+            //CheckPlayerNumbers();
+            //CheckGlobalNumbers();
+            //CheckObjectNumbers();
 
             //string script = ReadBin.ConvertScriptToBinary("C:\\Program Files (x86)\\Steam\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\SvE AnvilEditor.bin");
             //Print the bytes
@@ -132,28 +128,8 @@ namespace UniversalGametypeEditor
 
             CheckTutorialCompletion();
         }
-        private string fileContent = "";
-        public string MonitorScripts(string directoryPath)
-        {
-            FileSystemWatcher watcher = new FileSystemWatcher(directoryPath);
-            watcher.Filter = "*.rvt";
-            watcher.NotifyFilter = NotifyFilters.LastWrite;
-                watcher.Changed += (s, e) =>
-                {
-                    string filePath = e.FullPath;
-                    fileContent = File.ReadAllText(filePath);
-                    InjectScript(fileContent);
-                };
+        
 
-            watcher.EnableRaisingEvents = true;
-
-            return "";
-        }
-
-        private void InjectScript(string script)
-        {
-
-        }
 
         private void FreezeValue(object sender, RoutedEventArgs e)
         {
@@ -774,8 +750,16 @@ namespace UniversalGametypeEditor
                 Settings.Default.OrderBy = 2;
             }
             Settings.Default.Save();
-            GetFiles(Settings.Default.HotReloadPath, HotReloadFilesList);
-            GetFiles(Settings.Default.FilePath, WatchedFilesList);
+            if (Settings.Default.HotReloadPath != "Undefined")
+            {
+                GetFiles(Settings.Default.HotReloadPath, HotReloadFilesList);
+            }
+                
+            if (Settings.Default.FilePath != "Undefined")
+            {
+                GetFiles(Settings.Default.FilePath, WatchedFilesList);
+            }
+                
         }
 
         public void DirHistorySelectionChanged(object sender, SelectionChangedEventArgs e)
