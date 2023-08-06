@@ -1,0 +1,45 @@
+
+# 2023-07-05 09:00:20.751404
++/help
+
+# 2023-07-05 09:04:49.762473
++Analyze the files `UniversalGametypeEditor/mpvr.xml` and `UniversalGametypeEditor/BinaryParser.cs` to determine what needs to be fixed to properly parse a binary file using the given XML. The code mostly works, but has errors.
+
+# 2023-07-05 09:08:24.342409
++analyze the file `UniversalGametypeEditor/BinaryParser.cs` and attempt to fix the code to be more efficent. The code can also throw some errors, but has the ability to read most of a binary file. It uses `UniversalGametypeEditor/mpvr.xml` to parse the binary file.
+
+# 2023-07-05 09:18:31.447365
++fix the `BinaryParser` to not call the function recursively
+
+# 2023-07-05 09:19:14.570497
++could you provide the code for this?
+
+# 2023-07-05 09:22:48.303447
++fix the `BinaryParser` to not call the function recursively
+
+# 2023-07-05 12:32:46.734202
++`UniversalGametypeEditor/BinaryParser.cs`
+
+# 2023-07-05 12:34:11.288374
++edit `UniversalGametypeEditor/BinaryParser.cs` to run more efficiently
+
+# 2023-07-05 12:36:05.928524
++edit the `GetValueFromBits` function to not run recursively
+
+# 2023-07-05 12:41:22.292134
++Evaluate `UniversalGametypeEditor/MemoryScanner.cs` and determine if there are any portions of the code that would cause an exception. If there are any areas that are likely to cause an exception, attempt to offer a better solution and apply changes to the file.
+
+# 2023-07-05 12:45:02.162306
++Modify the `GetValueFromBits` function to not run recursively. Fix any mistakes in the coding for this file.
+
+# 2023-07-05 12:46:03.714502
++`UniversalGametypeEditor/BinaryParser.cs`
+
+# 2023-07-05 12:46:19.422404
++what does the `GetValueFromBits` functio do?
+
+# 2023-07-05 12:49:13.798121
++`UniversalGametypeEditor/GetProcess.cs`
+
+# 2023-07-05 18:24:09.512282
++Make `UniversalGametypeEditor/GetProcess.cs` more efficient.

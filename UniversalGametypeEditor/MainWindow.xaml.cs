@@ -70,22 +70,34 @@ namespace UniversalGametypeEditor
             UpdateSettingsFromFile();
             UpdateDirHistoryComboBox();
 
+            CheckForUpdates(null, null);
+
             CheckPlayerNumbers();
             CheckGlobalNumbers();
             CheckObjectNumbers();
+            if (Settings.Default.ScriptsPath != "Undefined")
+            {
+                MonitorScripts(Settings.Default.ScriptsPath);
+            }
 
-            //ReadBin.ReadFile("D:\\SteamLibrary\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\assault_mod.bin");
+            //string script = ReadBin.ConvertScriptToBinary("C:\\Program Files (x86)\\Steam\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\SvE AnvilEditor.bin");
+            //Print the bytes
+            //Debug.WriteLine(script);
+            ReadGametype rg = new();
+            //rg.ReadBinaryFile("C:\\Program Files (x86)\\Steam\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\SvE AnvilEditor.bin");
 
 
-            
+
+
+
 
 
 
 
             //BitReader br = new();
-            
+            rg.ReadBinary();
             //br.m_process.instaniaterwrite("output.xml", "mpvr.xml");
-            //BinaryParser.ProcessBin("ExTypes"); //Uncomment to continue work on parsing binary data.
+            //BinaryParser.ProcessBin("ExTypes", "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\castle_wars.bin"); //Uncomment to continue work on parsing binary data.
 
 
 
@@ -131,6 +143,28 @@ namespace UniversalGametypeEditor
             }
 
             CheckTutorialCompletion();
+        }
+        private string fileContent = "";
+        public string MonitorScripts(string directoryPath)
+        {
+            FileSystemWatcher watcher = new FileSystemWatcher(directoryPath);
+            watcher.Filter = "*.rvt";
+            watcher.NotifyFilter = NotifyFilters.LastWrite;
+                watcher.Changed += (s, e) =>
+                {
+                    string filePath = e.FullPath;
+                    fileContent = File.ReadAllText(filePath);
+                    InjectScript(fileContent);
+                };
+
+            watcher.EnableRaisingEvents = true;
+
+            return "";
+        }
+
+        private void InjectScript(string script)
+        {
+
         }
 
         private void FreezeValue(object sender, RoutedEventArgs e)
@@ -1442,6 +1476,9 @@ namespace UniversalGametypeEditor
         }
 
         Stopwatch sw = new();
+
+
+
         public void CheckForUpdates(object sender, RoutedEventArgs e)
         {
             //Check for recent commits on GitHub

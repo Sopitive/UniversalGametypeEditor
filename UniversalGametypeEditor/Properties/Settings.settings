@@ -53,5 +53,8 @@
     <Setting Name="WriteDelay" Type="System.Double" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
+    <Setting Name="ScriptsPath" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Undefined</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
