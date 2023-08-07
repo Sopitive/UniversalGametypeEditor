@@ -34,8 +34,8 @@ namespace UniversalGametypeEditor
     /// </summary>
     public partial class MainWindow : System.Windows.Window
     {
-        private int lastOffset = 0xD34;
-        private int lastGlobalOffset = 0xC52;
+        private int lastOffset = 0xD50;
+        private int lastGlobalOffset = 0xC28;
         private int playerNumIndex = 0;
         private int globalNumIndex = 15;
         private int objectNumIndex = 0;
@@ -72,9 +72,9 @@ namespace UniversalGametypeEditor
 
             //CheckForUpdates(null, null);
 
-            //CheckPlayerNumbers();
-            //CheckGlobalNumbers();
-            //CheckObjectNumbers();
+            CheckPlayerNumbers();
+            CheckGlobalNumbers();
+            CheckObjectNumbers();
 
             //string script = ReadBin.ConvertScriptToBinary("C:\\Program Files (x86)\\Steam\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\SvE AnvilEditor.bin");
             //Print the bytes
@@ -149,23 +149,23 @@ namespace UniversalGametypeEditor
 
             if (Settings.Default.NumberSetting == "Global")
             {
-                if (lastGlobalOffset > 0xC34)
+                if (lastGlobalOffset > 0xBEC)
                 {
-                    lastGlobalOffset -= 2;
+                    lastGlobalOffset -= 4;
                     globalNumIndex -= 1;
                 }
             }
 
             if (Settings.Default.NumberSetting == "Player")
             {
-                if (lastOffset == 0xD34)
+                if (lastOffset == 0xD50)
                 {
                     Settings.Default.NumberSetting = "Global";
                 }
 
-                if (lastOffset > 0xD34)
+                if (lastOffset > 0xD50)
                 {
-                    lastOffset -= 2;
+                    lastOffset -= 4;
                     playerNumIndex -= 1;
                 }
 
@@ -181,7 +181,7 @@ namespace UniversalGametypeEditor
 
                 if (lastObjectOffset > 0xBE)
                 {
-                    lastObjectOffset -= 2;
+                    lastObjectOffset -= 4;
                     objectNumIndex -= 1;
                 }
 
@@ -208,15 +208,15 @@ namespace UniversalGametypeEditor
 
             if (Settings.Default.NumberSetting == "Player")
             {
-                if (lastOffset == 0xD42)
+                if (lastOffset == 0xD6C)
                 {
                     Settings.Default.NumberSetting = "Object";
                     PlayerIndex.Text = "Object";
                 }
 
-                if (lastOffset < 0xD42 + ((playerIndex - 1) * 0xD4))
+                if (lastOffset < 0xD6C + ((playerIndex - 1) * 0xD4))
                 {
-                    lastOffset += 2;
+                    lastOffset += 4;
                     playerNumIndex += 1;
                 }
 
@@ -230,15 +230,15 @@ namespace UniversalGametypeEditor
 
             if (Settings.Default.NumberSetting == "Global")
             {
-                if (lastGlobalOffset == 0xC52)
+                if (lastGlobalOffset == 0xC28)
                 {
                     Settings.Default.NumberSetting = "Player";
                     PlayerIndex.Text = "Player 1";
                 }
 
-                if (lastGlobalOffset < 0xC52)
+                if (lastGlobalOffset < 0xC28)
                 {
-                    lastGlobalOffset += 2;
+                    lastGlobalOffset += 4;
                     globalNumIndex += 1;
                 }
 
@@ -316,7 +316,7 @@ namespace UniversalGametypeEditor
                 if (Settings.Default.NumberSetting == "Player")
                 {
                     //int[] offsets = { 0x024FDF24, 0x1B0, 0x60, 0x78, 0x130, 0x560, lastOffset };
-                    int[] offsets = { 0x02767E4C, 0x560, lastOffset };
+                    int[] offsets = { 0x02757E44, 0x560, lastOffset };
 
                 resultPlayer = MemoryScanner.ScanPointer(offsets, out playerNum, out address);
 
@@ -372,7 +372,7 @@ namespace UniversalGametypeEditor
             {
                 if (Settings.Default.NumberSetting == "Global")
                 {
-                    int[] offsets = { 0x02767E4C, 0x560, lastGlobalOffset };
+                    int[] offsets = { 0x02757E44, 0x150, lastGlobalOffset };
 
                 resultGlobal = MemoryScanner.ScanPointer(offsets, out int globalNum, out address);
 
@@ -436,6 +436,7 @@ namespace UniversalGametypeEditor
         {
             CheckPlayerNumbers();
             CheckGlobalNumbers();
+            CheckObjectNumbers();
         }
 
         private void TextWritten(object sender, TextCompositionEventArgs e)
