@@ -13,6 +13,7 @@ using System.Text;
 using System.IO.Compression;
 using ICSharpCode.SharpZipLib.Zip.Compression;
 using System.Xml;
+using UniversalGametypeEditor.Properties;
 
 namespace UniversalGametypeEditor
 {
@@ -200,7 +201,7 @@ namespace UniversalGametypeEditor
             public int YellowPowerupDuration;
         }
 
- 
+        
 
         public struct TeamSettings
         {
@@ -347,6 +348,53 @@ namespace UniversalGametypeEditor
             public int showplayerratings;
         }
 
+        public struct Conditions
+        {
+            public int ConditionCount;
+            public int ConditionType;
+        }
+
+        public struct Actions
+        {
+            public int ActionCount;
+            public int ActionType;
+        }
+
+        public struct Triggers
+        {
+            public int TriggerCount;
+            public int TriggerType;
+        }
+
+        public struct PlayerStats
+        {
+            public int PlayerStatsCount;
+            public int StringIndex;
+            public int Format;
+            public int Sortorder;
+            public int GroupByTeam;
+
+        }
+
+        public struct GlobalVariables
+        {
+            public int GlobalNumbersCount;
+
+            public int GlobalNumber;
+            public int NumberLocality;
+
+            public int GlobalTimerCount;
+            public int GlobalTimer;
+
+            public int GlobalTeamCount;
+            public int GlobalTeam;
+            public int TeamLocality;
+
+            public int GlobalPlayerCount;
+            public int GlobalPlayer;
+
+        }
+
 
 
         public struct Map
@@ -431,15 +479,37 @@ namespace UniversalGametypeEditor
             fh.FileLength = ConvertToInt(GetValue(32));
             gt.FileHeader = fh;
 
+            if (fh.Unknown0x2F8 == 54)
+            {
+                Settings.Default.DecompiledVersion = 0; //Reach
+            }
+
+            if (fh.Unknown0x2F8 == 137)
+            {
+                Settings.Default.DecompiledVersion = 2; //H2A
+            }
+
+            if (fh.Unknown0x2F8 == 132)
+            {
+                Settings.Default.DecompiledVersion = 1; //H4
+            }
             //ConvertAndSaveToXml(fh, "gametype.xml");
 
             //Read GametypeHeader
-            
+
             gth.ID0x48 = GetValue(64);
             gth.ID0x50 = GetValue(64);
             gth.ID0x58 = GetValue(64);
             gth.Blank0x60 = GetValue(64);
-            gth.UnknownFlags = ConvertToInt(GetValue(9));
+
+            if (Settings.Default.DecompiledVersion == 0)
+            {
+                gth.UnknownFlags = ConvertToInt(GetValue(9));
+            }
+            if (Settings.Default.DecompiledVersion == 2)
+            {
+                gth.UnknownFlags = ConvertToInt(GetValue(8));
+            }
             gth.Unknown_1 = ConvertToInt(GetValue(32));
             gth.Unknown0x1 = ConvertToInt(GetValue(8));
             gth.Blank04 = ConvertToInt(GetValue(32));
@@ -680,11 +750,27 @@ namespace UniversalGametypeEditor
             gt.playerratings = pr;
 
             //ConvertAndSaveToXml(pr, "gametype.xml");
+            GetValue(2642);
 
             
 
 
             //We have now reached the gametype script!
+            
+
+            //Read Conditions
+            Conditions c = new();
+            c.ConditionCount = ConvertToInt(GetValue(10));
+            for (int i=0; i< c.ConditionCount; i++)
+            {
+                c.ConditionType = ConvertToInt(GetValue(5));
+                if (c.ConditionType == 1) //if condition
+                {
+                    
+                }
+            }
+            
+
         }
 
         private LoadoutOptions ReadLoadoutOptions()

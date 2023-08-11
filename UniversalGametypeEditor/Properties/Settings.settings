@@ -56,5 +56,8 @@
     <Setting Name="ScriptsPath" Type="System.String" Scope="User">
       <Value Profile="(Default)">Undefined</Value>
     </Setting>
+    <Setting Name="DecompiledVersion" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

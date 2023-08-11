@@ -237,5 +237,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["ScriptsPath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int DecompiledVersion {
+            get {
+                return ((int)(this["DecompiledVersion"]));
+            }
+            set {
+                this["DecompiledVersion"] = value;
+            }
+        }
     }
 }

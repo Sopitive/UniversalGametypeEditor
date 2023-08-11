@@ -500,9 +500,7 @@ namespace UniversalGametypeEditor
                 try { rg.ReadBinary(filePath); }
                 catch (Exception ex)
                 {
-                    MetaName.Text = "Error";
-                    MetaDesc.Text = "Failed to decompile. Is this a firefight variant?";
-                    return;
+                    
                 }
                 var gametypeHeaders = rg.gth;
                 string title = gametypeHeaders.Title;
@@ -523,6 +521,8 @@ namespace UniversalGametypeEditor
 
         private void HandleLoadClick(object sender, RoutedEventArgs e)
         {
+            GameSelector.SelectedIndex = Settings.Default.DecompiledVersion;
+            Thread.Sleep(10);
             HandleFiles((string)FilesListWatched.SelectedValue, Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
         }
         public void SkipTutorial(object sender, RoutedEventArgs e)
@@ -1259,7 +1259,7 @@ namespace UniversalGametypeEditor
             if (name.Contains(".bin") && !name.EndsWith(".bin"))
             {
                 name = Regex.Replace(name, @"(.*)\..*", "$1");
-                System.Threading.Thread.Sleep(50);
+                Thread.Sleep(50);
             }
 
             if (setDirectory)
