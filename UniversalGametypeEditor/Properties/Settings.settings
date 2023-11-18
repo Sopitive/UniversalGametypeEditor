@@ -59,5 +59,8 @@
     <Setting Name="DecompiledVersion" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
+    <Setting Name="Selected" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Undefined</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

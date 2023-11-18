@@ -249,5 +249,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["DecompiledVersion"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Undefined")]
+        public string Selected {
+            get {
+                return ((string)(this["Selected"]));
+            }
+            set {
+                this["Selected"] = value;
+            }
+        }
     }
 }

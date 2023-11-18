@@ -25,18 +25,18 @@ namespace UniversalGametypeEditor
 
         public class Gametype
         {
-            public FileHeader FileHeader;
-            public GametypeHeader GametypeHeader;
-            public ModeSettings ModeSettings;
-            public SpawnSettings SpawnSettings;
-            public GameSettings GameSettings;
-            public PowerupTraits PowerupTraits;
-            public TeamSettings TeamSettings;
-            public LoadoutCluster loadoutCluster;
-            public ScriptedPlayerTraits scriptedPlayerTraits;
-            public ScriptOptions scriptOptions;
-            public Strings Strings;
-            public Game Game;
+            public string? FileHeader;
+            public string? GametypeHeader;
+            public string? ModeSettings;
+            public string? SpawnSettings;
+            public string? GameSettings;
+            public string? PowerupTraits;
+            public string? TeamSettings;
+            public string? loadoutCluster;
+            public string? scriptedPlayerTraits;
+            public string? scriptOptions;
+            public string? Strings;
+            public string? Game;
             public Map Map;
             public PlayerRatings playerratings;
         }
@@ -710,7 +710,7 @@ namespace UniversalGametypeEditor
         }
 
 
-        
+     
 
 
 
@@ -729,10 +729,6 @@ namespace UniversalGametypeEditor
             //Convert binaryData to a string of 1s and 0s
             binaryString = GetBinaryString(binaryData, 752, binaryData.Length*7);
 
-
-            
-
-
             
             //Read FileHeader
 
@@ -748,8 +744,8 @@ namespace UniversalGametypeEditor
             fh.Unknown0x31D = ConvertToInt(GetValue(32));
             fh.FileLength = ConvertToInt(GetValue(32));
 
-            
-            gt.FileHeader = fh;
+
+            gt.FileHeader = Newtonsoft.Json.JsonConvert.SerializeObject(fh);
 
             if (fh.Unknown0x2F8 == 54)
             {
@@ -796,7 +792,7 @@ namespace UniversalGametypeEditor
             gth.Title = ReadUStringFromBits(binaryString);
             gth.Description = ReadUStringFromBits(binaryString);
             gth.GameIcon = ConvertToInt(GetValue(8));
-            gt.GametypeHeader = gth;
+            gt.GametypeHeader = Newtonsoft.Json.JsonConvert.SerializeObject(gth);
 
             //ConvertAndSaveToXml(gth, "gametype.xml");
 
@@ -847,7 +843,7 @@ namespace UniversalGametypeEditor
                 ms.SuddenDeathTime = ConvertToInt(GetValue(7));
             }
             
-            gt.ModeSettings = ms;
+            gt.ModeSettings = Newtonsoft.Json.JsonConvert.SerializeObject(ms);
 
             //ConvertAndSaveToXml(ms, "gametype.xml");
 
@@ -880,7 +876,7 @@ namespace UniversalGametypeEditor
             ss.LoadoutCamTime = ConvertToInt(GetValue(4));
             ss.Respawntraitsduration = ConvertToInt(GetValue(6));
             ss.RespawnPlayerTraits = ReadTraits(binaryString);
-            gt.SpawnSettings = ss;
+            gt.SpawnSettings = Newtonsoft.Json.JsonConvert.SerializeObject(ss);
 
             //ConvertAndSaveToXml(ss, "gametype.xml");
 
@@ -939,7 +935,7 @@ namespace UniversalGametypeEditor
                 gs.grenadesonmap = null;
             }
 
-            gt.GameSettings = gs;
+            gt.GameSettings = Newtonsoft.Json.JsonConvert.SerializeObject(gs);
             //ConvertAndSaveToXml(gs, "gametype.xml");
 
             //Read PowerupTraits
@@ -986,7 +982,7 @@ namespace UniversalGametypeEditor
                 pt.H2AH4.CustomTraitsRuntimeDuration = ConvertToInt(GetValue(6));
             } 
 
-            gt.PowerupTraits = pt;
+            gt.PowerupTraits = Newtonsoft.Json.JsonConvert.SerializeObject(pt);
 
             //ConvertAndSaveToXml(pt, "gametype.xml");
 
@@ -1010,7 +1006,7 @@ namespace UniversalGametypeEditor
             ts.Team6Options = ReadTeaMOptions();
             ts.Team7Options = ReadTeaMOptions();
             ts.Team8Options = ReadTeaMOptions();
-            gt.TeamSettings = ts;
+            gt.TeamSettings = Newtonsoft.Json.JsonConvert.SerializeObject(ts);
 
             //ConvertAndSaveToXml(ts, "gametype.xml");
 
@@ -1059,7 +1055,7 @@ namespace UniversalGametypeEditor
                 lc.Loadout29 = ReadLoadoutOptions();
                 lc.Loadout30 = ReadLoadoutOptions();
             }
-            gt.loadoutCluster = lc;
+            gt.loadoutCluster = Newtonsoft.Json.JsonConvert.SerializeObject(lc);
 
             if (Settings.Default.DecompiledVersion > 0)
             {
@@ -1114,7 +1110,7 @@ namespace UniversalGametypeEditor
                 spt.PlayerTraits = ReadTraits(binaryString);
             }
 
-            gt.scriptedPlayerTraits = spt;
+            gt.scriptedPlayerTraits = Newtonsoft.Json.JsonConvert.SerializeObject(spt);
 
             //ConvertAndSaveToXml(spt, "gametype.xml");
 
@@ -1181,7 +1177,7 @@ namespace UniversalGametypeEditor
                 }
 
             }
-            gt.scriptOptions = so;
+            gt.scriptOptions = Newtonsoft.Json.JsonConvert.SerializeObject(so);
 
             //ConvertAndSaveToXml(so, "gametype.xml");
 
@@ -1192,7 +1188,7 @@ namespace UniversalGametypeEditor
                 st.Stringtable = ReadLangStrings(16, 8, false);
                 st.StringNameIndex = ConvertToInt(GetValue(8));
                 st.metanameStrings = ReadLangStrings(11, 1, false);
-                st.metadescStrings = ReadLangStrings(13, 1, false);
+                st.metadescStrings = ReadLangStrings(13, 1, false);                                             
                 st.metaintroStrings = ReadLangStrings(13, 1, false);
                 st.metagroupStrings = ReadLangStrings(10, 1, false);
             }
@@ -1206,7 +1202,7 @@ namespace UniversalGametypeEditor
                 st.metagroupStrings = ReadLangStrings(9, 1, false);
             }
             
-            gt.Strings = st;
+            gt.Strings = Newtonsoft.Json.JsonConvert.SerializeObject(st);
 
             //ConvertAndSaveToXml(st, "gametype.xml");
 
@@ -1214,7 +1210,7 @@ namespace UniversalGametypeEditor
             Game g = new();
             g.ActualGameicon = ConvertToInt(GetValue(5));
             g.ActualGamecategory = ConvertToInt(GetValue(5));
-            gt.Game = g;
+            gt.Game = Newtonsoft.Json.JsonConvert.SerializeObject(g);
 
             //ConvertAndSaveToXml(g, "gametype.xml");
 

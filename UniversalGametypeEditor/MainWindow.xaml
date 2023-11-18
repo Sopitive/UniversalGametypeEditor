@@ -1013,7 +1013,8 @@
             <ScrollViewer  Grid.Column="1" VerticalScrollBarVisibility="Hidden" Margin="10,120,0,0" Height="380" Grid.ColumnSpan="4">
                 <ListView x:Name="GametypeScroller" Background="Transparent" BorderBrush="Transparent" MaxHeight="380" ScrollViewer.VerticalScrollBarVisibility="Hidden" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard"/>
             </ScrollViewer>
-            <Button Click="HandleLoadClick" Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Collapsed" Grid.ColumnSpan="4" Margin="0,0,50,0"></Button>
+            <Button Click="HandleLoadClick" Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Collapsed" Grid.ColumnSpan="1" Margin="0,0,50,0"></Button>
+            <Button Click="CompileGametype" Grid.Row="1" Grid.Column="4" VerticalAlignment="Center" x:Name="Compile" Content="Compile" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0"/>
         </Grid>
 
     </Grid>

@@ -31,6 +31,7 @@ using System.ComponentModel;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Menu;
 using static UniversalGametypeEditor.ReadGametype;
 using Newtonsoft.Json;
+using System.Windows.Forms.Integration;
 
 namespace UniversalGametypeEditor
 {
@@ -157,7 +158,7 @@ namespace UniversalGametypeEditor
 
             CheckTutorialCompletion();
         }
-        
+
 
 
         //private void FreezeValue(object sender, RoutedEventArgs e)
@@ -198,7 +199,7 @@ namespace UniversalGametypeEditor
         //            playerNumIndex -= 1;
         //        }
 
-                
+
         //    }
 
         //    if (Settings.Default.NumberSetting == "Object")
@@ -249,11 +250,11 @@ namespace UniversalGametypeEditor
         //            playerNumIndex += 1;
         //        }
 
-                
+
 
         //    }
 
-            
+
 
 
 
@@ -271,7 +272,7 @@ namespace UniversalGametypeEditor
         //            globalNumIndex += 1;
         //        }
 
-                
+
         //    }
 
         //}
@@ -336,7 +337,7 @@ namespace UniversalGametypeEditor
         //private bool resultPlayer;
         //private bool resultGlobal;
         //private bool resultObject;
-        
+
         //private void CheckPlayerNumbers()
         //{
         //    playerNumTimer.Interval = 500;
@@ -354,16 +355,16 @@ namespace UniversalGametypeEditor
         //            playerNumTimer.Stop();
         //        }
 
-                
+
         //            PlayerNumb.Text = "Player Number " + playerNumIndex + ": " + playerNum.ToString();
         //        }
-                
+
         //    };
 
         //        playerNumTimer.Start();
-            
+
         //}
-        
+
         //private void CheckObjectNumbers()
         //{
         //    objectNumTimer.Interval = 500;
@@ -380,7 +381,7 @@ namespace UniversalGametypeEditor
         //            {
         //                objectNumTimer.Stop();
         //            }
-                    
+
 
         //            PlayerNumb.Text = "Object Number " + objectNumIndex + ": " + objectNum.ToString();
         //        }
@@ -426,7 +427,7 @@ namespace UniversalGametypeEditor
 
         //private void WriteNewVal(object sender, System.Windows.Input.KeyEventArgs e)
         //{
-            
+
         //    if (e.Key == Key.Enter)
         //    {
         //        // Enter key was pressed
@@ -443,7 +444,7 @@ namespace UniversalGametypeEditor
         //        }
         //        string valueToWrite = NewValToWrite.Text;
         //        MemoryWriter.WriteValue(address, Convert.ToInt16(valueToWrite));
-                
+
         //        Task.Run(() =>
         //        {
         //            while (Settings.Default.FreezeValue)
@@ -492,7 +493,7 @@ namespace UniversalGametypeEditor
         //    {
         //        e.Handled = true;
         //    }
-            
+
         //    if (num < -32767 || num > 32767)
         //    {
         //        e.Handled = true;
@@ -509,7 +510,25 @@ namespace UniversalGametypeEditor
 
         //    return false;
         //}
+        private Gametype ReadGT;
+        private GametypeHeader deserializedJSON2;
 
+        private void CompileGametype(object sender, RoutedEventArgs e)
+        {
+            if (Settings.Default.Selected != "Undefined")
+            {
+                WriteGametype wg = new();
+                string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
+                wg.WriteBinaryFile(filePath, deserializedJSON2, viewModel, viewModel2);
+                //Reselect the selected item
+                FilesListWatched.SelectedItem = FilesListWatched.SelectedItem;
+            }
+                
+        }
+
+        private YourDataViewModel viewModel;
+        private GametypeHeaderViewModel viewModel2;
+        
 
         private void FilesListHR_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -519,7 +538,7 @@ namespace UniversalGametypeEditor
             }
         }
 
-
+        
         private bool IsString(Type fieldType) { return fieldType != typeof(string); }
 
         private async void FilesListWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -531,7 +550,7 @@ namespace UniversalGametypeEditor
             {
                 //GametypeScroller.Children.Clear();
                 
-
+                Settings.Default.Selected = e.AddedItems[0].ToString();
                 Gametype.Clear();
                 
                 LoadGametype.Visibility = Visibility.Visible;
@@ -542,107 +561,258 @@ namespace UniversalGametypeEditor
                 {
                     ReadGametype.gametypeItems.Add(rg.gt);
                 }
-
+                ReadGT = rg.gt;
                 List<ReadGametype.Gametype> gametypeItems = new();
                 gametypeItems.AddRange(ReadGametype.gametypeItems);
                 ReadGametype.gametypeItems.Clear();
 
-                //Take the rg.gt instance and serialize it as JSON
-                string json = JsonConvert.SerializeObject(gametypeItems, Formatting.Indented);
-                Debug.WriteLine(json);
+                ObservableCollection<FileHeader> items = new();
 
-                //Now we have a JSON object that should eventually be organized with only relevant data
-                //We can use this to create a new list of objects that will be used to populate the gametype scroller
+                string JSON = rg.gt.FileHeader;
 
-                foreach (var item in gametypeItems)
+                FileHeader deserializedJSON = JsonConvert.DeserializeObject<ReadGametype.FileHeader>(JSON);
+
+                DropDown dropDown = new();
+                dropDown.Expander.Header = "File Header";
+                viewModel = new YourDataViewModel(deserializedJSON);
+                for (int i = 0; i < viewModel.GetType().GetProperties().Length; i++)
                 {
-                    foreach (var inner in new object[] { item.FileHeader, item.GametypeHeader, item.ModeSettings, item.SpawnSettings, item.GameSettings, item.PowerupTraits, item.TeamSettings, item.loadoutCluster, item.scriptedPlayerTraits, item.scriptOptions, item.Strings, item.Game, item.Map, item.playerratings })
+                    GametypeData gd = new();
+                    gd.value_name.Text = viewModel.GetType().GetProperties()[i].Name;
+                    gd.value.Text = viewModel.GetType().GetProperties()[i].GetValue(viewModel).ToString();
+                    dropDown.DropdownData.Children.Add(gd);
+                    int currentI = i;
+                    gd.value.TextChanged += (sender, e) =>
                     {
-                          foreach (var value in inner.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance))
+                        //Convert gd.value.Text to the correct type
+                        var val = Convert.ChangeType(gd.value.Text, viewModel.GetType().GetProperties()[currentI].PropertyType);
+
+                        viewModel.GetType().GetProperties()[currentI].SetValue(viewModel, val);
+                    };
+                }
+
+                Gametype.Add(dropDown);
+
+                JSON = rg.gt.GametypeHeader;
+
+                deserializedJSON2 = JsonConvert.DeserializeObject<ReadGametype.GametypeHeader>(JSON);
+                DropDown dropDown2 = new();
+                dropDown2.Expander.Header = "Gametype Header";
+                viewModel2 = new GametypeHeaderViewModel(deserializedJSON2);
+                string[] propertiesWithLengths = { "Gamertag", "EditGamertag", "Title", "Description" };
+                for (int i = 0; i < viewModel2.GetType().GetProperties().Length; i++)
+                {
+                    var propertyName = viewModel2.GetType().GetProperties()[i].Name;
+                    var propertyValue = viewModel2.GetType().GetProperties()[i].GetValue(viewModel2);
+
+
+                    if (propertyName.Contains("Length"))
+                    {
+                        continue;
+                    }
+
+                    GametypeData gd = new();
+                    gd.value_name.Text = viewModel2.GetType().GetProperties()[i].Name;
+                    
+                    gd.value.Text = propertyValue.ToString();
+
+                    // Check if the property is in the list of properties with lengths
+                    
+
+                    dropDown2.DropdownData.Children.Add(gd);
+                    int currentI = i;
+
+
+                    gd.value.TextChanged += (sender, e) =>
+                    {
+                        var val = Convert.ChangeType(gd.value.Text, viewModel2.GetType().GetProperties()[currentI].PropertyType);
+                        viewModel2.GetType().GetProperties()[currentI].SetValue(viewModel2, val);
+                    };
+                }
+
+                Gametype.Add(dropDown2);
+
+                JSON = rg.gt.ModeSettings;
+
+                ModeSettings deserializedJSON3 = JsonConvert.DeserializeObject<ReadGametype.ModeSettings>(JSON);
+                DropDown dropDown3 = new();
+                dropDown3.Expander.Header = "Mode Settings";
+                ModeSettingsViewModel viewModel3 = new ModeSettingsViewModel(deserializedJSON3);
+                
+
+                for (int i = 0; i < viewModel3.GetType().GetProperties().Length; i++)
+                {
+                    GametypeData gd = new();
+                    
+                    if (viewModel3.GetType().GetProperties()[i].Name == "Reach")
+                    {
+                        // Handle the "Reach" property separately
+                        var reachProperty = viewModel3.GetType().GetProperty("Reach");
+                        if (reachProperty != null)
                         {
-                            
-                            //Check if the value is a class and not a string
-                            if (value.FieldType.IsClass && !value.FieldType.IsPrimitive && !value.FieldType.IsEnum && !value.FieldType.IsPointer && !value.FieldType.FullName.Equals(typeof(string).FullName))
+                            var reachValue = reachProperty.GetValue(viewModel3);
+                            for (int j = 0; j < reachValue.GetType().GetProperties().Length; j++)
                             {
-                                if (inner == null)
+                                GametypeData gd2 = new();
+                                gd2.value_name.Text = reachValue.GetType().GetProperties()[j].Name;
+                                gd2.value.Text = reachValue.GetType().GetProperties()[j].GetValue(reachValue).ToString();
+                                dropDown3.DropdownData.Children.Add(gd2);
+                                int currentJ = j;
+                                gd2.value.TextChanged += (sender, e) =>
                                 {
-                                    return;
-                                }
-                                DropDown dropDown = new();
-                                dropDown.Expander.Header = value.Name;
-                                foreach (var innerValue in value.FieldType.GetFields(BindingFlags.Public | BindingFlags.Instance))
-                                {
-
-                                    await Task.Run(() =>
+                                    int? nullableIntValue = null;
+                                    if (!string.IsNullOrWhiteSpace(gd2.value.Text))
                                     {
-                                        try
+                                        if (int.TryParse(gd2.value.Text, out int intValue))
                                         {
-                                            _ = Dispatcher.BeginInvoke((Action)delegate ()
-                                        {
-                                            GametypeData gd = new();
-
-
-                                            var isNull = value.GetValue(inner);
-                                            if (isNull == null)
-                                            {
-                                                return;
-                                            }
-                                            var val2 = innerValue.GetValue(value.GetValue(inner));
-                                            
-
-                                            if (val2 != null)
-                                            {
-                                                gd.value.Text = val2.ToString();
-                                                gd.value_name.Text = innerValue.Name;
-                                            }
-                                            else
-                                            {
-                                                gd.value.Text = "????";
-                                            }
-                                            dropDown.DropdownData.Children.Add(gd);
-
-                                        });
+                                            nullableIntValue = intValue;
+                                            reachValue.GetType().GetProperties()[currentJ].SetValue(reachValue, nullableIntValue);
                                         }
-                                        catch (Exception ex)
+                                        else
                                         {
-                                            return;
+                                            // Handle the case where the parsing fails (e.g., non-integer input)
+                                            // You might want to display an error message or handle it as needed.
+                                            // For now, we leave it as null in case of parsing failure.
                                         }
-                                        Thread.Sleep(1);
-                                    });
-                                }
-                                if (dropDown.DropdownData.Children.Count == 0)
-                                {
-                                    continue;
-                                }
-                                Gametype.Add(dropDown);
-
-                            }
-                            else
-                            {
-                                GametypeData gd = new();
-                                var val = value.GetValue(inner);
-
-                                if (val != null)
-                                {
-                                    gd.value.Text = val.ToString();
-                                    gd.value_name.Text = value.Name;
-                                }
-                                else
-                                {
-                                    gd.value.Text = "????";
-                                }
-                                Gametype.Add(gd);
+                                    }
+                                    
+                                };
                             }
                         }
                     }
+                    else
+                    {
+                        gd.value_name.Text = viewModel3.GetType().GetProperties()[i].Name;
+                        gd.value.Text = viewModel3.GetType().GetProperties()[i].GetValue(viewModel3).ToString();
+                        dropDown3.DropdownData.Children.Add(gd);
+                        int currentI = i;
+                        gd.value.TextChanged += (sender, e) =>
+                        {
+                            int? nullableIntValue = null;
+                            if (!string.IsNullOrWhiteSpace(gd.value.Text))
+                            {
+                                if (int.TryParse(gd.value.Text, out int intValue))
+                                {
+                                    nullableIntValue = intValue;
+                                    viewModel3.GetType().GetProperties()[currentI].SetValue(viewModel3, nullableIntValue);
+                                }
+                                else
+                                {
+                                    var val = Convert.ChangeType(gd.value.Text, viewModel3.GetType().GetProperties()[currentI].PropertyType);
+                                    viewModel3.GetType().GetProperties()[currentI].SetValue(viewModel3, val);
+                                }
+                            }
+                            
+                        };
+                    }
+                    
+                    
                 }
 
+                Gametype.Add(dropDown3);
 
-                
+
 
 
 
                 GametypeScroller.ItemsSource = Gametype;
+
+                //Take the rg.gt instance and serialize it as JSON
+                //string json = JsonConvert.SerializeObject(gametypeItems, Formatting.Indented);
+                //Debug.WriteLine(json);
+
+                //Now we have a JSON object that should eventually be organized with only relevant data
+                //We can use this to create a new list of objects that will be used to populate the gametype scroller
+
+                //foreach (var item in gametypeItems)
+                //{
+                //    foreach (var inner in new object[] { item.FileHeader, item.GametypeHeader, item.ModeSettings, item.SpawnSettings, item.GameSettings, item.PowerupTraits, item.TeamSettings, item.loadoutCluster, item.scriptedPlayerTraits, item.scriptOptions, item.Strings, item.Game, item.Map, item.playerratings })
+                //    {
+                //          foreach (var value in inner.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance))
+                //        {
+
+                //            //Check if the value is a class and not a string
+                //            if (value.FieldType.IsClass && !value.FieldType.IsPrimitive && !value.FieldType.IsEnum && !value.FieldType.IsPointer && !value.FieldType.FullName.Equals(typeof(string).FullName))
+                //            {
+                //                if (inner == null)
+                //                {
+                //                    return;
+                //                }
+                //                DropDown dropDown = new();
+                //                dropDown.Expander.Header = value.Name;
+                //                foreach (var innerValue in value.FieldType.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                //                {
+
+                //                    await Task.Run(() =>
+                //                    {
+                //                        try
+                //                        {
+                //                            _ = Dispatcher.BeginInvoke((Action)delegate ()
+                //                        {
+                //                            GametypeData gd = new();
+
+
+                //                            var isNull = value.GetValue(inner);
+                //                            if (isNull == null)
+                //                            {
+                //                                return;
+                //                            }
+                //                            var val2 = innerValue.GetValue(value.GetValue(inner));
+
+
+                //                            if (val2 != null)
+                //                            {
+                //                                gd.value.Text = val2.ToString();
+                //                                gd.value_name.Text = innerValue.Name;
+                //                            }
+                //                            else
+                //                            {
+                //                                gd.value.Text = "????";
+                //                            }
+                //                            dropDown.DropdownData.Children.Add(gd);
+
+                //                        });
+                //                        }
+                //                        catch (Exception ex)
+                //                        {
+                //                            return;
+                //                        }
+                //                        Thread.Sleep(1);
+                //                    });
+                //                }
+                //                if (dropDown.DropdownData.Children.Count == 0)
+                //                {
+                //                    continue;
+                //                }
+                //                Gametype.Add(dropDown);
+
+                //            }
+                //            else
+                //            {
+                //                GametypeData gd = new();
+                //                var val = value.GetValue(inner);
+
+                //                if (val != null)
+                //                {
+                //                    gd.value.Text = val.ToString();
+                //                    gd.value_name.Text = value.Name;
+                //                }
+                //                else
+                //                {
+                //                    gd.value.Text = "????";
+                //                }
+                //                Gametype.Add(gd);
+                //            }
+                //        }
+                //    }
+                //}
+
+
+
+
+
+
+                //GametypeScroller.ItemsSource = Gametype;
 
                 //Create a new list and assign it the values of the gametypeItems list
 

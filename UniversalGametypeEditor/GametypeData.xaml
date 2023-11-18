@@ -12,7 +12,7 @@
             <ColumnDefinition Width="400" />
         </Grid.ColumnDefinitions>
         
-        <TextBox x:Name="value" Grid.Column="1" BorderThickness="1" BorderBrush="#505050" Background="#3D3D3D" Foreground="White" FontSize="14" TextWrapping="Wrap" />
+        <TextBox x:Name="value" Grid.Column="1" BorderThickness="1" BorderBrush="#505050" Background="#3D3D3D" Foreground="White" FontSize="14" TextWrapping="Wrap"/>
 
         <TextBlock Grid.Column="0" x:Name="value_name" Foreground="#fff"
                    Text="Gametype Value" HorizontalAlignment="Stretch" Margin="5,0,5,0" VerticalAlignment="Top" Background="#333333" FontSize="14" />
