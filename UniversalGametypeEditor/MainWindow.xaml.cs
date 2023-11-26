@@ -643,9 +643,9 @@ namespace UniversalGametypeEditor
                 for (int i = 0; i < viewModel3.GetType().GetProperties().Length; i++)
                 {
                     GametypeData gd = new();
-                    
                     if (viewModel3.GetType().GetProperties()[i].Name == "Reach")
                     {
+
                         // Handle the "Reach" property separately
                         var reachProperty = viewModel3.GetType().GetProperty("Reach");
                         if (reachProperty != null)

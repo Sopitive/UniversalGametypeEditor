@@ -793,7 +793,6 @@ namespace UniversalGametypeEditor
             gth.Description = ReadUStringFromBits(binaryString);
             gth.GameIcon = ConvertToInt(GetValue(8));
             gt.GametypeHeader = Newtonsoft.Json.JsonConvert.SerializeObject(gth);
-
             //ConvertAndSaveToXml(gth, "gametype.xml");
 
             //Read ModeSettings

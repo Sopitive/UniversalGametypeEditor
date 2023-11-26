@@ -697,18 +697,18 @@ namespace UniversalGametypeEditor
             this.reachSettings = reachSettings;
         }
 
-        public int? GracePeriod
-        {
-            get { return reachSettings.GracePeriod; }
-            set
-            {
-                if (reachSettings.GracePeriod != value)
-                {
-                    reachSettings.GracePeriod = value;
-                    OnPropertyChanged(nameof(GracePeriod));
-                }
-            }
-        }
+        //public int? GracePeriod
+        //{
+        //    get { return reachSettings.GracePeriod; }
+        //    set
+        //    {
+        //        if (reachSettings.GracePeriod != value)
+        //        {
+        //            reachSettings.GracePeriod = value;
+        //            OnPropertyChanged(nameof(GracePeriod));
+        //        }
+        //    }
+        //}
 
         // Repeat the pattern for other properties in ReachSettings
         // Implement INotifyPropertyChanged
