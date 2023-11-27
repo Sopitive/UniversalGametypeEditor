@@ -140,6 +140,19 @@ namespace UniversalGametypeEditor
             }
         }
 
+        public int VariantType
+        {
+            get { return data.VariantType; }
+            set
+            {
+                if (data.VariantType != value)
+                {
+                    data.VariantType = value;
+                    OnPropertyChanged(nameof(VariantType));
+                }
+            }
+        }
+
         public int Unknown0x319
         {
             get { return data.Unknown0x319; }

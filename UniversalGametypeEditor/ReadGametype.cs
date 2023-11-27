@@ -56,6 +56,7 @@ namespace UniversalGametypeEditor
             public int Unknown0x319;
             public int Unknown0x31D;
             public int FileLength;
+            public int VariantType;
         }
 
 
@@ -739,8 +740,10 @@ namespace UniversalGametypeEditor
             fh.UnknownHash0x2FC = GetValue(160);
             fh.Blank0x310 = GetValue(32);
             fh.Fileusedsize = ConvertToInt(GetValue(32));
-            fh.Unknown0x318 = ConvertToInt(GetValue(8));
-            fh.Unknown0x319 = ConvertToInt(GetValue(32));
+            fh.Unknown0x318 = ConvertToInt(GetValue(2));
+            fh.VariantType = ConvertToInt(GetValue(2));
+            fh.Unknown0x319 = ConvertToInt(GetValue(4));
+            fh.Unknown0x31D = ConvertToInt(GetValue(32));
             fh.Unknown0x31D = ConvertToInt(GetValue(32));
             fh.FileLength = ConvertToInt(GetValue(32));
 
