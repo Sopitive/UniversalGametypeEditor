@@ -32,6 +32,7 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.Menu;
 using static UniversalGametypeEditor.ReadGametype;
 using Newtonsoft.Json;
 using System.Windows.Forms.Integration;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace UniversalGametypeEditor
 {
@@ -511,9 +512,14 @@ namespace UniversalGametypeEditor
         //    return false;
         //}
         private Gametype ReadGT;
-        private GametypeHeader deserializedJSON2;
+        private GametypeHeader? deserializedJSON2;
 
         private void CompileGametype(object sender, RoutedEventArgs e)
+        {
+            CompileVariant();
+        }
+
+        private void CompileVariant()
         {
             if (Settings.Default.Selected != "Undefined")
             {
@@ -521,9 +527,11 @@ namespace UniversalGametypeEditor
                 string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
                 wg.WriteBinaryFile(filePath, deserializedJSON2, viewModel, viewModel2);
                 //Reselect the selected item
-                FilesListWatched.SelectedItem = FilesListWatched.SelectedItem;
+                Dispatcher.BeginInvoke((Action)delegate ()
+                {
+                    FilesListWatched.SelectedItem = Settings.Default.Selected;
+                });
             }
-                
         }
 
         private YourDataViewModel viewModel;
@@ -538,64 +546,67 @@ namespace UniversalGametypeEditor
             }
         }
 
-        
-        private bool IsString(Type fieldType) { return fieldType != typeof(string); }
-
-        private async void FilesListWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void Decompile(object name)
         {
-            //GametypeScroller.DataContext = null;
-            //GametypeScroller.Children.Clear();
-    
-            if (e.AddedItems?.Count != 0 && e.AddedItems[0].ToString().EndsWith("bin"))
+            //invoke dispatcher
+            Dispatcher.Invoke(() =>
             {
-                //GametypeScroller.Children.Clear();
-                
-                Settings.Default.Selected = e.AddedItems[0].ToString();
                 Gametype.Clear();
-                
                 LoadGametype.Visibility = Visibility.Visible;
-                ReadGametype rg = new();
-                string filePath = $"{Settings.Default.FilePath}\\{e.AddedItems[0]}";
-                try { rg.ReadBinary(filePath); }
-                catch (Exception ex)
+            
+
+            
+            ReadGametype rg = new();
+            string filePath = $"{Settings.Default.FilePath}\\{name}";
+            try { rg.ReadBinary(filePath); }
+            catch (Exception ex)
+            {
+                ReadGametype.gametypeItems.Add(rg.gt);
+            }
+            ReadGT = rg.gt;
+            List<ReadGametype.Gametype> gametypeItems = new();
+            gametypeItems.AddRange(ReadGametype.gametypeItems);
+            ReadGametype.gametypeItems.Clear();
+
+            ObservableCollection<FileHeader> items = new();
+
+            string JSON = rg.gt.FileHeader;
+
+            FileHeader? deserializedJSON = JsonConvert.DeserializeObject<FileHeader>(JSON);
+
+            DropDown dropDown = new();
+            dropDown.Expander.Header = "File Header";
+            viewModel = new YourDataViewModel(deserializedJSON);
+            for (int i = 0; i < viewModel.GetType().GetProperties().Length; i++)
+            {
+                GametypeData gd = new();
+                gd.value_name.Text = viewModel.GetType().GetProperties()[i].Name;
+                
+                gd.value.Text = viewModel.GetType().GetProperties()[i].GetValue(viewModel)?.ToString();
+                dropDown.DropdownData.Children.Add(gd);
+                int currentI = i;
+                gd.value.TextChanged += (sender, e) =>
                 {
-                    ReadGametype.gametypeItems.Add(rg.gt);
-                }
-                ReadGT = rg.gt;
-                List<ReadGametype.Gametype> gametypeItems = new();
-                gametypeItems.AddRange(ReadGametype.gametypeItems);
-                ReadGametype.gametypeItems.Clear();
+                    //Convert gd.value.Text to the correct type
+                    var val = Convert.ChangeType(gd.value.Text, viewModel.GetType().GetProperties()[currentI].PropertyType);
 
-                ObservableCollection<FileHeader> items = new();
+                    viewModel.GetType().GetProperties()[currentI].SetValue(viewModel, val);
+                };
+            }
 
-                string JSON = rg.gt.FileHeader;
+            if (Settings.Default.ConvertToForge)
+            {
+                viewModel.VariantType = 1;
+            }
 
-                FileHeader deserializedJSON = JsonConvert.DeserializeObject<ReadGametype.FileHeader>(JSON);
+            Gametype.Add(dropDown);
 
-                DropDown dropDown = new();
-                dropDown.Expander.Header = "File Header";
-                viewModel = new YourDataViewModel(deserializedJSON);
-                for (int i = 0; i < viewModel.GetType().GetProperties().Length; i++)
-                {
-                    GametypeData gd = new();
-                    gd.value_name.Text = viewModel.GetType().GetProperties()[i].Name;
-                    gd.value.Text = viewModel.GetType().GetProperties()[i].GetValue(viewModel).ToString();
-                    dropDown.DropdownData.Children.Add(gd);
-                    int currentI = i;
-                    gd.value.TextChanged += (sender, e) =>
-                    {
-                        //Convert gd.value.Text to the correct type
-                        var val = Convert.ChangeType(gd.value.Text, viewModel.GetType().GetProperties()[currentI].PropertyType);
+            JSON = rg.gt.GametypeHeader;
+            if (JSON != null)
+            {
 
-                        viewModel.GetType().GetProperties()[currentI].SetValue(viewModel, val);
-                    };
-                }
 
-                Gametype.Add(dropDown);
-
-                JSON = rg.gt.GametypeHeader;
-
-                deserializedJSON2 = JsonConvert.DeserializeObject<ReadGametype.GametypeHeader>(JSON);
+                deserializedJSON2 = JsonConvert.DeserializeObject<GametypeHeader>(JSON);
                 DropDown dropDown2 = new();
                 dropDown2.Expander.Header = "Gametype Header";
                 viewModel2 = new GametypeHeaderViewModel(deserializedJSON2);
@@ -613,11 +624,11 @@ namespace UniversalGametypeEditor
 
                     GametypeData gd = new();
                     gd.value_name.Text = viewModel2.GetType().GetProperties()[i].Name;
-                    
+
                     gd.value.Text = propertyValue.ToString();
 
                     // Check if the property is in the list of properties with lengths
-                    
+
 
                     dropDown2.DropdownData.Children.Add(gd);
                     int currentI = i;
@@ -630,15 +641,20 @@ namespace UniversalGametypeEditor
                     };
                 }
 
-                Gametype.Add(dropDown2);
 
-                JSON = rg.gt.ModeSettings;
+                Gametype.Add(dropDown2);
+            }
+
+            JSON = rg.gt.ModeSettings;
+            if (JSON != null)
+            {
+
 
                 ModeSettings deserializedJSON3 = JsonConvert.DeserializeObject<ReadGametype.ModeSettings>(JSON);
                 DropDown dropDown3 = new();
                 dropDown3.Expander.Header = "Mode Settings";
                 ModeSettingsViewModel viewModel3 = new ModeSettingsViewModel(deserializedJSON3);
-                
+
 
                 for (int i = 0; i < viewModel3.GetType().GetProperties().Length; i++)
                 {
@@ -675,7 +691,7 @@ namespace UniversalGametypeEditor
                                             // For now, we leave it as null in case of parsing failure.
                                         }
                                     }
-                                    
+
                                 };
                             }
                         }
@@ -702,20 +718,33 @@ namespace UniversalGametypeEditor
                                     viewModel3.GetType().GetProperties()[currentI].SetValue(viewModel3, val);
                                 }
                             }
-                            
+
                         };
                     }
-                    
-                    
+
+
                 }
 
                 Gametype.Add(dropDown3);
+            }
 
+            GametypeScroller.ItemsSource = Gametype;
+            });
+        }
+        
+        private bool IsString(Type fieldType) { return fieldType != typeof(string); }
 
-
-
-
-                GametypeScroller.ItemsSource = Gametype;
+        private async void FilesListWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            //GametypeScroller.DataContext = null;
+            //GametypeScroller.Children.Clear();
+    
+            if (e.AddedItems?.Count != 0 && e.AddedItems[0].ToString().EndsWith("bin"))
+            {
+                //GametypeScroller.Children.Clear();
+                
+                Settings.Default.Selected = e.AddedItems[0].ToString();
+                Decompile(e.AddedItems[0]);
 
                 //Take the rg.gt instance and serialize it as JSON
                 //string json = JsonConvert.SerializeObject(gametypeItems, Formatting.Indented);
@@ -1194,6 +1223,7 @@ namespace UniversalGametypeEditor
             AlwaysOnTop.IsChecked = Settings.Default.AlwaysOnTop;
             KeepNamedMglo.IsChecked = Settings.Default.KeepNamedMglo;
             SortBy.SelectedIndex = Settings.Default.OrderBy;
+            ConvertToForge.IsChecked = Settings.Default.ConvertToForge;
         }
 
         public void UpdateNamedMglo(object sender, RoutedEventArgs e)
@@ -1204,6 +1234,19 @@ namespace UniversalGametypeEditor
             } else
             {
                 Settings.Default.KeepNamedMglo = false;
+            }
+            Settings.Default.Save();
+        }
+
+        public void UpdateConvertForge(object sender, RoutedEventArgs e)
+        {
+            if (ConvertToForge.IsChecked)
+            {
+                Settings.Default.ConvertToForge = true;
+            }
+            else
+            {
+                Settings.Default.ConvertToForge = false;
             }
             Settings.Default.Save();
         }
@@ -1235,11 +1278,28 @@ namespace UniversalGametypeEditor
             Settings.Default.Save();
         }
 
+        private static int CheckLineLen(string text)
+        {
+            string check = text;
+            int numberOfNewLines = check.Split('\n').Length - 1;
+            return numberOfNewLines;
+        }
+
         private void UpdateLastEvent(string e)
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                LastEvent.Text = e
-            ));
+            {
+                //Get current time
+                string now = DateTime.Now.ToString("h:mm:ss");
+                LastEvent.Text += $"\n[{now}] {e}";
+                int numberOfNewLines = CheckLineLen(LastEvent.Text);
+                if (numberOfNewLines > 3)
+                {
+                    LastEvent.Text = LastEvent.Text.Substring(LastEvent.Text.IndexOf('\n') + 1);
+                }
+            }));
+            
+            
         }
         
         private void CheckConvertBin(object sender, RoutedEventArgs e)
@@ -1546,7 +1606,7 @@ namespace UniversalGametypeEditor
                         copying = true;
                         await sourceStream.CopyToAsync(destinationStream);
                         sourceStream.Close();
-                        System.Threading.Thread.Sleep(10);
+                        Thread.Sleep(10);
                         File.Delete(sourceFile);
                         //GetProcess.SendKey();
                         if (Settings.Default.PlayBeep)
@@ -1588,8 +1648,10 @@ namespace UniversalGametypeEditor
             }
         }
         private string convertedBin;
+        private string convertedMglo;
         public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
         {
+            
             if (copying)
             {
                 return;
@@ -1635,7 +1697,7 @@ namespace UniversalGametypeEditor
 
             if (changeType != WatcherChangeTypes.Changed)
             {
-                UpdateLastEvent($"Created: {name}");
+                //UpdateLastEvent($"Created: {name}");
             }
 
             if (name.Contains(".bin") && !name.EndsWith(".bin"))
@@ -1655,7 +1717,7 @@ namespace UniversalGametypeEditor
             }
                 
 
-            UpdateLastEvent($"Modified: {name}");
+            //UpdateLastEvent($"Modified: {name}");
             
 
             
@@ -1681,6 +1743,44 @@ namespace UniversalGametypeEditor
                     return;
                 }
                 convertedBin = "";
+                if (Settings.Default.ConvertToForge)
+                {
+                    Settings.Default.Selected = name;
+                    Decompile(name);
+                    CompileVariant();
+                    UpdateLastEvent($"Converted: {name} to Forge Variant Type");
+                    convertedBin = name;
+                    if (Settings.Default.GameDir != "Undefined")
+                    {
+                        if (Settings.Default.DecompiledVersion == 0)
+                        {
+                            //Copy file to Halo Reach
+                            File.Copy($"{fullPath}", $"{Settings.Default.GameDir}\\haloreach\\game_variants\\{name}", true);
+                            UpdateLastEvent($"Copied: {name} to the H:R Folder");
+                        }
+                        if (Settings.Default.DecompiledVersion == 1)
+                        {
+                            //Copy file to Halo 4
+                            File.Copy($"{fullPath}", $"{Settings.Default.GameDir}\\halo4\\game_variants\\{name}", true);
+                            UpdateLastEvent($"Copied: {name} to the H4 Folder");
+                        }
+                        if (Settings.Default.DecompiledVersion == 2)
+                        {
+                            //Copy file to Halo 2 Anniversary
+                            try
+                            {
+                                File.Copy($"{fullPath}", $"{Settings.Default.GameDir}\\groundhog\\game_variants\\{name}", true);
+
+                                UpdateLastEvent($"Copied: {name} to the H2A Folder");
+                            }
+                            catch (Exception ex)
+                            {
+                                UpdateLastEvent($"Error: {ex.Message}");
+                            }
+                        }
+                    }
+                }
+                
                 ConvertToMglo(name, directory);
             }
 
@@ -1688,13 +1788,22 @@ namespace UniversalGametypeEditor
 
             if (name.EndsWith(".bin") == false)
             {
+                if (convertedMglo == name)
+                {
+                    return;
+                }
+                convertedMglo = name;
                 Debug.WriteLine(name);
                 MoveFile($"{fullPath}", $"{copyPath}\\.mglo", name);
                 //File.Copy($"{copyPath}\\{name}", $"{copyPath}\\.mglo", true);
                 
                 
                 UpdateLastEvent($"Copied: {name} to the HotReload Folder");
-
+                Task.Delay(100).ContinueWith(_ =>
+                {
+                    convertedBin = string.Empty;
+                    convertedMglo = string.Empty;
+                });
             }
             
         }
@@ -2030,8 +2139,8 @@ namespace UniversalGametypeEditor
                 Debug.WriteLine("Test");
             } catch (IndexOutOfRangeException e)
             {
-                Debug.WriteLine(name);
-                UpdateLastEvent($"Error While Converting File {name}");
+                Debug.WriteLine(e);
+                //UpdateLastEvent($"Error While Converting File {name}");
                 return;
             }
             fileLocked = true;
@@ -2085,7 +2194,7 @@ namespace UniversalGametypeEditor
                 } catch (IndexOutOfRangeException e)
                 {
                     Debug.WriteLine(name);
-                    UpdateLastEvent($"Error While Converting File {name}");
+                    //UpdateLastEvent($"Error While Converting File {name}");
                     return;
                 }
                 

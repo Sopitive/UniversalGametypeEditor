@@ -730,6 +730,7 @@
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="SwitchWatched" Header="Change Watched" ToolTip="Automatically switch the watched directory depending on the custom games menu you have open" IsCheckable="True" Checked="UpdateSwitchWatched" Unchecked="UpdateSwitchWatched" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="AlwaysOnTop" Header="Always On Top" ToolTip="Keeps the window on top at all times" IsCheckable="True" Checked="UpdateOnTop" Unchecked="UpdateOnTop" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="KeepNamedMglo" Header="Keep Named Mglo" ToolTip="Copy named .mglo files to the HotReload directory" IsCheckable="True" Checked="UpdateNamedMglo" Unchecked="UpdateNamedMglo" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ConvertToForge" Header="Convert To Forge" ToolTip="Convert multiplayer gametypes to forge gametypes automatically" IsCheckable="True" Checked="UpdateConvertForge" Unchecked="UpdateConvertForge" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Help" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ShowTut" Header="Tutorial" ToolTip="Show tutorial" Click="ShowTutorial" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
@@ -849,7 +850,7 @@
             <StackPanel Grid.Row="1" Grid.ColumnSpan="1">
                 <Button x:Name="Pause" Content="Focus Game" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="FocusWindow" Style="{DynamicResource ButtonsStyle}"></Button>
             </StackPanel>
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Grid.Column="1" MaxWidth="300">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Grid.Column="1" MaxWidth="600">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
@@ -1013,8 +1014,8 @@
             <ScrollViewer  Grid.Column="1" VerticalScrollBarVisibility="Hidden" Margin="10,120,0,0" Height="380" Grid.ColumnSpan="4">
                 <ListView x:Name="GametypeScroller" Background="Transparent" BorderBrush="Transparent" MaxHeight="380" ScrollViewer.VerticalScrollBarVisibility="Hidden" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard"/>
             </ScrollViewer>
-            <Button Click="HandleLoadClick" Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Collapsed" Grid.ColumnSpan="1" Margin="0,0,50,0"></Button>
-            <Button Click="CompileGametype" Grid.Row="1" Grid.Column="4" VerticalAlignment="Center" x:Name="Compile" Content="Compile" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0"/>
+            <Button Click="HandleLoadClick" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Collapsed" Margin="0,0,50,0" Width="200" HorizontalAlignment="Right"></Button>
+            <Button Click="CompileGametype" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="Compile" Content="Compile" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0"/>
         </Grid>
 
     </Grid>

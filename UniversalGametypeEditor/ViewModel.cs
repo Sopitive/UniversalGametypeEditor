@@ -179,6 +179,19 @@ namespace UniversalGametypeEditor
             }
         }
 
+        public int Unknown0x31C
+        {
+            get { return data.Unknown0x31C; }
+            set
+            {
+                if (data.Unknown0x31C != value)
+                {
+                    data.Unknown0x31C = value;
+                    OnPropertyChanged(nameof(Unknown0x31C));
+                }
+            }
+        }
+
         public int FileLength
         {
             get { return data.FileLength; }

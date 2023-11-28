@@ -62,5 +62,11 @@
     <Setting Name="Selected" Type="System.String" Scope="User">
       <Value Profile="(Default)">Undefined</Value>
     </Setting>
+    <Setting Name="IsGvar" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="ConvertToForge" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

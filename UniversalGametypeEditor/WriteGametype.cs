@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.VisualBasic;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -6,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UniversalGametypeEditor.Properties;
 using static UniversalGametypeEditor.ReadGametype;
 
 namespace UniversalGametypeEditor
@@ -21,13 +23,24 @@ namespace UniversalGametypeEditor
             byte[] bytes = File.ReadAllBytes(filename);
 
             //Get all bytes up to file offset 2F0
-            string prebits = string.Join("", bytes.Take(752).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
-
+            string prebits;
+            prebits = string.Join("", bytes.Take(752).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+            if (Settings.Default.IsGvar)
+            {
+                prebits = string.Join("", bytes.Take(136).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+            }
             //Convert to a string of 0s and 1s starting at file offset 2F0
             rawBinary = string.Join("", bytes.Skip(752).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+            if (Settings.Default.IsGvar)
+            {
+                rawBinary = string.Join("", bytes.Skip(136).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+            }
             WriteFileHeaders(fh);
             int len = WriteGametypeHeaders(gh, gt);
             int slice = modifiedBinary.Length + len;
+
+
+            
             rawBinary = rawBinary[slice..];
             rawBinary = modifiedBinary + rawBinary;
             rawBinary = prebits + rawBinary;
@@ -48,11 +61,21 @@ namespace UniversalGametypeEditor
             string UnknownHash0x2FC = fh.UnknownHash0x2FC;
             string Blank0x310 = fh.Blank0x310;
             string Fileusedsize = Convert.ToString(fh.FileUsedSize, 2).PadLeft(32, '0');
-            string Unknown0x318 = Convert.ToString(fh.Unknown0x318, 2).PadLeft(8, '0');
-            string Unknown0x319 = Convert.ToString(fh.Unknown0x319, 2).PadLeft(32, '0');
+            string Unknown0x318 = Convert.ToString(fh.Unknown0x318, 2).PadLeft(2, '0');
+            string VariantType = Convert.ToString(fh.VariantType, 2).PadLeft(2, '0');
+            string Unknown0x319 = Convert.ToString(fh.Unknown0x319, 2).PadLeft(4, '0');
             string Unknown0x31D = Convert.ToString(fh.Unknown0x31D, 2).PadLeft(32, '0');
+            string Unknown0x31C = Convert.ToString(fh.Unknown0x31C, 2).PadLeft(32, '0');
             string FileLength = Convert.ToString(fh.FileLength, 2).PadLeft(32, '0');
-            modifiedBinary = mpvr + megaloversion + Unknown0x2F8 + Unknown0x2FA + UnknownHash0x2FC + Blank0x310 + Fileusedsize + Unknown0x318 + Unknown0x319 + Unknown0x31D + FileLength;
+            if (Settings.Default.IsGvar == false)
+            {
+                modifiedBinary = mpvr + megaloversion + Unknown0x2F8 + Unknown0x2FA + UnknownHash0x2FC + Blank0x310 + Fileusedsize + Unknown0x318 + VariantType + Unknown0x319 + Unknown0x31D + Unknown0x31C + FileLength;
+            }
+            if (Settings.Default.IsGvar == true)
+            {
+                modifiedBinary = Unknown0x2F8 + Unknown0x2FA + Unknown0x318 + VariantType + Unknown0x319 + Unknown0x31D + Unknown0x31C + FileLength;
+            }
+            
         }
 
         private int WriteGametypeHeaders(GametypeHeaderViewModel gh, GametypeHeader gt)

@@ -57,6 +57,7 @@ namespace UniversalGametypeEditor
             public int Unknown0x31D;
             public int FileLength;
             public int VariantType;
+            public int Unknown0x31C;
         }
 
 
@@ -728,24 +729,66 @@ namespace UniversalGametypeEditor
             byte[] binaryData = File.ReadAllBytes(filePath);
 
             //Convert binaryData to a string of 1s and 0s
-            binaryString = GetBinaryString(binaryData, 752, binaryData.Length*7);
-
+            binaryString = GetBinaryString(binaryData, 752, 32);
+            //Check the next 32 bits to see if it is a gametype
+            string gametype = GetValue(32);
+            //convert gametype to a string
+            string gametypeString = "";
+            for (int i = 0; i < gametype.Length; i += 8)
+            {
+                string s = gametype.Substring(i, 8);
+                gametypeString += (char)Convert.ToInt32(s, 2);
+            }
+            if (gametypeString != "mpvr")
+            {
+                binaryString = GetBinaryString(binaryData, 128, binaryData.Length * 7);
+            } else
+            {
+                binaryString = GetBinaryString(binaryData, 752, binaryData.Length * 7);
+            }
             
             //Read FileHeader
 
             fh.mpvr = GetValue(32);
-            fh.megaloversion = ConvertToInt(GetValue(32));
+            //Convert mpvr to a string
+            string mpvr = "";
+            for (int i = 0; i < fh.mpvr.Length; i += 8)
+            {
+                string s = fh.mpvr.Substring(i, 8);
+                mpvr += (char)Convert.ToInt32(s, 2);
+            }
+            if (mpvr == "gvar")
+            {
+                Settings.Default.IsGvar = true;
+                GetValue(32);
+            }
+            if (mpvr == "mpvr")
+            {
+                fh.megaloversion = ConvertToInt(GetValue(32));
+            }
             fh.Unknown0x2F8 = ConvertToInt(GetValue(16));
             fh.Unknown0x2FA = ConvertToInt(GetValue(16));
-            fh.UnknownHash0x2FC = GetValue(160);
-            fh.Blank0x310 = GetValue(32);
-            fh.Fileusedsize = ConvertToInt(GetValue(32));
+
+            if (mpvr == "mpvr")
+            {
+                Settings.Default.IsGvar = false;
+                fh.UnknownHash0x2FC = GetValue(160);
+                fh.Blank0x310 = GetValue(32);
+                fh.Fileusedsize = ConvertToInt(GetValue(32));
+            }
+            
+            
+            
             fh.Unknown0x318 = ConvertToInt(GetValue(2));
             fh.VariantType = ConvertToInt(GetValue(2));
             fh.Unknown0x319 = ConvertToInt(GetValue(4));
             fh.Unknown0x31D = ConvertToInt(GetValue(32));
-            fh.Unknown0x31D = ConvertToInt(GetValue(32));
+            fh.Unknown0x31C = ConvertToInt(GetValue(32));
             fh.FileLength = ConvertToInt(GetValue(32));
+
+
+            
+            
 
 
             gt.FileHeader = Newtonsoft.Json.JsonConvert.SerializeObject(fh);
@@ -1212,6 +1255,10 @@ namespace UniversalGametypeEditor
             Game g = new();
             g.ActualGameicon = ConvertToInt(GetValue(5));
             g.ActualGamecategory = ConvertToInt(GetValue(5));
+            if (Settings.Default.ConvertToForge)
+            {
+                g.ActualGamecategory = 1;
+            }
             gt.Game = Newtonsoft.Json.JsonConvert.SerializeObject(g);
 
             //ConvertAndSaveToXml(g, "gametype.xml");
