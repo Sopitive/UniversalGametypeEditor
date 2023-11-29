@@ -26,6 +26,13 @@ using System.Threading;
 using UniversalGametypeEditor;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.VisualBasic;
+using System.ComponentModel;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Menu;
+using static UniversalGametypeEditor.ReadGametype;
+using Newtonsoft.Json;
+using System.Windows.Forms.Integration;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace UniversalGametypeEditor
 {
@@ -56,6 +63,29 @@ namespace UniversalGametypeEditor
         private bool copying;
         StringCollection folders = new();
         ObservableCollection<string> dirHistory = new();
+        private ObservableCollection<System.Windows.Controls.UserControl> _gametype = new ObservableCollection<System.Windows.Controls.UserControl>();
+        public ObservableCollection<System.Windows.Controls.UserControl> Gametype
+        {
+            get => _gametype;
+            set
+            {
+                _gametype = value;
+                NotifyPropertyChanged("Gametype");
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void NotifyPropertyChanged(String propertyName)
+        {
+            if (PropertyChanged != null)
+            {
+                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+            }
+        }
+
+        
+
+
 
 
         public ObservableCollection<string> HotReloadFilesList { get; set; } =
@@ -72,9 +102,9 @@ namespace UniversalGametypeEditor
 
             //CheckForUpdates(null, null);
 
-            CheckPlayerNumbers();
-            CheckGlobalNumbers();
-            CheckObjectNumbers();
+            //CheckPlayerNumbers();
+            //CheckGlobalNumbers();
+            //CheckObjectNumbers();
 
             //string script = ReadBin.ConvertScriptToBinary("C:\\Program Files (x86)\\Steam\\steamapps\\common\\Halo The Master Chief Collection\\haloreach\\game_variants\\SvE AnvilEditor.bin");
             //Print the bytes
@@ -99,6 +129,7 @@ namespace UniversalGametypeEditor
             DataContext = this;
             StateChanged += MainWindowStateChangeRaised;
 
+            //Decompiled.ItemsSource = gametype;
             if (Settings.Default.GameIndex != -1)
             {
                 GameSelector.SelectedIndex = Settings.Default.GameIndex;
@@ -128,359 +159,384 @@ namespace UniversalGametypeEditor
 
             CheckTutorialCompletion();
         }
-        
 
 
-        private void FreezeValue(object sender, RoutedEventArgs e)
+
+        //private void FreezeValue(object sender, RoutedEventArgs e)
+        //{
+        //    if ((bool)CheckBox.IsChecked)
+        //    {
+        //        Settings.Default.FreezeValue = true;
+        //    }
+
+        //    if (!(bool)CheckBox.IsChecked)
+        //    {
+        //        Settings.Default.FreezeValue = false;
+        //    }
+        //}
+
+        //private void DecrementButton_Click(object sender, RoutedEventArgs e)
+        //{
+
+        //    if (Settings.Default.NumberSetting == "Global")
+        //    {
+        //        if (lastGlobalOffset > 0xBEC)
+        //        {
+        //            lastGlobalOffset -= 4;
+        //            globalNumIndex -= 1;
+        //        }
+        //    }
+
+        //    if (Settings.Default.NumberSetting == "Player")
+        //    {
+        //        if (lastOffset == 0xD50)
+        //        {
+        //            Settings.Default.NumberSetting = "Global";
+        //        }
+
+        //        if (lastOffset > 0xD50)
+        //        {
+        //            lastOffset -= 4;
+        //            playerNumIndex -= 1;
+        //        }
+
+
+        //    }
+
+        //    if (Settings.Default.NumberSetting == "Object")
+        //    {
+        //        if (lastObjectOffset == 0xBE)
+        //        {
+        //            Settings.Default.NumberSetting = "Player";
+        //        }
+
+        //        if (lastObjectOffset > 0xBE)
+        //        {
+        //            lastObjectOffset -= 4;
+        //            objectNumIndex -= 1;
+        //        }
+
+
+        //    }
+
+
+
+        //}
+
+        //private void IncrementButton_Click(object sender, RoutedEventArgs e)
+        //{
+
+
+        //    if (Settings.Default.NumberSetting == "Object")
+        //    {
+        //        if (lastObjectOffset < 0xCC + ((playerIndex - 1) * 0x84) )
+        //        {
+        //            lastObjectOffset += 2;
+        //            objectNumIndex += 1;
+        //        }
+
+        //    }
+
+        //    if (Settings.Default.NumberSetting == "Player")
+        //    {
+        //        if (lastOffset == 0xD6C)
+        //        {
+        //            Settings.Default.NumberSetting = "Object";
+        //            PlayerIndex.Text = "Object";
+        //        }
+
+        //        if (lastOffset < 0xD6C + ((playerIndex - 1) * 0xD4))
+        //        {
+        //            lastOffset += 4;
+        //            playerNumIndex += 1;
+        //        }
+
+
+
+        //    }
+
+
+
+
+
+        //    if (Settings.Default.NumberSetting == "Global")
+        //    {
+        //        if (lastGlobalOffset == 0xC28)
+        //        {
+        //            Settings.Default.NumberSetting = "Player";
+        //            PlayerIndex.Text = "Player 1";
+        //        }
+
+        //        if (lastGlobalOffset < 0xC28)
+        //        {
+        //            lastGlobalOffset += 4;
+        //            globalNumIndex += 1;
+        //        }
+
+
+        //    }
+
+        //}
+        //private int playerIndex = 1;
+        //private void IncrementPlayer_Click(object sender, RoutedEventArgs e)
+        //{
+        //    if (Settings.Default.NumberSetting == "Player")
+        //    {
+        //        if (playerIndex < 16)
+        //        {
+        //            playerIndex += 1;
+        //            lastOffset += 0xE0;
+        //        }
+        //        PlayerIndex.Text = "Player " + playerIndex.ToString();
+        //    }
+
+        //    if (Settings.Default.NumberSetting == "Global")
+        //    {
+        //        PlayerIndex.Text = "Global";
+        //    }
+
+        //    if (Settings.Default.NumberSetting == "Object")
+        //    {
+        //        playerIndex += 1;
+        //        lastObjectOffset += 0x84;
+        //        PlayerIndex.Text = "Object " + playerIndex.ToString();
+        //    }
+
+
+        //}
+
+        //private void DecrementPlayer_Click(object sender, RoutedEventArgs e)
+        //{
+
+        //    if (Settings.Default.NumberSetting == "Player")
+        //    {
+        //        if (playerIndex > 1)
+        //        {
+        //            playerIndex -= 1;
+        //            lastOffset -= 0xE0;
+        //        }
+        //        PlayerIndex.Text = "Player " + playerIndex.ToString();
+        //    }
+
+        //    if (Settings.Default.NumberSetting == "Global")
+        //    {
+        //        PlayerIndex.Text = "Global";
+        //    }
+
+        //    if (Settings.Default.NumberSetting == "Object")
+        //    {
+        //        playerIndex -= 1;
+        //        lastObjectOffset -= 0x84;
+        //        PlayerIndex.Text = "Object " + playerIndex.ToString();
+        //    }
+        //}
+
+
+
+        //private IntPtr address;
+        //private int playerNum;
+        //private bool resultPlayer;
+        //private bool resultGlobal;
+        //private bool resultObject;
+
+        //private void CheckPlayerNumbers()
+        //{
+        //    playerNumTimer.Interval = 500;
+        //    playerNumTimer.Tick += (sender, e) =>
+        //    {
+        //        if (Settings.Default.NumberSetting == "Player")
+        //        {
+        //            //int[] offsets = { 0x024FDF24, 0x1B0, 0x60, 0x78, 0x130, 0x560, lastOffset };
+        //            int[] offsets = { 0x02757E44, 0x560, lastOffset };
+
+        //        resultPlayer = MemoryScanner.ScanPointer(offsets, out playerNum, out address);
+
+        //        if (resultPlayer == false)
+        //        {
+        //            playerNumTimer.Stop();
+        //        }
+
+
+        //            PlayerNumb.Text = "Player Number " + playerNumIndex + ": " + playerNum.ToString();
+        //        }
+
+        //    };
+
+        //        playerNumTimer.Start();
+
+        //}
+
+        //private void CheckObjectNumbers()
+        //{
+        //    objectNumTimer.Interval = 500;
+        //    objectNumTimer.Tick += (sender, e) =>
+        //    {
+        //        if (Settings.Default.NumberSetting == "Object")
+        //        {
+        //            //int[] offsets = { 0x024FDF24, 0x1B0, 0x60, 0x78, 0x130, 0x560, lastOffset };
+        //            int[] offsets = { 0x02767E4C, 0x4F8, lastObjectOffset };
+
+        //            resultObject = MemoryScanner.ScanPointer(offsets, out int objectNum, out address);
+
+        //            if (resultObject == false)
+        //            {
+        //                objectNumTimer.Stop();
+        //            }
+
+
+        //            PlayerNumb.Text = "Object Number " + objectNumIndex + ": " + objectNum.ToString();
+        //        }
+
+        //    };
+
+        //    objectNumTimer.Start();
+
+        //}
+
+        //private void CheckGlobalNumbers()
+        //{
+        //    //Scan and return the result periodically for offsets 024FE0A0, 1BC, 10, 40, 60, 40, 150, and BF4
+        //    //If the result is false, stop the timer
+
+        //    globalNumTimer.Interval = 500;
+        //    globalNumTimer.Tick += (sender, e) =>
+        //    {
+        //        if (Settings.Default.NumberSetting == "Global")
+        //        {
+        //            int[] offsets = { 0x02757E44, 0x150, lastGlobalOffset };
+
+        //        resultGlobal = MemoryScanner.ScanPointer(offsets, out int globalNum, out address);
+
+        //        if (resultGlobal == false)
+        //        {
+        //            globalNumTimer.Stop();
+        //        }
+        //            PlayerNumb.Text = "Global Number " + globalNumIndex + ": " + globalNum.ToString();
+        //            PlayerIndex.Text = "Global";
+        //            //Debug.WriteLine(address.ToString("X16"));
+        //        }
+        //    };
+
+        //    globalNumTimer.Start();
+        //}
+
+        //private void Slider_ValueChanged(object sender, RoutedEventArgs e)
+        //{
+        //    WriteDelay.Text = $"Write Frequency (ms): {Slider.Value}";
+        //    Settings.Default.WriteDelay = Slider.Value;
+        //}
+
+        //private void WriteNewVal(object sender, System.Windows.Input.KeyEventArgs e)
+        //{
+
+        //    if (e.Key == Key.Enter)
+        //    {
+        //        // Enter key was pressed
+        //        // Perform the desired action here
+
+        //        // To prevent the "ding" sound, you can suppress the key press event
+
+
+
+        //        e.Handled = true;
+        //        if (!int.TryParse(NewValToWrite.Text, out int result))
+        //        {
+        //            return;
+        //        }
+        //        string valueToWrite = NewValToWrite.Text;
+        //        MemoryWriter.WriteValue(address, Convert.ToInt16(valueToWrite));
+
+        //        Task.Run(() =>
+        //        {
+        //            while (Settings.Default.FreezeValue)
+        //            {
+        //                MemoryWriter.WriteValue(address, Convert.ToInt16(valueToWrite));
+        //                if (Settings.Default.WriteDelay > 0)
+        //                {
+        //                    Thread.Sleep((int)Settings.Default.WriteDelay);
+        //                }
+        //            }
+        //        });
+
+        //        NewValToWrite.Text = "";
+        //    }
+
+        //}
+
+        //private void TryLoadNumbers(object sender, RoutedEventArgs e)
+        //{
+        //    CheckPlayerNumbers();
+        //    CheckGlobalNumbers();
+        //    CheckObjectNumbers();
+        //}
+
+        //private void TextWritten(object sender, TextCompositionEventArgs e)
+        //{
+
+        //    if (e.Text == "-" && !NewValToWrite.Text.Contains("-"))
+        //    {
+        //        e.Handled = false;
+        //        return;
+        //    }
+
+        //    if (!IsValidNumericInput(e.Text))
+        //    {
+        //        // Cancel the input by marking the event as handled
+        //        e.Handled = true;
+        //    }
+
+        //    string combinedVal = NewValToWrite.Text + e.Text;
+        //    int num = 0;
+        //    try
+        //    {
+        //        num = int.Parse(combinedVal);
+        //    } catch (System.FormatException ex)
+        //    {
+        //        e.Handled = true;
+        //    }
+
+        //    if (num < -32767 || num > 32767)
+        //    {
+        //        e.Handled = true;
+        //    }
+        //}
+
+        //private bool IsValidNumericInput(string input)
+        //{
+        //    // Check if the input is a valid integer value within the desired range
+        //    if (int.TryParse(input, out int value))
+        //    {
+        //        return value >= -32767 && value <= 32767;
+        //    }
+
+        //    return false;
+        //}
+        private Gametype ReadGT;
+        private GametypeHeader? deserializedJSON2;
+
+        private void CompileGametype(object sender, RoutedEventArgs e)
         {
-            if ((bool)CheckBox.IsChecked)
-            {
-                Settings.Default.FreezeValue = true;
-            }
-
-            if (!(bool)CheckBox.IsChecked)
-            {
-                Settings.Default.FreezeValue = false;
-            }
+            CompileVariant();
         }
 
-        private void DecrementButton_Click(object sender, RoutedEventArgs e)
+        private void CompileVariant()
         {
-
-            if (Settings.Default.NumberSetting == "Global")
+            if (Settings.Default.Selected != "Undefined")
             {
-                if (lastGlobalOffset > 0xBEC)
+                WriteGametype wg = new();
+                string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
+                wg.WriteBinaryFile(filePath, deserializedJSON2, viewModel, viewModel2);
+                //Reselect the selected item
+                Dispatcher.BeginInvoke((Action)delegate ()
                 {
-                    lastGlobalOffset -= 4;
-                    globalNumIndex -= 1;
-                }
-            }
-
-            if (Settings.Default.NumberSetting == "Player")
-            {
-                if (lastOffset == 0xD50)
-                {
-                    Settings.Default.NumberSetting = "Global";
-                }
-
-                if (lastOffset > 0xD50)
-                {
-                    lastOffset -= 4;
-                    playerNumIndex -= 1;
-                }
-
-                
-            }
-
-            if (Settings.Default.NumberSetting == "Object")
-            {
-                if (lastObjectOffset == 0xBE)
-                {
-                    Settings.Default.NumberSetting = "Player";
-                }
-
-                if (lastObjectOffset > 0xBE)
-                {
-                    lastObjectOffset -= 4;
-                    objectNumIndex -= 1;
-                }
-
-
-            }
-
-
-
-        }
-
-        private void IncrementButton_Click(object sender, RoutedEventArgs e)
-        {
-
-
-            if (Settings.Default.NumberSetting == "Object")
-            {
-                if (lastObjectOffset < 0xCC + ((playerIndex - 1) * 0x84) )
-                {
-                    lastObjectOffset += 2;
-                    objectNumIndex += 1;
-                }
-
-            }
-
-            if (Settings.Default.NumberSetting == "Player")
-            {
-                if (lastOffset == 0xD6C)
-                {
-                    Settings.Default.NumberSetting = "Object";
-                    PlayerIndex.Text = "Object";
-                }
-
-                if (lastOffset < 0xD6C + ((playerIndex - 1) * 0xD4))
-                {
-                    lastOffset += 4;
-                    playerNumIndex += 1;
-                }
-
-                
-
-            }
-
-            
-
-
-
-            if (Settings.Default.NumberSetting == "Global")
-            {
-                if (lastGlobalOffset == 0xC28)
-                {
-                    Settings.Default.NumberSetting = "Player";
-                    PlayerIndex.Text = "Player 1";
-                }
-
-                if (lastGlobalOffset < 0xC28)
-                {
-                    lastGlobalOffset += 4;
-                    globalNumIndex += 1;
-                }
-
-                
-            }
-
-        }
-        private int playerIndex = 1;
-        private void IncrementPlayer_Click(object sender, RoutedEventArgs e)
-        {
-            if (Settings.Default.NumberSetting == "Player")
-            {
-                if (playerIndex < 16)
-                {
-                    playerIndex += 1;
-                    lastOffset += 0xE0;
-                }
-                PlayerIndex.Text = "Player " + playerIndex.ToString();
-            }
-
-            if (Settings.Default.NumberSetting == "Global")
-            {
-                PlayerIndex.Text = "Global";
-            }
-
-            if (Settings.Default.NumberSetting == "Object")
-            {
-                playerIndex += 1;
-                lastObjectOffset += 0x84;
-                PlayerIndex.Text = "Object " + playerIndex.ToString();
-            }
-
-
-        }
-
-        private void DecrementPlayer_Click(object sender, RoutedEventArgs e)
-        {
-
-            if (Settings.Default.NumberSetting == "Player")
-            {
-                if (playerIndex > 1)
-                {
-                    playerIndex -= 1;
-                    lastOffset -= 0xE0;
-                }
-                PlayerIndex.Text = "Player " + playerIndex.ToString();
-            }
-
-            if (Settings.Default.NumberSetting == "Global")
-            {
-                PlayerIndex.Text = "Global";
-            }
-
-            if (Settings.Default.NumberSetting == "Object")
-            {
-                playerIndex -= 1;
-                lastObjectOffset -= 0x84;
-                PlayerIndex.Text = "Object " + playerIndex.ToString();
-            }
-        }
-
-
-
-        private IntPtr address;
-        private int playerNum;
-        private bool resultPlayer;
-        private bool resultGlobal;
-        private bool resultObject;
-        
-        private void CheckPlayerNumbers()
-        {
-            playerNumTimer.Interval = 500;
-            playerNumTimer.Tick += (sender, e) =>
-            {
-                if (Settings.Default.NumberSetting == "Player")
-                {
-                    //int[] offsets = { 0x024FDF24, 0x1B0, 0x60, 0x78, 0x130, 0x560, lastOffset };
-                    int[] offsets = { 0x02757E44, 0x560, lastOffset };
-
-                resultPlayer = MemoryScanner.ScanPointer(offsets, out playerNum, out address);
-
-                if (resultPlayer == false)
-                {
-                    playerNumTimer.Stop();
-                }
-
-                
-                    PlayerNumb.Text = "Player Number " + playerNumIndex + ": " + playerNum.ToString();
-                }
-                
-            };
-
-                playerNumTimer.Start();
-            
-        }
-        
-        private void CheckObjectNumbers()
-        {
-            objectNumTimer.Interval = 500;
-            objectNumTimer.Tick += (sender, e) =>
-            {
-                if (Settings.Default.NumberSetting == "Object")
-                {
-                    //int[] offsets = { 0x024FDF24, 0x1B0, 0x60, 0x78, 0x130, 0x560, lastOffset };
-                    int[] offsets = { 0x02767E4C, 0x4F8, lastObjectOffset };
-
-                    resultObject = MemoryScanner.ScanPointer(offsets, out int objectNum, out address);
-
-                    if (resultObject == false)
-                    {
-                        objectNumTimer.Stop();
-                    }
-                    
-
-                    PlayerNumb.Text = "Object Number " + objectNumIndex + ": " + objectNum.ToString();
-                }
-
-            };
-
-            objectNumTimer.Start();
-
-        }
-
-        private void CheckGlobalNumbers()
-        {
-            //Scan and return the result periodically for offsets 024FE0A0, 1BC, 10, 40, 60, 40, 150, and BF4
-            //If the result is false, stop the timer
-
-            globalNumTimer.Interval = 500;
-            globalNumTimer.Tick += (sender, e) =>
-            {
-                if (Settings.Default.NumberSetting == "Global")
-                {
-                    int[] offsets = { 0x02757E44, 0x150, lastGlobalOffset };
-
-                resultGlobal = MemoryScanner.ScanPointer(offsets, out int globalNum, out address);
-
-                if (resultGlobal == false)
-                {
-                    globalNumTimer.Stop();
-                }
-                    PlayerNumb.Text = "Global Number " + globalNumIndex + ": " + globalNum.ToString();
-                    PlayerIndex.Text = "Global";
-                    //Debug.WriteLine(address.ToString("X16"));
-                }
-            };
-
-            globalNumTimer.Start();
-        }
-
-        private void Slider_ValueChanged(object sender, RoutedEventArgs e)
-        {
-            WriteDelay.Text = $"Write Frequency (ms): {Slider.Value}";
-            Settings.Default.WriteDelay = Slider.Value;
-        }
-
-        private void WriteNewVal(object sender, System.Windows.Input.KeyEventArgs e)
-        {
-            
-            if (e.Key == Key.Enter)
-            {
-                // Enter key was pressed
-                // Perform the desired action here
-
-                // To prevent the "ding" sound, you can suppress the key press event
-
-
-
-                e.Handled = true;
-                if (!int.TryParse(NewValToWrite.Text, out int result))
-                {
-                    return;
-                }
-                string valueToWrite = NewValToWrite.Text;
-                MemoryWriter.WriteValue(address, Convert.ToInt16(valueToWrite));
-                
-                Task.Run(() =>
-                {
-                    while (Settings.Default.FreezeValue)
-                    {
-                        MemoryWriter.WriteValue(address, Convert.ToInt16(valueToWrite));
-                        if (Settings.Default.WriteDelay > 0)
-                        {
-                            Thread.Sleep((int)Settings.Default.WriteDelay);
-                        }
-                    }
+                    FilesListWatched.SelectedItem = Settings.Default.Selected;
                 });
-
-                NewValToWrite.Text = "";
-            }
-
-        }
-
-        private void TryLoadNumbers(object sender, RoutedEventArgs e)
-        {
-            CheckPlayerNumbers();
-            CheckGlobalNumbers();
-            CheckObjectNumbers();
-        }
-
-        private void TextWritten(object sender, TextCompositionEventArgs e)
-        {
-
-            if (e.Text == "-" && !NewValToWrite.Text.Contains("-"))
-            {
-                e.Handled = false;
-                return;
-            }
-
-            if (!IsValidNumericInput(e.Text))
-            {
-                // Cancel the input by marking the event as handled
-                e.Handled = true;
-            }
-
-            string combinedVal = NewValToWrite.Text + e.Text;
-            int num = 0;
-            try
-            {
-                num = int.Parse(combinedVal);
-            } catch (System.FormatException ex)
-            {
-                e.Handled = true;
-            }
-            
-            if (num < -32767 || num > 32767)
-            {
-                e.Handled = true;
             }
         }
 
-        private bool IsValidNumericInput(string input)
-        {
-            // Check if the input is a valid integer value within the desired range
-            if (int.TryParse(input, out int value))
-            {
-                return value >= -32767 && value <= 32767;
-            }
-
-            return false;
-        }
-
+        private YourDataViewModel viewModel;
+        private GametypeHeaderViewModel viewModel2;
+        
 
         private void FilesListHR_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -490,31 +546,386 @@ namespace UniversalGametypeEditor
             }
         }
 
-        private void FilesListWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void Decompile(object name)
         {
-            if (e.AddedItems.Count != 0 && e.AddedItems[0].ToString().EndsWith("bin"))
+            //invoke dispatcher
+            Dispatcher.Invoke(() =>
             {
+                Gametype.Clear();
                 LoadGametype.Visibility = Visibility.Visible;
-                ReadGametype rg = new();
-                string filePath = $"{Settings.Default.FilePath}\\{e.AddedItems[0]}";
-                try { rg.ReadBinary(filePath); }
-                catch (Exception ex)
+            
+
+            
+            ReadGametype rg = new();
+            string filePath = $"{Settings.Default.FilePath}\\{name}";
+            try { rg.ReadBinary(filePath); }
+            catch (Exception ex)
+            {
+                ReadGametype.gametypeItems.Add(rg.gt);
+            }
+            ReadGT = rg.gt;
+            List<ReadGametype.Gametype> gametypeItems = new();
+            gametypeItems.AddRange(ReadGametype.gametypeItems);
+            ReadGametype.gametypeItems.Clear();
+
+            ObservableCollection<FileHeader> items = new();
+
+            string JSON = rg.gt.FileHeader;
+
+            FileHeader? deserializedJSON = JsonConvert.DeserializeObject<FileHeader>(JSON);
+
+            DropDown dropDown = new();
+            dropDown.Expander.Header = "File Header";
+            viewModel = new YourDataViewModel(deserializedJSON);
+            for (int i = 0; i < viewModel.GetType().GetProperties().Length; i++)
+            {
+                GametypeData gd = new();
+                gd.value_name.Text = viewModel.GetType().GetProperties()[i].Name;
+                
+                gd.value.Text = viewModel.GetType().GetProperties()[i].GetValue(viewModel)?.ToString();
+                dropDown.DropdownData.Children.Add(gd);
+                int currentI = i;
+                gd.value.TextChanged += (sender, e) =>
                 {
-                    
+                    //Convert gd.value.Text to the correct type
+                    var val = Convert.ChangeType(gd.value.Text, viewModel.GetType().GetProperties()[currentI].PropertyType);
+
+                    viewModel.GetType().GetProperties()[currentI].SetValue(viewModel, val);
+                };
+            }
+
+            if (Settings.Default.ConvertToForge)
+            {
+                viewModel.VariantType = 1;
+            }
+
+            Gametype.Add(dropDown);
+
+            JSON = rg.gt.GametypeHeader;
+            if (JSON != null)
+            {
+
+
+                deserializedJSON2 = JsonConvert.DeserializeObject<GametypeHeader>(JSON);
+                DropDown dropDown2 = new();
+                dropDown2.Expander.Header = "Gametype Header";
+                viewModel2 = new GametypeHeaderViewModel(deserializedJSON2);
+                string[] propertiesWithLengths = { "Gamertag", "EditGamertag", "Title", "Description" };
+                for (int i = 0; i < viewModel2.GetType().GetProperties().Length; i++)
+                {
+                    var propertyName = viewModel2.GetType().GetProperties()[i].Name;
+                    var propertyValue = viewModel2.GetType().GetProperties()[i].GetValue(viewModel2);
+
+
+                    if (propertyName.Contains("Length"))
+                    {
+                        continue;
+                    }
+
+                    GametypeData gd = new();
+                    gd.value_name.Text = viewModel2.GetType().GetProperties()[i].Name;
+
+                    gd.value.Text = propertyValue.ToString();
+
+                    // Check if the property is in the list of properties with lengths
+
+
+                    dropDown2.DropdownData.Children.Add(gd);
+                    int currentI = i;
+
+
+                    gd.value.TextChanged += (sender, e) =>
+                    {
+                        var val = Convert.ChangeType(gd.value.Text, viewModel2.GetType().GetProperties()[currentI].PropertyType);
+                        viewModel2.GetType().GetProperties()[currentI].SetValue(viewModel2, val);
+                    };
                 }
-                var gametypeHeaders = rg.gth;
-                string title = gametypeHeaders.Title;
-                string description = gametypeHeaders.Description;
-                MetaName.Text = title;
-                //string description = BinaryParser.ProcessBin("ExTypes", $"{Settings.Default.FilePath}\\{e.AddedItems[0]}", "Description");
-                MetaDesc.Text = description;
-                //HandleFiles((string)e.AddedItems[0], Settings.Default.FilePath, WatcherChangeTypes.Changed, false);
+
+
+                Gametype.Add(dropDown2);
+            }
+
+            JSON = rg.gt.ModeSettings;
+            if (JSON != null)
+            {
+
+
+                ModeSettings deserializedJSON3 = JsonConvert.DeserializeObject<ReadGametype.ModeSettings>(JSON);
+                DropDown dropDown3 = new();
+                dropDown3.Expander.Header = "Mode Settings";
+                ModeSettingsViewModel viewModel3 = new ModeSettingsViewModel(deserializedJSON3);
+
+
+                for (int i = 0; i < viewModel3.GetType().GetProperties().Length; i++)
+                {
+                    GametypeData gd = new();
+                    if (viewModel3.GetType().GetProperties()[i].Name == "Reach")
+                    {
+
+                        // Handle the "Reach" property separately
+                        var reachProperty = viewModel3.GetType().GetProperty("Reach");
+                        if (reachProperty != null)
+                        {
+                            var reachValue = reachProperty.GetValue(viewModel3);
+                            for (int j = 0; j < reachValue.GetType().GetProperties().Length; j++)
+                            {
+                                GametypeData gd2 = new();
+                                gd2.value_name.Text = reachValue.GetType().GetProperties()[j].Name;
+                                gd2.value.Text = reachValue.GetType().GetProperties()[j].GetValue(reachValue).ToString();
+                                dropDown3.DropdownData.Children.Add(gd2);
+                                int currentJ = j;
+                                gd2.value.TextChanged += (sender, e) =>
+                                {
+                                    int? nullableIntValue = null;
+                                    if (!string.IsNullOrWhiteSpace(gd2.value.Text))
+                                    {
+                                        if (int.TryParse(gd2.value.Text, out int intValue))
+                                        {
+                                            nullableIntValue = intValue;
+                                            reachValue.GetType().GetProperties()[currentJ].SetValue(reachValue, nullableIntValue);
+                                        }
+                                        else
+                                        {
+                                            // Handle the case where the parsing fails (e.g., non-integer input)
+                                            // You might want to display an error message or handle it as needed.
+                                            // For now, we leave it as null in case of parsing failure.
+                                        }
+                                    }
+
+                                };
+                            }
+                        }
+                    }
+                    else
+                    {
+                        gd.value_name.Text = viewModel3.GetType().GetProperties()[i].Name;
+                        gd.value.Text = viewModel3.GetType().GetProperties()[i].GetValue(viewModel3).ToString();
+                        dropDown3.DropdownData.Children.Add(gd);
+                        int currentI = i;
+                        gd.value.TextChanged += (sender, e) =>
+                        {
+                            int? nullableIntValue = null;
+                            if (!string.IsNullOrWhiteSpace(gd.value.Text))
+                            {
+                                if (int.TryParse(gd.value.Text, out int intValue))
+                                {
+                                    nullableIntValue = intValue;
+                                    viewModel3.GetType().GetProperties()[currentI].SetValue(viewModel3, nullableIntValue);
+                                }
+                                else
+                                {
+                                    var val = Convert.ChangeType(gd.value.Text, viewModel3.GetType().GetProperties()[currentI].PropertyType);
+                                    viewModel3.GetType().GetProperties()[currentI].SetValue(viewModel3, val);
+                                }
+                            }
+
+                        };
+                    }
+
+
+                }
+
+                Gametype.Add(dropDown3);
+            }
+
+            GametypeScroller.ItemsSource = Gametype;
+            });
+        }
+        
+        private bool IsString(Type fieldType) { return fieldType != typeof(string); }
+
+        private async void FilesListWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            //GametypeScroller.DataContext = null;
+            //GametypeScroller.Children.Clear();
+    
+            if (e.AddedItems?.Count != 0 && e.AddedItems[0].ToString().EndsWith("bin"))
+            {
+                //GametypeScroller.Children.Clear();
+                
+                Settings.Default.Selected = e.AddedItems[0].ToString();
+                Decompile(e.AddedItems[0]);
+
+                //Take the rg.gt instance and serialize it as JSON
+                //string json = JsonConvert.SerializeObject(gametypeItems, Formatting.Indented);
+                //Debug.WriteLine(json);
+
+                //Now we have a JSON object that should eventually be organized with only relevant data
+                //We can use this to create a new list of objects that will be used to populate the gametype scroller
+
+                //foreach (var item in gametypeItems)
+                //{
+                //    foreach (var inner in new object[] { item.FileHeader, item.GametypeHeader, item.ModeSettings, item.SpawnSettings, item.GameSettings, item.PowerupTraits, item.TeamSettings, item.loadoutCluster, item.scriptedPlayerTraits, item.scriptOptions, item.Strings, item.Game, item.Map, item.playerratings })
+                //    {
+                //          foreach (var value in inner.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance))
+                //        {
+
+                //            //Check if the value is a class and not a string
+                //            if (value.FieldType.IsClass && !value.FieldType.IsPrimitive && !value.FieldType.IsEnum && !value.FieldType.IsPointer && !value.FieldType.FullName.Equals(typeof(string).FullName))
+                //            {
+                //                if (inner == null)
+                //                {
+                //                    return;
+                //                }
+                //                DropDown dropDown = new();
+                //                dropDown.Expander.Header = value.Name;
+                //                foreach (var innerValue in value.FieldType.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                //                {
+
+                //                    await Task.Run(() =>
+                //                    {
+                //                        try
+                //                        {
+                //                            _ = Dispatcher.BeginInvoke((Action)delegate ()
+                //                        {
+                //                            GametypeData gd = new();
+
+
+                //                            var isNull = value.GetValue(inner);
+                //                            if (isNull == null)
+                //                            {
+                //                                return;
+                //                            }
+                //                            var val2 = innerValue.GetValue(value.GetValue(inner));
+
+
+                //                            if (val2 != null)
+                //                            {
+                //                                gd.value.Text = val2.ToString();
+                //                                gd.value_name.Text = innerValue.Name;
+                //                            }
+                //                            else
+                //                            {
+                //                                gd.value.Text = "????";
+                //                            }
+                //                            dropDown.DropdownData.Children.Add(gd);
+
+                //                        });
+                //                        }
+                //                        catch (Exception ex)
+                //                        {
+                //                            return;
+                //                        }
+                //                        Thread.Sleep(1);
+                //                    });
+                //                }
+                //                if (dropDown.DropdownData.Children.Count == 0)
+                //                {
+                //                    continue;
+                //                }
+                //                Gametype.Add(dropDown);
+
+                //            }
+                //            else
+                //            {
+                //                GametypeData gd = new();
+                //                var val = value.GetValue(inner);
+
+                //                if (val != null)
+                //                {
+                //                    gd.value.Text = val.ToString();
+                //                    gd.value_name.Text = value.Name;
+                //                }
+                //                else
+                //                {
+                //                    gd.value.Text = "????";
+                //                }
+                //                Gametype.Add(gd);
+                //            }
+                //        }
+                //    }
+                //}
+
+
+
+
+
+
+                //GametypeScroller.ItemsSource = Gametype;
+
+                //Create a new list and assign it the values of the gametypeItems list
+
+
+
+
+
+
+
+                //foreach (var item in gametypeItems)
+                //{
+                //    foreach (var inner in new object[] { item.FileHeader, item.GametypeHeader, item.ModeSettings, item.SpawnSettings, item.GameSettings, item.PowerupTraits, item.TeamSettings, item.loadoutCluster, item.scriptedPlayerTraits, item.scriptOptions, item.Strings, item.Game, item.Map, item.playerratings })
+                //    {
+
+
+                //        foreach (var value in inner.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance))
+                //        {
+
+                //            //Check if the value is a struct
+                //            if (value.FieldType.IsValueType && !value.FieldType.IsPrimitive && !value.FieldType.IsEnum && !value.FieldType.IsPointer)
+                //            {
+                //                DropDown dropDown = new();
+                //                dropDown.Expander.Header = value.Name;
+                //                foreach (var innerValue in value.FieldType.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                //                {
+                //                    await Task.Run(() =>
+                //                    {
+                //                        Dispatcher.BeginInvoke((Action)delegate ()
+                //                        {
+                //                            GametypeData gd = new();
+                //                            var val = innerValue.GetValue(value.GetValue(inner));
+
+
+                //                            if (val != null)
+                //                            {
+                //                                gd.value_name.Text = innerValue.Name;
+                //                                gd.value.Text = val.ToString();
+                //                            }
+                //                            else
+                //                            {
+                //                                gd.value.Text = "????";
+                //                                //return;
+                //                            }
+                //                            dropDown.DropdownData.Children.Add(gd);
+                //                        });
+                //                        Thread.Sleep(1);
+                //                    });
+                //                }
+                //                //Check if dropDown has any children
+                //                if (dropDown.DropdownData.Children.Count == 0)
+                //                {
+                //                    continue;
+                //                }
+                //                Gametype.Add(dropDown);
+                //            }
+                //            else
+                //            {
+                //                GametypeData gd = new();
+                //                var val = value.GetValue(inner);
+                //                gd.value_name.Text = value.Name;
+
+                //                if (val != null)
+                //                {
+                //                    gd.value.Text = val.ToString();
+                //                }
+                //                else
+                //                {
+                //                    gd.value.Text = "????";
+                //                }
+                //                Gametype.Add(gd);
+                //            }
+
+                //        }
+                //        GametypeScroller.ItemsSource = Gametype;
+
+                //    }
+                //}
+
             }
             else
             {
                 LoadGametype.Visibility = Visibility.Collapsed;
-                MetaName.Text = "";
-                MetaDesc.Text = "";
+                //MetaName.Text = "";
+                //MetaDesc.Text = "";
             }
 
         }
@@ -812,6 +1223,7 @@ namespace UniversalGametypeEditor
             AlwaysOnTop.IsChecked = Settings.Default.AlwaysOnTop;
             KeepNamedMglo.IsChecked = Settings.Default.KeepNamedMglo;
             SortBy.SelectedIndex = Settings.Default.OrderBy;
+            ConvertToForge.IsChecked = Settings.Default.ConvertToForge;
         }
 
         public void UpdateNamedMglo(object sender, RoutedEventArgs e)
@@ -822,6 +1234,19 @@ namespace UniversalGametypeEditor
             } else
             {
                 Settings.Default.KeepNamedMglo = false;
+            }
+            Settings.Default.Save();
+        }
+
+        public void UpdateConvertForge(object sender, RoutedEventArgs e)
+        {
+            if (ConvertToForge.IsChecked)
+            {
+                Settings.Default.ConvertToForge = true;
+            }
+            else
+            {
+                Settings.Default.ConvertToForge = false;
             }
             Settings.Default.Save();
         }
@@ -853,11 +1278,28 @@ namespace UniversalGametypeEditor
             Settings.Default.Save();
         }
 
+        private static int CheckLineLen(string text)
+        {
+            string check = text;
+            int numberOfNewLines = check.Split('\n').Length - 1;
+            return numberOfNewLines;
+        }
+
         private void UpdateLastEvent(string e)
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                LastEvent.Text = e
-            ));
+            {
+                //Get current time
+                string now = DateTime.Now.ToString("h:mm:ss");
+                LastEvent.Text += $"\n[{now}] {e}";
+                int numberOfNewLines = CheckLineLen(LastEvent.Text);
+                if (numberOfNewLines > 3)
+                {
+                    LastEvent.Text = LastEvent.Text.Substring(LastEvent.Text.IndexOf('\n') + 1);
+                }
+            }));
+            
+            
         }
         
         private void CheckConvertBin(object sender, RoutedEventArgs e)
@@ -1164,7 +1606,7 @@ namespace UniversalGametypeEditor
                         copying = true;
                         await sourceStream.CopyToAsync(destinationStream);
                         sourceStream.Close();
-                        System.Threading.Thread.Sleep(10);
+                        Thread.Sleep(10);
                         File.Delete(sourceFile);
                         //GetProcess.SendKey();
                         if (Settings.Default.PlayBeep)
@@ -1206,8 +1648,10 @@ namespace UniversalGametypeEditor
             }
         }
         private string convertedBin;
+        private string convertedMglo;
         public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
         {
+            
             if (copying)
             {
                 return;
@@ -1253,7 +1697,7 @@ namespace UniversalGametypeEditor
 
             if (changeType != WatcherChangeTypes.Changed)
             {
-                UpdateLastEvent($"Created: {name}");
+                //UpdateLastEvent($"Created: {name}");
             }
 
             if (name.Contains(".bin") && !name.EndsWith(".bin"))
@@ -1273,7 +1717,7 @@ namespace UniversalGametypeEditor
             }
                 
 
-            UpdateLastEvent($"Modified: {name}");
+            //UpdateLastEvent($"Modified: {name}");
             
 
             
@@ -1299,6 +1743,44 @@ namespace UniversalGametypeEditor
                     return;
                 }
                 convertedBin = "";
+                if (Settings.Default.ConvertToForge)
+                {
+                    Settings.Default.Selected = name;
+                    Decompile(name);
+                    CompileVariant();
+                    UpdateLastEvent($"Converted: {name} to Forge Variant Type");
+                    convertedBin = name;
+                    if (Settings.Default.GameDir != "Undefined")
+                    {
+                        if (Settings.Default.DecompiledVersion == 0)
+                        {
+                            //Copy file to Halo Reach
+                            File.Copy($"{fullPath}", $"{Settings.Default.GameDir}\\haloreach\\game_variants\\{name}", true);
+                            UpdateLastEvent($"Copied: {name} to the H:R Folder");
+                        }
+                        if (Settings.Default.DecompiledVersion == 1)
+                        {
+                            //Copy file to Halo 4
+                            File.Copy($"{fullPath}", $"{Settings.Default.GameDir}\\halo4\\game_variants\\{name}", true);
+                            UpdateLastEvent($"Copied: {name} to the H4 Folder");
+                        }
+                        if (Settings.Default.DecompiledVersion == 2)
+                        {
+                            //Copy file to Halo 2 Anniversary
+                            try
+                            {
+                                File.Copy($"{fullPath}", $"{Settings.Default.GameDir}\\groundhog\\game_variants\\{name}", true);
+
+                                UpdateLastEvent($"Copied: {name} to the H2A Folder");
+                            }
+                            catch (Exception ex)
+                            {
+                                UpdateLastEvent($"Error: {ex.Message}");
+                            }
+                        }
+                    }
+                }
+                
                 ConvertToMglo(name, directory);
             }
 
@@ -1306,13 +1788,22 @@ namespace UniversalGametypeEditor
 
             if (name.EndsWith(".bin") == false)
             {
+                if (convertedMglo == name)
+                {
+                    return;
+                }
+                convertedMglo = name;
                 Debug.WriteLine(name);
                 MoveFile($"{fullPath}", $"{copyPath}\\.mglo", name);
                 //File.Copy($"{copyPath}\\{name}", $"{copyPath}\\.mglo", true);
                 
                 
                 UpdateLastEvent($"Copied: {name} to the HotReload Folder");
-
+                Task.Delay(100).ContinueWith(_ =>
+                {
+                    convertedBin = string.Empty;
+                    convertedMglo = string.Empty;
+                });
             }
             
         }
@@ -1648,8 +2139,8 @@ namespace UniversalGametypeEditor
                 Debug.WriteLine("Test");
             } catch (IndexOutOfRangeException e)
             {
-                Debug.WriteLine(name);
-                UpdateLastEvent($"Error While Converting File {name}");
+                Debug.WriteLine(e);
+                //UpdateLastEvent($"Error While Converting File {name}");
                 return;
             }
             fileLocked = true;
@@ -1703,7 +2194,7 @@ namespace UniversalGametypeEditor
                 } catch (IndexOutOfRangeException e)
                 {
                     Debug.WriteLine(name);
-                    UpdateLastEvent($"Error While Converting File {name}");
+                    //UpdateLastEvent($"Error While Converting File {name}");
                     return;
                 }
                 
