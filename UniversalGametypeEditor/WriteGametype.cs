@@ -80,7 +80,10 @@ namespace UniversalGametypeEditor
 
         private int WriteGametypeHeaders(GametypeHeaderViewModel gh, GametypeHeader gt)
         {
-
+            if (Settings.Default.IsGvar)
+            {
+                return 0;
+            }
             int gamertaglen = (gh.Gamertag.Length * 8);
             int gamertaglen2 = (gh.EditGamertag.Length * 8);
             int titlelen = (gh.Title.Length * 2);
