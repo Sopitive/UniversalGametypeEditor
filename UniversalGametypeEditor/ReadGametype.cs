@@ -16,6 +16,7 @@ using System.Xml;
 using UniversalGametypeEditor.Properties;
 using System.Collections.ObjectModel;
 using static UniversalGametypeEditor.ReadGametype.ModeSettings;
+using Newtonsoft.Json;
 
 namespace UniversalGametypeEditor
 {
@@ -41,7 +42,7 @@ namespace UniversalGametypeEditor
             public PlayerRatings playerratings;
         }
 
-        
+       
 
         public class FileHeader
         {
@@ -58,6 +59,8 @@ namespace UniversalGametypeEditor
             public int FileLength;
             public int VariantType;
             public int Unknown0x31C;
+
+            
         }
 
 
@@ -170,7 +173,8 @@ namespace UniversalGametypeEditor
             public int RespawnTimegrowth;
             public int LoadoutCamTime;
             public int Respawntraitsduration;
-            public PlayerTraits RespawnPlayerTraits;
+
+            public PlayerTraits RespawnPlayerTraits { get; set; }
 
             public ReachSettings Reach { get; set; } // Fields for Reach
 
@@ -376,7 +380,7 @@ namespace UniversalGametypeEditor
             public int abilitiesonmap;
             public int shortcutsonmap;
             public int? grenadesonmap;
-            public PlayerTraits BasePlayerTraits;
+            public PlayerTraits BasePlayerTraits { get; set;}
             public int WeaponSet;
             public int VehicleSet;
             public int? EquipmentSet;
@@ -393,9 +397,9 @@ namespace UniversalGametypeEditor
 
         public class PowerupTraits
         {
-            public PlayerTraits? RedPlayerTraits;
-            public PlayerTraits? BluePlayerTraits;
-            public PlayerTraits? YellowPlayerTraits;
+            public PlayerTraits? RedPlayerTraits { get; set; }
+            public PlayerTraits? BluePlayerTraits { get; set; }
+            public PlayerTraits? YellowPlayerTraits { get; set; }
             public int? RedPowerupDuration;
             public int? BluePowerupDuration;
             public int? YellowPowerupDuration;
@@ -407,21 +411,21 @@ namespace UniversalGametypeEditor
             public class H2AH4Settings
             {
                 //H2A
-                public PlayerTraits? DamageTraits;
+                public PlayerTraits? DamageTraits { get; set; }
                 public int? DamageTraitsDuration;
-                public PlayerTraits? DamageTraitsRuntime;
+                public PlayerTraits? DamageTraitsRuntime { get; set; }
                 public int? DamageTraitsRuntimeDuration;
-                public PlayerTraits? SpeedTraits;
+                public PlayerTraits? SpeedTraits { get; set; }
                 public int? SpeedTraitsDuration;
-                public PlayerTraits? SpeedTraitsRuntime;
+                public PlayerTraits? SpeedTraitsRuntime { get; set; }
                 public int? SpeedTraitsRuntimeDuration;
-                public PlayerTraits? OverShieldTraits;
+                public PlayerTraits? OverShieldTraits { get; set; }
                 public int? OverShieldTraitsDuration;
-                public PlayerTraits? OverShieldTraitsRuntime;
+                public PlayerTraits? OverShieldTraitsRuntime { get; set; }
                 public int? OverShieldTraitsRuntimeDuration;
-                public PlayerTraits? CustomTraits;
+                public PlayerTraits? CustomTraits { get; set; }
                 public int? CustomTraitsDuration;
-                public PlayerTraits? CustomTraitsRuntime;
+                public PlayerTraits? CustomTraitsRuntime { get; set; }
                 public int? CustomTraitsRuntimeDuration;
             }
         }
@@ -588,7 +592,7 @@ namespace UniversalGametypeEditor
             public int count;
             public int String1;
             public int String2;
-            public PlayerTraits? PlayerTraits;
+            public PlayerTraits? PlayerTraits { get; set; }
 
             public H2AH4Settings H2AH4 { get; set; } // Fields exclusively for H2A+H4
 
@@ -830,13 +834,17 @@ namespace UniversalGametypeEditor
             gth.TimeStampUint = ConvertToInt(GetValue(32));
             gth.XUID = GetValue(64);
             gth.Gamertag = ReadStringFromBits(binaryString, true);
+            Settings.Default.Gamertag = gth.Gamertag;
             gth.Blank041bit = GetValue(33);
             gth.EditTimeStampUint = ConvertToInt(GetValue(32));
             gth.EditXUID = GetValue(64);
             gth.EditGamertag = ReadStringFromBits(binaryString, true);
+            Settings.Default.EditGamertag = gth.EditGamertag;
             gth.UnknownFlag1 = ConvertToInt(GetValue(1));
             gth.Title = ReadUStringFromBits(binaryString);
+            Settings.Default.Title = gth.Title;
             gth.Description = ReadUStringFromBits(binaryString);
+            Settings.Default.Description = gth.Description;
             gth.GameIcon = ConvertToInt(GetValue(8));
             gt.GametypeHeader = Newtonsoft.Json.JsonConvert.SerializeObject(gth);
             //ConvertAndSaveToXml(gth, "gametype.xml");
@@ -920,7 +928,8 @@ namespace UniversalGametypeEditor
             ss.RespawnTimegrowth = ConvertToInt(GetValue(4));
             ss.LoadoutCamTime = ConvertToInt(GetValue(4));
             ss.Respawntraitsduration = ConvertToInt(GetValue(6));
-            ss.RespawnPlayerTraits = ReadTraits(binaryString);
+            ss.RespawnPlayerTraits = new();
+            ss.RespawnPlayerTraits = ReadTraits(binaryString, ss.RespawnPlayerTraits);
             gt.SpawnSettings = Newtonsoft.Json.JsonConvert.SerializeObject(ss);
 
             //ConvertAndSaveToXml(ss, "gametype.xml");
@@ -943,7 +952,8 @@ namespace UniversalGametypeEditor
                 gs.abilitiesonmap = ConvertToInt(GetValue(1));
                 gs.shortcutsonmap = ConvertToInt(GetValue(1));
                 gs.grenadesonmap = ConvertToInt(GetValue(1));
-                gs.BasePlayerTraits = ReadTraits(binaryString);
+                gs.BasePlayerTraits = new();
+                gs.BasePlayerTraits = ReadTraits(binaryString, gs.BasePlayerTraits);
                 gs.WeaponSet = ConvertToInt(GetValue(8));
                 gs.VehicleSet = ConvertToInt(GetValue(8));
 
@@ -968,7 +978,8 @@ namespace UniversalGametypeEditor
                 gs.powerupsonmap = ConvertToInt(GetValue(1));
                 gs.abilitiesonmap = ConvertToInt(GetValue(1));
                 gs.shortcutsonmap = ConvertToInt(GetValue(1));
-                gs.BasePlayerTraits = ReadTraits(binaryString);
+                gs.BasePlayerTraits = new();
+                gs.BasePlayerTraits = ReadTraits(binaryString, gs.BasePlayerTraits);
                 gs.WeaponSet = ConvertToInt(GetValue(8));
                 gs.VehicleSet = ConvertToInt(GetValue(8));
                 gs.EquipmentSet = ConvertToInt(GetValue(8));
@@ -987,9 +998,12 @@ namespace UniversalGametypeEditor
             PowerupTraits pt = new();
             if (Settings.Default.DecompiledVersion == 0)
             {
-                pt.RedPlayerTraits = ReadTraits(binaryString);
-                pt.BluePlayerTraits = ReadTraits(binaryString);
-                pt.YellowPlayerTraits = ReadTraits(binaryString);
+                pt.RedPlayerTraits = new();
+                pt.BluePlayerTraits = new();
+                pt.YellowPlayerTraits = new();
+                pt.RedPlayerTraits = ReadTraits(binaryString, pt.RedPlayerTraits);
+                pt.BluePlayerTraits = ReadTraits(binaryString, pt.BluePlayerTraits);
+                pt.YellowPlayerTraits = ReadTraits(binaryString, pt.YellowPlayerTraits);
                 pt.RedPowerupDuration = ConvertToInt(GetValue(7));
                 pt.BluePowerupDuration = ConvertToInt(GetValue(7));
                 pt.YellowPowerupDuration = ConvertToInt(GetValue(7));
@@ -1006,24 +1020,32 @@ namespace UniversalGametypeEditor
             if (Settings.Default.DecompiledVersion > 0)
             {
                 pt.H2AH4 = new();
-                pt.H2AH4.DamageTraits = ReadTraits(binaryString);
+                pt.H2AH4.DamageTraits = new();
+                pt.H2AH4.DamageTraitsRuntime = new();
+                pt.H2AH4.SpeedTraits = new();
+                pt.H2AH4.SpeedTraitsRuntime = new();
+                pt.H2AH4.OverShieldTraits = new();
+                pt.H2AH4.OverShieldTraitsRuntime = new();
+                pt.H2AH4.CustomTraits = new();
+                pt.H2AH4.CustomTraitsRuntime = new();
+                pt.H2AH4.DamageTraits = ReadTraits(binaryString, pt.H2AH4.DamageTraits);
                 pt.H2AH4.DamageTraitsDuration = ConvertToInt(GetValue(6));
-                pt.H2AH4.DamageTraitsRuntime = ReadTraits(binaryString);
+                pt.H2AH4.DamageTraitsRuntime = ReadTraits(binaryString, pt.H2AH4.DamageTraitsRuntime);
                 pt.H2AH4.DamageTraitsRuntimeDuration = ConvertToInt(GetValue(6));
 
-                pt.H2AH4.SpeedTraits = ReadTraits(binaryString);
+                pt.H2AH4.SpeedTraits = ReadTraits(binaryString, pt.H2AH4.SpeedTraits);
                 pt.H2AH4.SpeedTraitsDuration = ConvertToInt(GetValue(6));
-                pt.H2AH4.SpeedTraitsRuntime = ReadTraits(binaryString);
+                pt.H2AH4.SpeedTraitsRuntime = ReadTraits(binaryString, pt.H2AH4.SpeedTraitsRuntime);
                 pt.H2AH4.SpeedTraitsRuntimeDuration = ConvertToInt(GetValue(6));
 
-                pt.H2AH4.OverShieldTraits = ReadTraits(binaryString);
+                pt.H2AH4.OverShieldTraits = ReadTraits(binaryString, pt.H2AH4.OverShieldTraits);
                 pt.H2AH4.OverShieldTraitsDuration = ConvertToInt(GetValue(6));
-                pt.H2AH4.OverShieldTraitsRuntime = ReadTraits(binaryString);
+                pt.H2AH4.OverShieldTraitsRuntime = ReadTraits(binaryString, pt.H2AH4.OverShieldTraitsRuntime);
                 pt.H2AH4.OverShieldTraitsRuntimeDuration = ConvertToInt(GetValue(6));
 
-                pt.H2AH4.CustomTraits = ReadTraits(binaryString);
+                pt.H2AH4.CustomTraits = ReadTraits(binaryString, pt.H2AH4.DamageTraits);
                 pt.H2AH4.CustomTraitsDuration = ConvertToInt(GetValue(6));
-                pt.H2AH4.CustomTraitsRuntime = ReadTraits(binaryString);
+                pt.H2AH4.CustomTraitsRuntime = ReadTraits(binaryString, pt.H2AH4.CustomTraitsRuntime);
                 pt.H2AH4.CustomTraitsRuntimeDuration = ConvertToInt(GetValue(6));
             } 
 
@@ -1151,8 +1173,8 @@ namespace UniversalGametypeEditor
                     spt.String2 = ConvertToInt(GetValue(8));
                     spt.H2AH4.hidden = ConvertToInt(GetValue(1));
                 }
-                
-                spt.PlayerTraits = ReadTraits(binaryString);
+                spt.PlayerTraits = new();
+                spt.PlayerTraits = ReadTraits(binaryString, spt.PlayerTraits);
             }
 
             gt.scriptedPlayerTraits = Newtonsoft.Json.JsonConvert.SerializeObject(spt);
@@ -1618,12 +1640,12 @@ namespace UniversalGametypeEditor
 
 
 
-        private PlayerTraits ReadTraits(string binary)
+        private PlayerTraits ReadTraits(string binary, PlayerTraits pt)
         {
             //Use the PlayerTraits struct to read the traits
             //Return the traits
 
-            PlayerTraits pt = new();
+            //PlayerTraits pt = new();
             if (Settings.Default.DecompiledVersion == 0)
             {
                 pt.DamageResistance = ConvertToInt(GetValue(4));
