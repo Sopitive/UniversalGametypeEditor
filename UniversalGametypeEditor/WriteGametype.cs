@@ -92,6 +92,10 @@ namespace UniversalGametypeEditor
             int modlen = 0;
             string sliced = "";
             string prebits = "";
+            gh.Gamertag = gh.Gamertag == null ? "?" : gh.Gamertag;
+            gh.EditGamertag = gh.EditGamertag == null ? "?" : gh.EditGamertag;
+            gh.Title = gh.Title == null ? "?" : gh.Title;
+            gh.Description = gh.Description == null ? "?" : gh.Description;
 
             string ID0x48 = gh.ID0x48;
             string ID0x50 = gh.ID0x50;

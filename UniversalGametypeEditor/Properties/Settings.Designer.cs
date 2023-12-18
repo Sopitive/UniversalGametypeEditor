@@ -333,5 +333,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["Description"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool MultiDirectory {
+            get {
+                return ((bool)(this["MultiDirectory"]));
+            }
+            set {
+                this["MultiDirectory"] = value;
+            }
+        }
     }
 }

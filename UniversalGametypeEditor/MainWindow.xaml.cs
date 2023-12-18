@@ -147,7 +147,14 @@ namespace UniversalGametypeEditor
             {
                 string folderName = Settings.Default.FilePath;
                 GetFiles(folderName, WatchedFilesList);
-                RegisterWatcher(folderName, watcher);
+                if (Settings.Default.MultiDirectory)
+                {
+                    RegisterWatchers(Settings.Default.FilePathList);
+                } else
+                {
+                    RegisterWatcher(Settings.Default.FilePath, watcher);
+                }
+                
             }
 
             if (Settings.Default.HotReloadPath != "Undefined")
@@ -522,6 +529,7 @@ namespace UniversalGametypeEditor
             CompileVariant();
         }
 
+
         private void CompileVariant()
         {
             if (Settings.Default.Selected != "Undefined")
@@ -532,7 +540,11 @@ namespace UniversalGametypeEditor
                 });
                 WriteGametype wg = new();
                 string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
-                wg.WriteBinaryFile(filePath, deserializedJSON2, viewModel, viewModel2);
+                if (File.Exists(filePath))
+                {
+                    wg.WriteBinaryFile(filePath, deserializedJSON2, viewModel, viewModel2);
+                }
+                
                 //Reselect the selected item
                 
             }
@@ -562,7 +574,7 @@ namespace UniversalGametypeEditor
                 var property = properties[i];
                 var propertyValue = property.GetValue(viewModel);
 
-                if (propertyValue != null && !IsPrimitive(property.PropertyType) && !string.IsNullOrWhiteSpace(propertyValue.ToString()))
+                if (propertyValue != null && !IsPrimitive(property.PropertyType) && propertyValue.ToString() != null)
                 {
                     // If the property is an instance of a class, iterate through its properties
                     PropertyInfo[] nestedProperties = property.PropertyType.GetProperties();
@@ -574,7 +586,7 @@ namespace UniversalGametypeEditor
                         if (nestedProperty.Name == "HasValue" || nestedProperty.Name == "Value") continue;
 
                         var nestedPropertyValue = nestedProperty.GetValue(propertyValue);
-                        if (nestedPropertyValue != null && !string.IsNullOrWhiteSpace(nestedPropertyValue.ToString()))
+                        if (nestedPropertyValue != null && nestedPropertyValue.ToString() != null)
                         {
                             GametypeData gd = new();
                             gd.value_name.Text = nestedProperty.Name;
@@ -592,7 +604,7 @@ namespace UniversalGametypeEditor
                         parentDropDown.DropdownData.Children.Add(nestedDropDown);
                     }
                 }
-                else if (propertyValue != null && !string.IsNullOrWhiteSpace(propertyValue.ToString()))
+                else if (propertyValue != null && propertyValue.ToString() != null)
                 {
                     GametypeData gd = new();
                     gd.value_name.Text = property.Name;
@@ -654,8 +666,12 @@ namespace UniversalGametypeEditor
             {
                 viewModel2 = new GametypeHeaderViewModel(deserializedJSON2);
                 AddDataToUI<GametypeHeaderViewModel>(viewModel2, "Gametype Header", Gametype);
+                if (Settings.Default.ConvertToForge)
+                {
+                    viewModel.VariantType = 1;
+                }
             }
-            JSON = rg.gt.ModeSettings;
+                JSON = rg.gt.ModeSettings;
             ModeSettings? deserializedJSON3 = JsonConvert.DeserializeObject<ModeSettings>(JSON);
             if (rg.gt.ModeSettings != null)
             {
@@ -702,10 +718,7 @@ namespace UniversalGametypeEditor
                 //    };
                 //}
 
-                //if (Settings.Default.ConvertToForge)
-                //{
-                //    viewModel.VariantType = 1;
-                //}
+                
 
                 //Gametype.Add(dropDown);
 
@@ -1332,6 +1345,22 @@ namespace UniversalGametypeEditor
             KeepNamedMglo.IsChecked = Settings.Default.KeepNamedMglo;
             SortBy.SelectedIndex = Settings.Default.OrderBy;
             ConvertToForge.IsChecked = Settings.Default.ConvertToForge;
+            MultiDirectory.IsChecked = Settings.Default.MultiDirectory;
+        }
+        private FileSystemWatcher watcher = new();
+        private void UpdateWatchMulti(object sender, RoutedEventArgs e)
+        {
+            if (MultiDirectory.IsChecked == true)
+            {
+                Settings.Default.MultiDirectory = true;
+                RegisterWatchers(Settings.Default.FilePathList);
+            } else
+            {
+                Settings.Default.MultiDirectory = false;
+                UnregisterWatchers();
+                RegisterWatcher(Settings.Default.FilePath, watcher);
+            }
+            Settings.Default.Save();
         }
 
         public void UpdateNamedMglo(object sender, RoutedEventArgs e)
@@ -1393,23 +1422,43 @@ namespace UniversalGametypeEditor
             return numberOfNewLines;
         }
 
+
+        private void OnScroll(object sender, System.Windows.Controls.Primitives.ScrollEventArgs e)
+        {
+            System.Windows.Controls.Primitives.ScrollBar sb = (System.Windows.Controls.Primitives.ScrollBar)sender;
+            (sb.Tag as ScrollViewer)?.ScrollToHorizontalOffset(e.NewValue);
+        }
+
+
+
+
+
         private void UpdateLastEvent(string e)
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 //Get current time
                 string now = DateTime.Now.ToString("h:mm:ss");
-                LastEvent.Text += $"\n[{now}] {e}";
-                int numberOfNewLines = CheckLineLen(LastEvent.Text);
-                if (numberOfNewLines > 3)
+                TextBlock newTextBlock = new TextBlock
                 {
-                    LastEvent.Text = LastEvent.Text.Substring(LastEvent.Text.IndexOf('\n') + 1);
+                    Foreground = new SolidColorBrush(System.Windows.Media.Colors.White),
+                    Text = $"[{now}] {e}",
+                    FontSize = 12,
+                    FontWeight = FontWeights.Bold,
+                    TextWrapping = TextWrapping.Wrap
+                };
+                LastEvent.Children.Add(newTextBlock);
+                EventViewer.LayoutUpdated += (sender, e) =>
+                {
+                    EventViewer.ScrollToVerticalOffset(EventViewer.ExtentHeight);
+                };
+                if (LastEvent.Children.Count > 10)
+                {
+                    LastEvent.Children.RemoveAt(0);
                 }
             }));
-            
-            
         }
-        
+
         private void CheckConvertBin(object sender, RoutedEventArgs e)
         {
             Settings.Default.ConvertBin = ConvertBin.IsChecked;
@@ -1506,6 +1555,8 @@ namespace UniversalGametypeEditor
             GetProcess.SendKey();
             Debug.WriteLine("Sent Key!");
         }
+
+        
         public void OpenFolder(string path)
         {
             string? folderName;
@@ -1515,7 +1566,7 @@ namespace UniversalGametypeEditor
 
             if (result == System.Windows.Forms.DialogResult.OK)
             {
-                LastEvent.Text = "Set Directory";
+                UpdateLastEvent("Set Directory");
                 folderName = dialog.SelectedPath;
 
                 if (path == "Hot Reload")
@@ -1563,7 +1614,7 @@ namespace UniversalGametypeEditor
             }
         }
   
-        private FileSystemWatcher watcher = new();
+        
         public void RegisterWatcher(string foldername, FileSystemWatcher watcher)
         {
             timer.Enabled = true;
@@ -1589,6 +1640,34 @@ namespace UniversalGametypeEditor
 
             //UpdateLastEvent("Listening For File Changes...");
         }
+
+        private List<FileSystemWatcher> watchers = new List<FileSystemWatcher>();
+
+        public void RegisterWatchers(StringCollection foldernames)
+        {
+            // Unregister any existing watchers
+            UnregisterWatchers();
+
+            foreach (var foldername in foldernames)
+            {
+                var watcher = new FileSystemWatcher();
+                RegisterWatcher(foldername, watcher);
+                watchers.Add(watcher);
+            }
+        }
+
+        public void UnregisterWatchers()
+        {
+            foreach (var watcher in watchers)
+            {
+                watcher.EnableRaisingEvents = false;
+                watcher.Dispose();
+            }
+
+            watchers.Clear();
+        }
+
+
 
 
         #region WindowCommands
@@ -1854,6 +1933,7 @@ namespace UniversalGametypeEditor
                 if (Settings.Default.ConvertToForge)
                 {
                     Settings.Default.Selected = name;
+                    Settings.Default.FilePath = directory;
                     Decompile(name);
                     CompileVariant();
                     UpdateLastEvent($"Converted: {name} to Forge Variant Type");
@@ -1863,8 +1943,12 @@ namespace UniversalGametypeEditor
                         if (Settings.Default.DecompiledVersion == 0)
                         {
                             //Copy file to Halo Reach
-                            File.Copy($"{fullPath}", $"{Settings.Default.GameDir}\\haloreach\\game_variants\\{name}", true);
-                            UpdateLastEvent($"Copied: {name} to the H:R Folder");
+                            try
+                            {
+                                File.Copy($"{fullPath}", $"{Settings.Default.GameDir}\\haloreach\\game_variants\\{name}", true);
+                                UpdateLastEvent($"Copied: {name} to the H:R Folder");
+                            } catch { }
+                                
                         }
                         if (Settings.Default.DecompiledVersion == 1)
                         {
@@ -1887,6 +1971,12 @@ namespace UniversalGametypeEditor
                             }
                         }
                     }
+                    
+                    Dispatcher.BeginInvoke((Action)delegate ()
+                    {
+                        Settings.Default.FilePath = DirHistory.Text;
+                        Gametype.Clear();
+                    });
                 }
                 
                 ConvertToMglo(name, directory);

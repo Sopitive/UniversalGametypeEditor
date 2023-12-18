@@ -407,11 +407,6 @@ namespace UniversalGametypeEditor
             }
         }
 
-        public int GamertagLength
-        {
-            get { return gamertagLength; }
-        }
-
         public string Blank041bit
         {
             get { return data.Blank041bit; }
@@ -464,11 +459,6 @@ namespace UniversalGametypeEditor
             }
         }
 
-        public int EditGamertagLength
-        {
-            get { return editGamertagLength; }
-        }
-
         public int UnknownFlag1
         {
             get { return data.UnknownFlag1; }
@@ -495,11 +485,6 @@ namespace UniversalGametypeEditor
             }
         }
 
-        public int TitleLength
-        {
-            get { return titleLength; }
-        }
-
         public string Description
         {
             get { return data.Description; }
@@ -511,11 +496,6 @@ namespace UniversalGametypeEditor
                     OnPropertyChanged(nameof(Description));
                 }
             }
-        }
-
-        public int DescriptionLength
-        {
-            get { return descriptionLength; }
         }
 
         public int GameIcon
