@@ -2,11 +2,13 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using UniversalGametypeEditor.Properties;
 using static UniversalGametypeEditor.ReadGametype;
 
@@ -17,7 +19,7 @@ namespace UniversalGametypeEditor
         private string rawBinary = "";
         private string modifiedBinary = "";
         
-        public void WriteBinaryFile(string filename, GametypeHeader gt, YourDataViewModel fh, GametypeHeaderViewModel gh)
+        public void WriteBinaryFile(string filename, GametypeHeader gt, FileHeaderViewModel fh, GametypeHeaderViewModel gh)
         {
             //Write the bytes for the file, starting at file offset 2F0
             byte[] bytes = File.ReadAllBytes(filename);
@@ -37,7 +39,7 @@ namespace UniversalGametypeEditor
             }
             WriteFileHeaders(fh);
             int len = WriteGametypeHeaders(gh, gt);
-            int slice = modifiedBinary.Length + len;
+            int slice = modifiedBinary.Length - len;
 
 
             
@@ -50,9 +52,8 @@ namespace UniversalGametypeEditor
             File.WriteAllBytes(filename, newBytes);
         }
         
-        private void WriteFileHeaders(YourDataViewModel fh)
+        private void WriteFileHeaders(FileHeaderViewModel fh)
         {
-
 
             string mpvr = fh.Mpvr;
             string megaloversion = Convert.ToString(fh.MegaloVersion, 2).PadLeft(32, '0');
@@ -80,10 +81,10 @@ namespace UniversalGametypeEditor
 
         private int WriteGametypeHeaders(GametypeHeaderViewModel gh, GametypeHeader gt)
         {
-            if (Settings.Default.IsGvar)
-            {
-                return 0;
-            }
+            //if (Settings.Default.IsGvar)
+            //{
+            //    return 0;
+            //}
             int gamertaglen = (gh.Gamertag.Length * 8);
             int gamertaglen2 = (gh.EditGamertag.Length * 8);
             int titlelen = (gh.Title.Length * 2);
@@ -91,6 +92,10 @@ namespace UniversalGametypeEditor
             int modlen = 0;
             string sliced = "";
             string prebits = "";
+            gh.Gamertag = gh.Gamertag == null ? "?" : gh.Gamertag;
+            gh.EditGamertag = gh.EditGamertag == null ? "?" : gh.EditGamertag;
+            gh.Title = gh.Title == null ? "?" : gh.Title;
+            gh.Description = gh.Description == null ? "?" : gh.Description;
 
             string ID0x48 = gh.ID0x48;
             string ID0x50 = gh.ID0x50;
@@ -104,7 +109,8 @@ namespace UniversalGametypeEditor
             string XUID = gh.XUID;
             modifiedBinary += ID0x48 + ID0x50 + ID0x58 + Blank0x60 + UnknownFlags + Unknown_1 + Unknown0x1 + Blank04 + TimeStampUint + XUID;
             modlen = modifiedBinary.Length;
-            modifiedBinary = modifiedBinary.Insert(modlen, ConvertASCIItoBinary(gh.Gamertag));
+            string Gamertag = ConvertASCIItoBinary(gh.Gamertag);
+            modifiedBinary = modifiedBinary.Insert(modlen, Gamertag);
 
 
 
@@ -122,13 +128,19 @@ namespace UniversalGametypeEditor
             modifiedBinary += UnknownFlag1;
             modlen = modifiedBinary.Length;
             string Title = ConvertASCIItoBinary2(gh.Title);
+            Title += "0000000000000000";
             modifiedBinary = modifiedBinary.Insert(modlen, Title);
             modlen = modifiedBinary.Length;
             string Description = ConvertASCIItoBinary2(gh.Description);
+            Description += "0000000000000000";
+            //Description = Description[..8];
             modifiedBinary = modifiedBinary.Insert(modlen, Description);
-
-
-
+            int length = Gamertag.Length + EditGamertag.Length + Description.Length + Title.Length;
+            int oldLen = (Settings.Default.Description.Length * 16 + 16) + (Settings.Default.Title.Length * 16 + 16) + (Settings.Default.Gamertag.Length * 8 + 8) + (Settings.Default.EditGamertag.Length * 8 + 8);
+            int diff = length - oldLen;
+            //diff = modifiedBinary.Length - diff;
+            Settings.Default.Description = gh.Description;
+            Settings.Default.Title = gh.Title;
 
             //modifiedBinary2 += UnknownFlag1;
             ////modlen = modifiedBinary.Length;
@@ -166,10 +178,8 @@ namespace UniversalGametypeEditor
             //});
             //length *= 8;
             //modifiedBinary += ID0x48 + ID0x50 + ID0x58 + Blank0x60 + UnknownFlags + Unknown_1 + Unknown0x1 + Blank04 + TimeStampUint + XUID + Gamertag;
-            int oldLen = gh.GamertagLength*8 + gh.EditGamertagLength*8 + gh.TitleLength*16 + gh.DescriptionLength*16;
-            int newLen = gh.Gamertag.Length*8 + gh.EditGamertag.Length*8 + gh.Title.Length*16 + gh.Description.Length*16;
-            int length = oldLen - newLen;
-            return length;
+            
+            return diff;
         }
 
         private string ConvertASCIItoBinary(string input)
@@ -180,7 +190,10 @@ namespace UniversalGametypeEditor
                 output += Convert.ToString(c, 2).PadLeft(8, '0');
                 
             }
+            //Check output length, if not empty, add 0s to the end
             output += "00000000";
+            
+            
             return output;
         }
 
@@ -192,7 +205,6 @@ namespace UniversalGametypeEditor
                 //Convert to unicode
                 output += Convert.ToString(c, 2).PadLeft(16, '0');
             }
-            output += "0000000000000000";
             return output;
         }
 

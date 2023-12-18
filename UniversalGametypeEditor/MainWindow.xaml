@@ -731,6 +731,7 @@
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="AlwaysOnTop" Header="Always On Top" ToolTip="Keeps the window on top at all times" IsCheckable="True" Checked="UpdateOnTop" Unchecked="UpdateOnTop" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="KeepNamedMglo" Header="Keep Named Mglo" ToolTip="Copy named .mglo files to the HotReload directory" IsCheckable="True" Checked="UpdateNamedMglo" Unchecked="UpdateNamedMglo" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ConvertToForge" Header="Convert To Forge" ToolTip="Convert multiplayer gametypes to forge gametypes automatically" IsCheckable="True" Checked="UpdateConvertForge" Unchecked="UpdateConvertForge" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="MultiDirectory" Header="Multi Directory" ToolTip="Watch every directory in the folders list at the same time" IsCheckable="True" Checked="UpdateWatchMulti" Unchecked="UpdateWatchMulti" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Help" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ShowTut" Header="Tutorial" ToolTip="Show tutorial" Click="ShowTutorial" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
@@ -862,8 +863,20 @@
                         <RowDefinition Height="30" />
                         <RowDefinition Height="30" />
                     </Grid.RowDefinitions>
-                    <TextBlock x:Name="LastEvent" Grid.Row="0" Text="Listening For File Changes..." Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" TextWrapping="Wrap"/>
-                    <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="DirHistory" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" SelectionChanged="DirHistorySelectionChanged" FontSize="13">
+
+                    <ScrollViewer VerticalScrollBarVisibility="Hidden" x:Name="EventViewer" CanContentScroll="True" >
+                        <StackPanel x:Name="LastEvent">
+                            <TextBlock Grid.Row="0" Text="Listening For File Changes..." Foreground="{StaticResource TextColor}" FontSize="12" FontWeight="Bold" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!--<ScrollBar Tag="{Binding ElementName=EventViewer}" Value="{Binding HorizontalOffset, ElementName=EventViewer, Mode=OneWay}" SmallChange="1" Scroll="OnScroll" Maximum="{Binding ScrollableWidth, ElementName=EventViewer}" Minimum="0"/>-->
+
+
+
+
+
+                    <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="DirHistory" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" SelectionChanged="DirHistorySelectionChanged" FontSize="13" ScrollViewer.VerticalScrollBarVisibility="Hidden">
                         <ComboBox.ItemContainerStyle>
                             <Style TargetType="{x:Type ComboBoxItem}">
 
@@ -938,7 +951,7 @@
                         <RowDefinition Height="40" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="Game To Hot Reload" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" FontWeight="Bold" VerticalAlignment="Bottom"/>
-                    <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="GameSelector" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" Text="Game" SelectionChanged="GameSelectorSelectionChanged" FontSize="13">
+                    <ComboBox Style="{DynamicResource ComboBoxStyle1}" x:Name="GameSelector" Grid.Row="1" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" Text="Game" SelectionChanged="GameSelectorSelectionChanged" FontSize="13" ScrollViewer.VerticalScrollBarVisibility="Hidden">
                         <ComboBoxItem Content="Halo Reach" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <ComboBoxItem Content="Halo 4" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <ComboBoxItem Content="Halo 2 Anniversary" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
@@ -1011,9 +1024,24 @@
                 </Grid>
             </StackPanel>
 
-            <ScrollViewer  Grid.Column="1" VerticalScrollBarVisibility="Hidden" Margin="10,120,0,0" Height="380" Grid.ColumnSpan="4">
-                <ListView x:Name="GametypeScroller" Background="Transparent" BorderBrush="Transparent" MaxHeight="380" ScrollViewer.VerticalScrollBarVisibility="Hidden" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard"/>
+            <ScrollViewer  Grid.Column="1" VerticalScrollBarVisibility="Hidden" Margin="10,120,0,0" Height="380" Grid.ColumnSpan="4" PanningMode="VerticalOnly" PanningDeceleration="0.1">
+                <ListView x:Name="GametypeScroller" Background="Transparent" BorderBrush="Transparent" MaxHeight="380" ScrollViewer.VerticalScrollBarVisibility="Hidden" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <Border Background="{TemplateBinding Background}">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
             </ScrollViewer>
+
             <Button Click="HandleLoadClick" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Collapsed" Margin="0,0,50,0" Width="200" HorizontalAlignment="Right"></Button>
             <Button Click="CompileGametype" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="Compile" Content="Compile" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0"/>
         </Grid>
