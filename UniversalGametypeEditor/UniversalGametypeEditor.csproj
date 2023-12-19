@@ -15,7 +15,10 @@
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<ApplicationIcon>UGE.ico</ApplicationIcon>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<AppConfig>app.config</AppConfig>
     </PropertyGroup>
+
 
     <ItemGroup>
       <EditorConfigFiles Remove="C:\Users\wyatt\source\repos\UniversalGametypeEditor\UniversalGametypeEditor\.editorconfig" />
