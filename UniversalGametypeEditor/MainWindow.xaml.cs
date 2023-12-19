@@ -34,6 +34,8 @@ using Newtonsoft.Json;
 using System.Windows.Forms.Integration;
 using static System.Net.Mime.MediaTypeNames;
 
+
+
 namespace UniversalGametypeEditor
 {
     /// <summary>
@@ -41,6 +43,10 @@ namespace UniversalGametypeEditor
     /// </summary>
     public partial class MainWindow : System.Windows.Window
     {
+        
+
+
+
         private int lastOffset = 0xD50;
         private int lastGlobalOffset = 0xC28;
         private int playerNumIndex = 0;
@@ -2238,11 +2244,15 @@ namespace UniversalGametypeEditor
                                 //Write the node id to the settings file
                                 Settings.Default.Version = node_id;
                                 Settings.Default.Save();
+                                //Move the zip file and the bat file up one directory and overwrite the existing files
+                                File.Copy("UniversalGametypeEditor.zip", "..\\UniversalGametypeEditor.zip", true);
+                                File.Copy("unzip.bat", "..\\unzip.bat", true);
+                                Thread.Sleep(1000);
                                 //Start the unzip.bat file
                                 ProcessStartInfo startInfo = new()
                                 {
-                                    FileName = "unzip.bat",
-                                    Arguments = "UniversalGametypeEditor.zip"
+                                    FileName = "..\\unzip.bat",
+                                    //Arguments = "UniversalGametypeEditor.zip"
                                 };
                                 Process.Start(startInfo);
                                 //Close the current process
