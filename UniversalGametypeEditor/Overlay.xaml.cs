@@ -156,7 +156,7 @@ namespace UniversalGametypeEditor
             }
             DispatcherTimer dispatcherTimer = new();
             dispatcherTimer.Tick += new EventHandler(UpdateGlobalNumbers);
-            dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 100);
+            dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 1);
             dispatcherTimer.Start();
         }
 
