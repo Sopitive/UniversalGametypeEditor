@@ -2,13 +2,31 @@ GUI for copying and converting gametypes for use in hot reloading in MCC. Suppor
 
 
 
-Getting Started:
+Installation
+----------------------------------------------
+1. Download the latest in development build using the link below.
+2. Unzip the downloaded zip file into your desired directory.
+3. Launch UniversalGametypeEditor.exe from the files list.
 
-  1. Set the directory using the file menu to the directory you wish to watch for file changes.
-  2. Set the directory you wish to copy the output .mglo file to or select the game using the dropdown menu.
-  3. Modify or create a gametype in the folder you specified in step 1. Once a file is changed you should see the output in the program window.
-    a. You may also select an existing gametype (.bin or .mglo) from the watched folder to copy it into the copy folder.
-  4. Hot reload the gametype in MCC by clicking "Hot Reload" in game and you can choose to either enter the name of the gametype or leave the box as-is (.mglo) and click OK.
+Features
+------------------------
+* Copy and convert gametype files (.mglo, .bin) into the appropriate HotReload directory for Halo 2 Anniversary, Halo 4, and Halo Reach
+* Automatically convert MegaloEdit variants into forge variants.
+* Modify some gametype data to be recompiled
+* Detect when gametype files are modified and perform copying and converting automatically
+* Watch for gametype changes in multiple directories at the same time
+* More features to come
+
+Getting Started
+-----------------------------
+1. Open File>Set Game Folder...
+2. Navigate to your Halo The Master Chief Collection Folder and select it.
+3. Open File>Set Watched Folder.
+4. Navigate to the folder where your game variant files are stored and select it.
+5. Add any other folders as desired.
+6. Modify any game variant and watch it be converted and copied to the HotReload folder.
+7. Open the pause menu in game, click the button to hot reload the game variant and press OK without changing anything.
+
 
 
 In Development Build:
