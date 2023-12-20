@@ -171,7 +171,14 @@ namespace UniversalGametypeEditor
             }
 
             CheckTutorialCompletion();
+            //Show Overlay window
+            this.Show();
+            Overlay overlay = new();
+            overlay.Show();
+
         }
+
+        
 
 
 
@@ -1439,7 +1446,7 @@ namespace UniversalGametypeEditor
 
 
 
-        private void UpdateLastEvent(string e)
+        public void UpdateLastEvent(string e)
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -1475,6 +1482,8 @@ namespace UniversalGametypeEditor
         {
             Close();
         }
+
+
 
 
         public void HandleOpenClick(object sender, RoutedEventArgs e)
@@ -1704,6 +1713,12 @@ namespace UniversalGametypeEditor
         private void CommandBinding_Executed_Close(object sender, ExecutedRoutedEventArgs e)
         {
             SystemCommands.CloseWindow(this);
+        }
+
+        //Close all other windows when this window is closed
+        private void MainWindow_Closed(object sender, EventArgs e)
+        {
+            System.Windows.Application.Current.Shutdown();
         }
 
         // State change

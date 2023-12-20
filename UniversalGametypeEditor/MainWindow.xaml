@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MainWindow" Height="600" Width="1100" Background="#333333" WindowStyle="None" ResizeMode="CanResizeWithGrip" AllowsTransparency="True"
-    xmlns:theme="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2"  xmlns:local="clr-namespace:UniversalGametypeEditor" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" Deactivated="WindowDeactivated">
+    xmlns:theme="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2"  xmlns:local="clr-namespace:UniversalGametypeEditor" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" Deactivated="WindowDeactivated" Closed="MainWindow_Closed">
     <Window.Resources>
 
         <!--Base style for title bar buttons-->

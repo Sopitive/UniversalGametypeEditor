@@ -1,0 +1,67 @@
+﻿<Window x:Class="UniversalGametypeEditor.Overlay"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:UniversalGametypeEditor"
+        mc:Ignorable="d"
+        Title="Overlay" Height="250" Width="300" Background="Transparent" WindowStyle="None" AllowsTransparency="True" ShowInTaskbar="False" Visibility="Hidden" Loaded="Window_Loaded">
+    <Grid>
+        
+        <!-- Table for text data to display in the overlay -->
+        <Grid Name="OverlayGrid" Background="Transparent">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="Global[0]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="1" Text="Global[1]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="2" Text="Global[2]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="3" Text="Global[3]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="4" Text="Global[4]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="5" Text="Global[5]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="6" Text="Global[6]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="7" Text="Global[7]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="8" Text="Global[8]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="9" Text="Global[9]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="10" Text="Global[10]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Row="11" Text="Global[11]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+            
+
+
+            <TextBlock Grid.Column="1" Grid.Row="0" Name="GlobalNum0" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="1" Name="GlobalNum1" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="2" Name="GlobalNum2" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="3" Name="GlobalNum3" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="4" Name="GlobalNum4" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="5" Name="GlobalNum5" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="6" Name="GlobalNum6" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="7" Name="GlobalNum7" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="8" Name="GlobalNum8" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="9" Name="GlobalNum9" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="10" Name="GlobalNum10" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            <TextBlock Grid.Column="1" Grid.Row="11" Name="GlobalNum11" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+            
+             
+
+
+        </Grid>
+
+
+
+    </Grid>
+</Window>

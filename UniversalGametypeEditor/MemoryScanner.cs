@@ -160,7 +160,7 @@ class MemoryScanner
         }
 
         // Read the last offset as an integer value
-        int lastOffsetValue = ReadInt16(processHandle, currentAddress);
+        int lastOffsetValue = ReadInt32(processHandle, currentAddress);
         result = lastOffsetValue;
         address = currentAddress;
 
