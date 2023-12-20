@@ -1446,7 +1446,7 @@ namespace UniversalGametypeEditor
 
 
 
-        private void UpdateLastEvent(string e)
+        public void UpdateLastEvent(string e)
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {

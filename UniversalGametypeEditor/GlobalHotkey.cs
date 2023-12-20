@@ -19,7 +19,7 @@ namespace UniversalGametypeEditor
         public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
         public const uint MOD_CONTROL = 0x0002;
-        public const uint VK_O = 0x4F;
+        public const uint VK_O = 0x49;
 
         public void RegisterGlobalHotKey(IntPtr hWnd, int id)
         {

@@ -34,7 +34,6 @@ class GetProcess
 
         if (processes.Length > 0)
         {
-            string windowCaption = "Halo: The Master Chief Collection";
 
             IntPtr hWnd = FindWindow("UnrealWindow", null);
             Debug.WriteLine(hWnd);
