@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:UniversalGametypeEditor"
         mc:Ignorable="d"
-        Title="Overlay" Height="250" Width="300" Background="Transparent" WindowStyle="None" AllowsTransparency="True" ShowInTaskbar="False" Visibility="Hidden" Loaded="Window_Loaded">
+        Title="Overlay" Width="{x:Static SystemParameters.PrimaryScreenWidth}" Height="{x:Static SystemParameters.PrimaryScreenHeight}" Background="Transparent" WindowStyle="None" AllowsTransparency="True" ShowInTaskbar="False" Visibility="Visible" Loaded="Window_Loaded">
     <Grid>
         
         <!-- Table for text data to display in the overlay -->
@@ -15,20 +15,31 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
+                <RowDefinition Height="200"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Text="Global[0]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
+
+            <StackPanel Height="500" Width="200" Orientation="Vertical" Grid.Column="1" Grid.Row="1" HorizontalAlignment="Right">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Global[0]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
             <TextBlock Grid.Row="1" Text="Global[1]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
             <TextBlock Grid.Row="2" Text="Global[2]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
             <TextBlock Grid.Row="3" Text="Global[3]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
@@ -55,8 +66,14 @@
             <TextBlock Grid.Column="1" Grid.Row="9" Name="GlobalNum9" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
             <TextBlock Grid.Column="1" Grid.Row="10" Name="GlobalNum10" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
             <TextBlock Grid.Column="1" Grid.Row="11" Name="GlobalNum11" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            
-             
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Grid.Row="0" Margin="20">
+                <TextBlock Name="CoordsX" Foreground="DeepSkyBlue" FontSize="15" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
+                <TextBlock Name="CoordsY" Foreground="DeepSkyBlue" FontSize="15" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
+                <TextBlock Name="CoordsZ" Foreground="DeepSkyBlue" FontSize="15" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
+            </StackPanel>
 
 
         </Grid>

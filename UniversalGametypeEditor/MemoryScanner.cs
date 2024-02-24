@@ -36,7 +36,7 @@ class MemoryScanner
         return "NO OWNER";
     }
     public static Process? process;
-    private static string moduleName = "haloreach.dll";
+    private static readonly string moduleName = "haloreach.dll";
     private static void GetMCCProcess()
     {
         // Set the process name or process ID of the target process

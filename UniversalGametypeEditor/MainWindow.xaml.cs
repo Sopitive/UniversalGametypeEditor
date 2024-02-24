@@ -33,6 +33,7 @@ using static UniversalGametypeEditor.ReadGametype;
 using Newtonsoft.Json;
 using System.Windows.Forms.Integration;
 using static System.Net.Mime.MediaTypeNames;
+using static UniversalGametypeEditor.MegaloEditPatcher;
 
 
 
@@ -116,11 +117,11 @@ namespace UniversalGametypeEditor
             //Print the bytes
             //Debug.WriteLine(script);
             ReadGametype rg = new();
-          
+
             //rg.ReadBinary();
+
+            MegaloEditPatcher.Patch();
             
-
-
 
 
             if (Settings.Default.GameDir != "Undefined")
@@ -175,6 +176,7 @@ namespace UniversalGametypeEditor
             this.Show();
             Overlay overlay = new();
             overlay.Show();
+            
 
         }
 
@@ -1662,13 +1664,16 @@ namespace UniversalGametypeEditor
         {
             // Unregister any existing watchers
             UnregisterWatchers();
-
-            foreach (var foldername in foldernames)
+            if (foldernames != null)
             {
-                var watcher = new FileSystemWatcher();
-                RegisterWatcher(foldername, watcher);
-                watchers.Add(watcher);
+                foreach (var foldername in foldernames)
+                {
+                    var watcher = new FileSystemWatcher();
+                    RegisterWatcher(foldername, watcher);
+                    watchers.Add(watcher);
+                }
             }
+            
         }
 
         public void UnregisterWatchers()

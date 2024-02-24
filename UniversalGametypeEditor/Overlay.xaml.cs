@@ -16,6 +16,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using static UniversalGametypeEditor.Overlay;
 
 namespace UniversalGametypeEditor
 {
@@ -31,6 +32,17 @@ namespace UniversalGametypeEditor
 
         [DllImport("user32.dll")]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [DllImport("user32.dll")]
+        public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
 
         private IntPtr haloWindowHandle = IntPtr.Zero;
@@ -86,10 +98,16 @@ namespace UniversalGametypeEditor
             {
                 anticheat = false;
             }
-            if (anticheat)
+            if (anticheat || processes.Length > 0)
             {
                 mw = (MainWindow)Application.Current.MainWindow;
-                mw.UpdateLastEvent("Launch with EAC Off To Use The Overlay");
+                mw.UpdateLastEvent("Cannot Activate Overlay With EAC Enabled");
+                return;
+            }
+            if (processes.Length > 0)
+            {
+                mw = (MainWindow)Application.Current.MainWindow;
+                mw.UpdateLastEvent("Launch MCC With EAC Off To Use The Overlay");
                 return;
             }
             if (IsVisible)
@@ -124,6 +142,7 @@ namespace UniversalGametypeEditor
             {
                 processes = Process.GetProcessesByName("MCC-Win64-Shipping");
             }
+            
 
             if (processes.Length > 0)
             {
@@ -134,6 +153,12 @@ namespace UniversalGametypeEditor
                     Hide();
                     helper.Owner = haloWindowHandle;
                 }
+                //Set the size of this window to the same size as the Halo window
+                GetWindowRect(haloWindowHandle, out RECT rect);
+                Width = rect.Right - rect.Left;
+                Height = rect.Bottom - rect.Top;
+                Left = rect.Left;
+                Top = rect.Top;
             }
         }
 
@@ -146,14 +171,32 @@ namespace UniversalGametypeEditor
             return globalnum;
         }
 
+        private void GetCoordinates()
+        {
+            //Pointer haloreach.dll+4872890
+
+            MemoryScanner.ScanPointer(new int[] { 0x4872890 }, out int x, out IntPtr address);
+            MemoryScanner.ScanPointer(new int[] { 0x4872894 }, out int y, out IntPtr address2);
+            MemoryScanner.ScanPointer(new int[] { 0x4872898 }, out int z, out IntPtr address3);
+
+            //Convert 8 byte int to float
+            float xcoord = BitConverter.ToSingle(BitConverter.GetBytes(x), 0);
+            float ycoord = BitConverter.ToSingle(BitConverter.GetBytes(y), 0);
+            float zcoord = BitConverter.ToSingle(BitConverter.GetBytes(z), 0);
+
+            //Round to 2 decimal places
+            xcoord = (float)Math.Round(xcoord, 2);
+            ycoord = (float)Math.Round(ycoord, 2);
+            zcoord = (float)Math.Round(zcoord, 2);
+
+            CoordsX.Text = $"X: {xcoord}";
+            CoordsY.Text = $"Y: {ycoord}";
+            CoordsZ.Text = $"Z: {zcoord}";
+        }
+
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            processes = Process.GetProcessesByName("EasyAntiCheat");
-            if (processes.Length > 0)
-            {
-                anticheat = true;
-                return;
-            }
+            
             DispatcherTimer dispatcherTimer = new();
             dispatcherTimer.Tick += new EventHandler(UpdateGlobalNumbers);
             dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 1);
@@ -162,6 +205,18 @@ namespace UniversalGametypeEditor
 
         private void UpdateGlobalNumbers(object sender, EventArgs e)
         {
+            GetCoordinates();
+            processes = Process.GetProcessesByName("EasyAntiCheat");
+            if (processes.Length > 0)
+            {
+                anticheat = true;
+                return;
+            }
+            processes = Process.GetProcessesByName("MCC-Win64-Shipping");
+            if (processes.Length == 0)
+            {
+                return;
+            }
             for (int i=0; i < 12 ; i++)
             {
                 int globalnum = GetGlobalNumber(i);
