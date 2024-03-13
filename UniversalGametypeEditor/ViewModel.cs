@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.VisualBasic;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -27,9 +28,47 @@ namespace UniversalGametypeEditor
 
     //    public string? fileHeaderBits;
     //}
+
+    public class SharedProperties
+    {
+        public dynamic Value { get; set; }
+        public int Bits { get; set; }
+        
+
+        public SharedProperties(int bits)
+        {
+            Bits = bits;
+        }
+
+        public static implicit operator int(SharedProperties p)
+        {
+            return p.Value;
+        }
+
+        public static implicit operator SharedProperties(int value)
+        {
+            return new SharedProperties(0) { Value = value };
+        }
+    }
+
+
     public class FileHeaderViewModel : INotifyPropertyChanged
     {
         private FileHeader data;
+        private SharedProperties _mpvr;
+        private SharedProperties _megaloVersion;
+        private SharedProperties _unknown0x2F8;
+        private SharedProperties _unknown0x2FA;
+        private SharedProperties _unknownHash0x2FC;
+        private SharedProperties _Blank0x310;
+        private SharedProperties _Fileusedsize;
+        private SharedProperties _Unknown0x318;
+        private SharedProperties _variantType;
+        private SharedProperties _Unknown0x319 = new(4);
+        private SharedProperties _Unknown0x31D = new(32);
+        private SharedProperties _Unknown0x31C = new(32);
+        private SharedProperties _FileLength = new(32);
+
 
         public FileHeaderViewModel(object data)
         {
@@ -44,40 +83,72 @@ namespace UniversalGametypeEditor
         }
 
 
-        public string Mpvr
+        public SharedProperties Mpvr
         {
-            get { return data.mpvr; }
+            get { 
+                if (_mpvr == null)
+                {
+                    _mpvr = new SharedProperties(32)
+                    {
+                        Value = data.mpvr
+                    };
+                }
+                return _mpvr;
+                ; }
             set
             {
-                if (data.mpvr != value)
+                if (data.mpvr != value.Value)
                 {
-                    data.mpvr = value;
+                    data.mpvr = value.Value;
+                    _mpvr = value;
                     OnPropertyChanged(nameof(Mpvr));
                 }
             }
         }
 
-        public int MegaloVersion
+        public SharedProperties MegaloVersion
         {
-            get { return data.megaloversion; }
+            get
+            {
+                if (_megaloVersion == null)
+                {
+                    _megaloVersion = new SharedProperties(32)
+                    {
+                        Value = data.megaloversion
+                    };
+                }
+                return _megaloVersion;
+            }
             set
             {
-                if (data.megaloversion != value)
+                if (data.megaloversion != value.Value)
                 {
-                    data.megaloversion = value;
+                    data.megaloversion = value.Value;
+                    _megaloVersion = value;
                     OnPropertyChanged(nameof(MegaloVersion));
                 }
             }
         }
 
-        public int Unknown0x2F8
+
+        public SharedProperties Unknown0x2F8
         {
-            get { return data.Unknown0x2F8; }
+            get {
+                if (_unknown0x2F8 == null)
+                {
+                    _unknown0x2F8 = new SharedProperties(16)
+                    {
+                        Value = data.Unknown0x2F8
+                    };
+                }
+                return _unknown0x2F8;
+            }
             set
             {
-                if (data.Unknown0x2F8 != value)
+                if (data.Unknown0x2F8 != value.Value)
                 {
-                    data.Unknown0x2F8 = value;
+                    data.Unknown0x2F8 = value.Value;
+                    _unknown0x2F8 = value;
                     OnPropertyChanged(nameof(Unknown0x2F8));
                 }
             }
@@ -85,81 +156,143 @@ namespace UniversalGametypeEditor
 
         public int Unknown0x2FA
         {
-            get { return data.Unknown0x2FA; }
+            get { 
+                if (_unknown0x2FA == null)
+                {
+                    _unknown0x2FA = new SharedProperties(16)
+                    {
+                        Value = data.Unknown0x2FA
+                    };
+                }
+                return _unknown0x2FA;
+            }
             set
             {
                 if (data.Unknown0x2FA != value)
                 {
                     data.Unknown0x2FA = value;
+                    _unknown0x2FA = value;
                     OnPropertyChanged(nameof(Unknown0x2FA));
                 }
             }
         }
 
-        public string UnknownHash0x2FC
+        public SharedProperties UnknownHash0x2FC
         {
-            get { return data.UnknownHash0x2FC; }
+            get { 
+                if (_unknownHash0x2FC == null)
+                {
+                    _unknownHash0x2FC = new SharedProperties(160)
+                    {
+                        Value = data.UnknownHash0x2FC
+                    };
+                }
+                return _unknownHash0x2FC;
+            }
             set
             {
-                if (data.UnknownHash0x2FC != value)
+                if (data.UnknownHash0x2FC != value.Value)
                 {
-                    data.UnknownHash0x2FC = value;
+                    data.UnknownHash0x2FC = value.Value;
+                    _unknownHash0x2FC = value;
                     OnPropertyChanged(nameof(UnknownHash0x2FC));
                 }
             }
         }
 
-        public string Blank0x310
+        public SharedProperties Blank0x310
         {
-            get { return data.Blank0x310; }
+            get { 
+                if (_Blank0x310 == null)
+                {
+                    _Blank0x310 = new SharedProperties(32)
+                    {
+                        Value = data.Blank0x310
+                    };
+                }
+                return _Blank0x310;
+            }
             set
             {
-                if (data.Blank0x310 != value)
+                if (data.Blank0x310 != value.Value)
                 {
-                    data.Blank0x310 = value;
+                    data.Blank0x310 = value.Value;
+                    _Blank0x310 = value;
                     OnPropertyChanged(nameof(Blank0x310));
                 }
             }
         }
 
-        public int FileUsedSize
+        public SharedProperties FileUsedSize
         {
-            get { return data.Fileusedsize; }
+            get { 
+                if (_Fileusedsize == null)
+                {
+                    _Fileusedsize = new SharedProperties(32)
+                    {
+                        Value = data.Fileusedsize
+                    };
+                }
+                return _Fileusedsize;
+            }
             set
             {
-                if (data.Fileusedsize != value)
+                if (data.Fileusedsize != value.Value)
                 {
-                    data.Fileusedsize = value;
+                    data.Fileusedsize = value.Value;
+                    _Fileusedsize = value;
                     OnPropertyChanged(nameof(FileUsedSize));
                 }
             }
         }
 
-        public int Unknown0x318
+        public SharedProperties Unknown0x318
         {
-            get { return data.Unknown0x318; }
+            get { 
+                if (_Unknown0x318 == null)
+                {
+                    _Unknown0x318 = new SharedProperties(2)
+                    {
+                        Value = data.Unknown0x318
+                    };
+                }  
+                return _Unknown0x318;
+            }
             set
             {
-                if (data.Unknown0x318 != value)
+                if (data.Unknown0x318 != value.Value)
                 {
-                    data.Unknown0x318 = value;
+                    data.Unknown0x318 = value.Value;
+                    _Unknown0x318 = value;
                     OnPropertyChanged(nameof(Unknown0x318));
                 }
             }
         }
 
-        public int VariantType
+        public VariantTypeEnum VariantType
         {
-            get { return data.VariantType; }
+            get
+            {
+                if (_variantType == null)
+                {
+                    _variantType = new SharedProperties(2)
+                    {
+                        Value = data.VariantType
+                    };
+                }
+                return (VariantTypeEnum)_variantType.Value;
+            }
             set
             {
-                if (data.VariantType != value)
+                if (data.VariantType != (int)value)
                 {
-                    data.VariantType = value;
+                    data.VariantType = (int)value;
+                    _variantType.Value = (int)value;
                     OnPropertyChanged(nameof(VariantType));
                 }
             }
         }
+
 
         public int Unknown0x319
         {
@@ -498,14 +631,14 @@ namespace UniversalGametypeEditor
             }
         }
 
-        public int GameIcon
+        public IconEnum GameIcon
         {
-            get { return data.GameIcon; }
+            get { return (IconEnum)data.GameIcon; }
             set
             {
-                if (data.GameIcon != value)
+                if ((IconEnum)data.GameIcon != value)
                 {
-                    data.GameIcon = value;
+                    data.GameIcon = (int)value;
                     OnPropertyChanged(nameof(GameIcon));
                 }
             }
@@ -562,6 +695,15 @@ namespace UniversalGametypeEditor
     public class ModeSettingsViewModel : INotifyPropertyChanged
     {
         private ModeSettings data;
+        private SharedProperties _unknownFlag2;
+        private SharedProperties _teamsEnabled;
+        private SharedProperties _resetMapOnNewRoundUnused;
+        private SharedProperties _resetPlayersOnNewRoundUnused;
+        private SharedProperties _perfectionMedalEnabled;
+        private SharedProperties _roundTimeLimit;
+        private SharedProperties _numberOfRounds;
+        private SharedProperties _roundsToWin;
+        private SharedProperties _suddenDeathTime;
 
         public ModeSettingsViewModel(ModeSettings data)
         {
@@ -570,119 +712,221 @@ namespace UniversalGametypeEditor
             H2AH4 = new H2AH4SettingsViewModel(data.H2AH4);
         }
 
-        public int UnknownFlag2
+        public SharedProperties UnknownFlag2
         {
-            get { return data.UnknownFlag2; }
+            get
+            {
+                if (_unknownFlag2 == null)
+                {
+                    _unknownFlag2 = new SharedProperties(1)
+                    {
+                        Value = Convert.ToBoolean(data.UnknownFlag2)
+                    };
+                }
+                return _unknownFlag2;
+            }
             set
             {
-                if (data.UnknownFlag2 != value)
+                if (Convert.ToBoolean(data.UnknownFlag2) != Convert.ToBoolean(value.Value))
                 {
-                    data.UnknownFlag2 = value;
+                    data.UnknownFlag2 = Convert.ToInt32(value.Value);
+                    _unknownFlag2 = value;
                     OnPropertyChanged(nameof(UnknownFlag2));
                 }
             }
         }
 
-        public int TeamsEnabled
+        
+
+        public SharedProperties TeamsEnabled
         {
-            get { return data.Teamsenabled; }
+            get
+            {
+                if (_teamsEnabled == null)
+                {
+                    _teamsEnabled = new SharedProperties(1)
+                    {
+                        Value = Convert.ToBoolean(data.Teamsenabled)
+                    };
+                }
+                return _teamsEnabled;
+            }
             set
             {
-                if (data.Teamsenabled != value)
+                if (Convert.ToBoolean(data.Teamsenabled) != Convert.ToBoolean(value.Value))
                 {
-                    data.Teamsenabled = value;
+                    data.Teamsenabled = Convert.ToInt32(value.Value);
+                    _teamsEnabled = value;
                     OnPropertyChanged(nameof(TeamsEnabled));
                 }
             }
         }
 
-        public int ResetMapOnNewRoundUnused
+        public SharedProperties ResetMapOnNewRoundUnused
         {
-            get { return data.Resetmaponnewroundunused; }
+            get
+            {
+                if (_resetMapOnNewRoundUnused == null)
+                {
+                    _resetMapOnNewRoundUnused = new SharedProperties(1)
+                    {
+                        Value = Convert.ToBoolean(data.Resetmaponnewroundunused)
+                    };
+                }
+                return _resetMapOnNewRoundUnused;
+            }
             set
             {
-                if (data.Resetmaponnewroundunused != value)
+                if (Convert.ToBoolean(data.Resetmaponnewroundunused) != Convert.ToBoolean(value.Value))
                 {
-                    data.Resetmaponnewroundunused = value;
+                    data.Resetmaponnewroundunused = Convert.ToInt32(value.Value);
+                    _resetMapOnNewRoundUnused = value;
                     OnPropertyChanged(nameof(ResetMapOnNewRoundUnused));
                 }
             }
         }
 
-        public int ResetPlayersOnNewRoundUnused
+        public SharedProperties ResetPlayersOnNewRoundUnused
         {
-            get { return data.Resetplayersonnewroundunused; }
+            get
+            {
+                if (_resetPlayersOnNewRoundUnused == null)
+                {
+                    _resetPlayersOnNewRoundUnused = new SharedProperties(1)
+                    {
+                        Value = Convert.ToBoolean(data.Resetplayersonnewroundunused)
+                    };
+                }
+                return _resetPlayersOnNewRoundUnused;
+            }
             set
             {
-                if (data.Resetplayersonnewroundunused != value)
+                if (Convert.ToBoolean(data.Resetplayersonnewroundunused) != Convert.ToBoolean(value.Value))
                 {
-                    data.Resetplayersonnewroundunused = value;
+                    data.Resetplayersonnewroundunused = Convert.ToInt32(value.Value);
+                    _resetPlayersOnNewRoundUnused = value;
                     OnPropertyChanged(nameof(ResetPlayersOnNewRoundUnused));
                 }
             }
         }
 
-        public int PerfectionMedalEnabled
+        
+
+        public SharedProperties PerfectionMedalEnabled
         {
-            get { return data.Perfectionmedalenabled; }
+            get
+            {
+                if (_perfectionMedalEnabled == null)
+                {
+                    _perfectionMedalEnabled = new SharedProperties(1)
+                    {
+                        Value = Convert.ToBoolean(data.Perfectionmedalenabled)
+                    };
+                }
+                return _perfectionMedalEnabled;
+            }
             set
             {
-                if (data.Perfectionmedalenabled != value)
+                if (Convert.ToBoolean(data.Perfectionmedalenabled) != Convert.ToBoolean(value.Value))
                 {
-                    data.Perfectionmedalenabled = value;
+                    data.Perfectionmedalenabled = Convert.ToInt32(value.Value);
+                    _perfectionMedalEnabled = value;
                     OnPropertyChanged(nameof(PerfectionMedalEnabled));
                 }
             }
         }
 
-        public int RoundTimeLimit
+        public SharedProperties RoundTimeLimit
         {
-            get { return data.RoundTimeLimit; }
+            get
+            {
+                if (_roundTimeLimit == null)
+                {
+                    _roundTimeLimit = new SharedProperties(8)
+                    {
+                        Value = data.RoundTimeLimit
+                    };
+                }
+                return _roundTimeLimit;
+            }
             set
             {
-                if (data.RoundTimeLimit != value)
+                if (data.RoundTimeLimit != Convert.ToInt32(value.Value))
                 {
-                    data.RoundTimeLimit = value;
+                    data.RoundTimeLimit = Convert.ToInt32(value.Value);
+                    _roundTimeLimit = value;
                     OnPropertyChanged(nameof(RoundTimeLimit));
                 }
             }
         }
 
-        public int NumberOfRounds
+        public SharedProperties NumberOfRounds
         {
-            get { return data.NumberOfRounds; }
+            get
+            {
+                if (_numberOfRounds == null)
+                {
+                    _numberOfRounds = new SharedProperties(5)
+                    {
+                        Value = data.NumberOfRounds
+                    };
+                }
+                return _numberOfRounds;
+            }
             set
             {
-                if (data.NumberOfRounds != value)
+                if (data.NumberOfRounds != Convert.ToInt32(value.Value))
                 {
-                    data.NumberOfRounds = value;
+                    data.NumberOfRounds = Convert.ToInt32(value.Value);
+                    _numberOfRounds = value;
                     OnPropertyChanged(nameof(NumberOfRounds));
                 }
             }
         }
 
-        public int RoundsToWin
+        public SharedProperties RoundsToWin
         {
-            get { return data.RoundsToWin; }
+            get
+            {
+                if (_roundsToWin == null)
+                {
+                    _roundsToWin = new SharedProperties(4)
+                    {
+                        Value = data.RoundsToWin
+                    };
+                }
+                return _roundsToWin;
+            }
             set
             {
-                if (data.RoundsToWin != value)
+                if (data.RoundsToWin != Convert.ToInt32(value.Value))
                 {
-                    data.RoundsToWin = value;
+                    data.RoundsToWin = Convert.ToInt32(value.Value);
+                    _roundsToWin = value;
                     OnPropertyChanged(nameof(RoundsToWin));
-
                 }
             }
         }
 
-        public int? SuddenDeathTime
+        public SharedProperties SuddenDeathTime
         {
-            get { return data.SuddenDeathTime; }
+            get
+            {
+                if (_suddenDeathTime == null)
+                {
+                    _suddenDeathTime = new SharedProperties(7)
+                    {
+                        Value = data.SuddenDeathTime
+                    };
+                }
+                return _suddenDeathTime;
+            }
             set
             {
-                if (data.SuddenDeathTime != value)
+                if (data.SuddenDeathTime != Convert.ToInt32(value.Value))
                 {
-                    data.SuddenDeathTime = value;
+                    data.SuddenDeathTime = Convert.ToInt32(value.Value);
+                    _suddenDeathTime = value;
                     OnPropertyChanged(nameof(SuddenDeathTime));
                 }
             }
@@ -2505,10 +2749,10 @@ namespace UniversalGametypeEditor
 
     public class SpawnReachSettings
     {
-        public int? RespawnOnKills;
+        public bool? RespawnOnKills;
         public int? respawnatlocationunused;
         public int? respawnwithteammateunused;
-        public int? RespawnSyncwithteam;
+        public bool? RespawnSyncwithteam;
     }
 
     public class SpawnReachSettingsViewModel : INotifyPropertyChanged
@@ -2520,53 +2764,53 @@ namespace UniversalGametypeEditor
             this.reachSettings = reachSettings;
         }
 
-        public int? RespawnOnKills
+        public bool? RespawnOnKills
         {
-            get { return reachSettings?.RespawnOnKills; }
+            get { return Convert.ToBoolean(reachSettings?.RespawnOnKills); }
             set
             {
-                if (reachSettings != null && reachSettings.RespawnOnKills != value)
+                if (reachSettings != null && Convert.ToBoolean(reachSettings.RespawnOnKills) != value)
                 {
-                    reachSettings.RespawnOnKills = value;
+                    reachSettings.RespawnOnKills = Convert.ToInt32(value);
                     OnPropertyChanged(nameof(RespawnOnKills));
                 }
             }
         }
 
-        public int? RespawnAtLocationUnused
+        public bool? RespawnAtLocationUnused
         {
-            get { return reachSettings?.respawnatlocationunused; }
+            get { return Convert.ToBoolean(reachSettings?.respawnatlocationunused); }
             set
             {
-                if (reachSettings != null && reachSettings.respawnatlocationunused != value)
+                if (reachSettings != null && Convert.ToBoolean(reachSettings.respawnatlocationunused) != value)
                 {
-                    reachSettings.respawnatlocationunused = value;
+                    reachSettings.respawnatlocationunused = Convert.ToInt32(value);
                     OnPropertyChanged(nameof(RespawnAtLocationUnused));
                 }
             }
         }
 
-        public int? RespawnWithTeammateUnused
+        public bool? RespawnWithTeammateUnused
         {
-            get { return reachSettings?.respawnwithteammateunused; }
+            get { return Convert.ToBoolean(reachSettings?.respawnwithteammateunused); }
             set
             {
-                if (reachSettings != null && reachSettings.respawnwithteammateunused != value)
+                if (reachSettings != null && Convert.ToBoolean(reachSettings.respawnwithteammateunused) != value)
                 {
-                    reachSettings.respawnwithteammateunused = value;
+                    reachSettings.respawnwithteammateunused = Convert.ToInt32(value);
                     OnPropertyChanged(nameof(RespawnWithTeammateUnused));
                 }
             }
         }
 
-        public int? RespawnSyncWithTeam
+        public bool? RespawnSyncWithTeam
         {
-            get { return reachSettings?.RespawnSyncwithteam; }
+            get { return Convert.ToBoolean(reachSettings?.RespawnSyncwithteam); }
             set
             {
-                if (reachSettings != null && reachSettings.RespawnSyncwithteam != value)
+                if (reachSettings != null && Convert.ToBoolean(reachSettings.RespawnSyncwithteam) != value)
                 {
-                    reachSettings.RespawnSyncwithteam = value;
+                    reachSettings.RespawnSyncwithteam = Convert.ToInt32(value);
                     OnPropertyChanged(nameof(RespawnSyncWithTeam));
                 }
             }
@@ -2789,5 +3033,330 @@ namespace UniversalGametypeEditor
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+    }
+
+    //public class GameSettings
+    //{
+    //    public int EnableObservers;
+    //    public int Teamchanging;
+    //    public int FriendlyFire;
+    //    public int? BetrayalBooting;
+    //    public int? ProximityVoice;
+    //    public int Dontrestrictteamvoicechat;
+    //    public int? allowdeadplayerstotalk;
+    //    public int Indestructiblevehicles;
+    //    public int turretsonmap;
+    //    public int powerupsonmap;
+    //    public int abilitiesonmap;
+    //    public int shortcutsonmap;
+    //    public int? grenadesonmap;
+    //    public PlayerTraits BasePlayerTraits { get; set; }
+    //    public int WeaponSet;
+    //    public int VehicleSet;
+    //    public int? EquipmentSet;
+    //    public int? Unknown1;
+    //    public int? Unknown2;
+    //    public int? Unknown3;
+    //    public string? Unknown4;
+
+
+
+
+    //}
+
+    public class H2AH4GameSettingsViewModel
+    {
+        public GameSettings.H2AH4Settings gameSettings;
+        public int EquipmentSet
+        {
+            get { return gameSettings.EquipmentSet; }
+            set
+            {
+                if (gameSettings.EquipmentSet != value)
+                {
+                    gameSettings.EquipmentSet = value;
+                    OnPropertyChanged(nameof(EquipmentSet));
+                }
+            }
+        }
+
+        public int Unknown1
+        {
+            get { return gameSettings.Unknown1; }
+            set
+            {
+                if (gameSettings.Unknown1 != value)
+                {
+                    gameSettings.Unknown1 = value;
+                    OnPropertyChanged(nameof(Unknown1));
+                }
+            }
+        }
+
+        public int Unknown2
+        {
+            get { return gameSettings.Unknown2; }
+            set
+            {
+                if (gameSettings.Unknown2 != value)
+                {
+                    gameSettings.Unknown2 = value;
+                    OnPropertyChanged(nameof(Unknown2));
+                }
+            }
+        }
+
+        public int Unknown3
+        {
+            get { return gameSettings.Unknown3; }
+            set
+            {
+                if (gameSettings.Unknown3 != value)
+                {
+                    gameSettings.Unknown3 = value;
+                    OnPropertyChanged(nameof(Unknown3));
+                }
+            }
+        }
+
+        public string? Unknown4
+        {
+            get { return gameSettings.Unknown4; }
+            set
+            {
+                if (gameSettings.Unknown4 != value)
+                {
+                    gameSettings.Unknown4 = value;
+                    OnPropertyChanged(nameof(Unknown4));
+                }
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class GameSettingsViewModel : INotifyPropertyChanged
+    {
+        private GameSettings gameSettings;
+
+        public GameSettingsViewModel(GameSettings gameSettings)
+        {
+            this.gameSettings = gameSettings;
+        }
+
+        public bool EnableObservers
+        {
+            get { return Convert.ToBoolean(gameSettings.EnableObservers); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.EnableObservers) != value)
+                {
+                    gameSettings.EnableObservers = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(EnableObservers));
+                }
+            }
+        }
+
+        public bool TeamChanging
+        {
+            get { return Convert.ToBoolean(gameSettings.Teamchanging); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.Teamchanging) != value)
+                {
+                    gameSettings.Teamchanging = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(TeamChanging));
+                }
+            }
+        }
+
+        public bool FriendlyFire
+        {
+            get { return Convert.ToBoolean(gameSettings.FriendlyFire); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.FriendlyFire) != value)
+                {
+                    gameSettings.FriendlyFire = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(FriendlyFire));
+                }
+            }
+        }
+
+        public bool BetrayalBooting
+        {
+            get { return Convert.ToBoolean(gameSettings.BetrayalBooting); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.BetrayalBooting) != value)
+                {
+                    gameSettings.BetrayalBooting = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(BetrayalBooting));
+                }
+            }
+        }
+
+        public bool ProximityVoice
+        {
+            get { return Convert.ToBoolean(gameSettings.ProximityVoice); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.ProximityVoice) != value)
+                {
+                    gameSettings.ProximityVoice = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(ProximityVoice));
+                }
+            }
+        }
+
+        public bool DontRestrictTeamVoiceChat
+        {
+            get { return Convert.ToBoolean(gameSettings.Dontrestrictteamvoicechat); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.Dontrestrictteamvoicechat) != value)
+                {
+                    gameSettings.Dontrestrictteamvoicechat = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(DontRestrictTeamVoiceChat));
+                }
+            }
+        }
+
+        public bool AllowDeadPlayersToTalk
+        {
+            get { return Convert.ToBoolean(gameSettings.allowdeadplayerstotalk); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.allowdeadplayerstotalk) != value)
+                {
+                    gameSettings.allowdeadplayerstotalk = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(AllowDeadPlayersToTalk));
+                }
+            }
+        }
+
+        public bool IndestructibleVehicles
+        {
+            get { return Convert.ToBoolean(gameSettings.Indestructiblevehicles); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.Indestructiblevehicles) != value)
+                {
+                    gameSettings.Indestructiblevehicles = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(IndestructibleVehicles));
+                }
+            }
+        }
+
+        public bool TurretsOnMap
+        {
+            get { return Convert.ToBoolean(gameSettings.turretsonmap); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.turretsonmap) != value)
+                {
+                    gameSettings.turretsonmap = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(TurretsOnMap));
+                }
+            }
+        }
+
+        public bool PowerupsOnMap
+        {
+            get { return Convert.ToBoolean(gameSettings.powerupsonmap); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.powerupsonmap) != value)
+                {
+                    gameSettings.powerupsonmap = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(PowerupsOnMap));
+                }
+            }
+        }
+
+        public bool AbilitiesOnMap
+        {
+            get { return Convert.ToBoolean(gameSettings.abilitiesonmap); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.abilitiesonmap) != value)
+                {
+                    gameSettings.abilitiesonmap = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(AbilitiesOnMap));
+                }
+            }
+        }
+
+        public bool ShortcutsOnMap
+        {
+            get { return Convert.ToBoolean(gameSettings.shortcutsonmap); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.shortcutsonmap) != value)
+                {
+                    gameSettings.shortcutsonmap = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(ShortcutsOnMap));
+                }
+            }
+        }
+
+        public bool GrenadesOnMap
+        {
+            get { return Convert.ToBoolean(gameSettings.grenadesonmap); }
+            set
+            {
+                if (Convert.ToBoolean(gameSettings.grenadesonmap) != value)
+                {
+                    gameSettings.grenadesonmap = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(GrenadesOnMap));
+                }
+            }
+        }
+
+        public PlayerTraitsViewModel BasePlayerTraits { get; set; }
+
+        public WeaponSetEnum WeaponSet
+        {
+            get { return (WeaponSetEnum)gameSettings.WeaponSet; }
+            set
+            {
+                if ((WeaponSetEnum)gameSettings.WeaponSet != value)
+                {
+                    gameSettings.WeaponSet = (int)value;
+                    OnPropertyChanged(nameof(WeaponSet));
+                }
+            }
+        }
+
+        public VehicleSetEnum VehicleSet
+        {
+            get { return (VehicleSetEnum)gameSettings.VehicleSet; }
+            set
+            {
+                if ((VehicleSetEnum)gameSettings.VehicleSet != value)
+                {
+                    gameSettings.VehicleSet = (int)value;
+                    OnPropertyChanged(nameof(VehicleSet));
+                }
+            }
+        }
+
+
+
+        
+
+        // Implement INotifyPropertyChanged
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+        
     }
 }

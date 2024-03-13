@@ -843,14 +843,14 @@
                         <ListView x:Name="FilesListWatched" MaxHeight="240" MaxWidth="300" ItemsSource="{Binding WatchedFilesList}" Foreground="{StaticResource TextColor}" BorderBrush="Transparent" Background="{StaticResource AccentColor}" ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="270" ScrollViewer.HorizontalScrollBarVisibility="Hidden"/>
                     </ScrollViewer>
 
-                    <TextBlock x:Name="Help" Text="Select a desired gametype from the left panel to load it into the output folder"  Grid.Row="5" Foreground="{StaticResource TextColor}" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <!--<TextBlock x:Name="Help" Text="Select a desired gametype from the left panel to load it into the output folder"  Grid.Row="5" Foreground="{StaticResource TextColor}" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />-->
                 </Grid>
 
             </StackPanel>
 
-            <StackPanel Grid.Row="1" Grid.ColumnSpan="1">
+            <!--<StackPanel Grid.Row="1" Grid.ColumnSpan="1">
                 <Button x:Name="Pause" Content="Focus Game" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="FocusWindow" Style="{DynamicResource ButtonsStyle}"></Button>
-            </StackPanel>
+            </StackPanel>-->
             <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Grid.Column="1" MaxWidth="600">
                 <Grid>
                     <Grid.RowDefinitions>

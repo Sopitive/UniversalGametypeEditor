@@ -19,7 +19,7 @@ namespace UniversalGametypeEditor
         private string rawBinary = "";
         private string modifiedBinary = "";
         
-        public void WriteBinaryFile(string filename, GametypeHeader gt, FileHeaderViewModel fh, GametypeHeaderViewModel gh)
+        public void WriteBinaryFile(string filename, GametypeHeader gt, FileHeaderViewModel fh, GametypeHeaderViewModel gh, ModeSettingsViewModel ms)
         {
             //Write the bytes for the file, starting at file offset 2F0
             byte[] bytes = File.ReadAllBytes(filename);
@@ -39,6 +39,7 @@ namespace UniversalGametypeEditor
             }
             WriteFileHeaders(fh);
             int len = WriteGametypeHeaders(gh, gt);
+            WriteModeSettings(ms);
             int slice = modifiedBinary.Length - len;
 
 
@@ -52,22 +53,26 @@ namespace UniversalGametypeEditor
             File.WriteAllBytes(filename, newBytes);
         }
         
-        private void WriteFileHeaders(FileHeaderViewModel fh)
+        public void WriteFileHeaders(FileHeaderViewModel fh)
         {
-
-            string mpvr = fh.Mpvr;
-            string megaloversion = Convert.ToString(fh.MegaloVersion, 2).PadLeft(32, '0');
+            string mpvr = fh.Mpvr.Value;
+            string megaloversion = Convert.ToString(fh.MegaloVersion.Value, 2).PadLeft(32, '0');
             string Unknown0x2F8 = Convert.ToString(fh.Unknown0x2F8, 2).PadLeft(16, '0');
             string Unknown0x2FA = Convert.ToString(fh.Unknown0x2FA, 2).PadLeft(16, '0');
-            string UnknownHash0x2FC = fh.UnknownHash0x2FC;
-            string Blank0x310 = fh.Blank0x310;
+            string UnknownHash0x2FC = fh.UnknownHash0x2FC.Value;
+            string Blank0x310 = fh.Blank0x310.Value;
             string Fileusedsize = Convert.ToString(fh.FileUsedSize, 2).PadLeft(32, '0');
             string Unknown0x318 = Convert.ToString(fh.Unknown0x318, 2).PadLeft(2, '0');
-            string VariantType = Convert.ToString(fh.VariantType, 2).PadLeft(2, '0');
+
+
+            // Convert variant type to string and then to binary
+            string VariantType = Convert.ToString((int)fh.VariantType, 2).PadLeft(2, '0');
+
             string Unknown0x319 = Convert.ToString(fh.Unknown0x319, 2).PadLeft(4, '0');
             string Unknown0x31D = Convert.ToString(fh.Unknown0x31D, 2).PadLeft(32, '0');
             string Unknown0x31C = Convert.ToString(fh.Unknown0x31C, 2).PadLeft(32, '0');
             string FileLength = Convert.ToString(fh.FileLength, 2).PadLeft(32, '0');
+
             if (Settings.Default.IsGvar == false)
             {
                 modifiedBinary = mpvr + megaloversion + Unknown0x2F8 + Unknown0x2FA + UnknownHash0x2FC + Blank0x310 + Fileusedsize + Unknown0x318 + VariantType + Unknown0x319 + Unknown0x31D + Unknown0x31C + FileLength;
@@ -76,7 +81,6 @@ namespace UniversalGametypeEditor
             {
                 modifiedBinary = Unknown0x2F8 + Unknown0x2FA + Unknown0x318 + VariantType + Unknown0x319 + Unknown0x31D + Unknown0x31C + FileLength;
             }
-            
         }
 
         private int WriteGametypeHeaders(GametypeHeaderViewModel gh, GametypeHeader gt)
@@ -141,7 +145,7 @@ namespace UniversalGametypeEditor
             //diff = modifiedBinary.Length - diff;
             Settings.Default.Description = gh.Description;
             Settings.Default.Title = gh.Title;
-
+            modifiedBinary += Convert.ToString((int)gh.GameIcon, 2).PadLeft(8, '0');
             //modifiedBinary2 += UnknownFlag1;
             ////modlen = modifiedBinary.Length;
             //int total3 = modlen + titlelen + total + total2 + modifiedBinary2.Length;
@@ -180,6 +184,26 @@ namespace UniversalGametypeEditor
             //modifiedBinary += ID0x48 + ID0x50 + ID0x58 + Blank0x60 + UnknownFlags + Unknown_1 + Unknown0x1 + Blank04 + TimeStampUint + XUID + Gamertag;
             
             return diff;
+        }
+
+        private void WriteModeSettings(ModeSettingsViewModel ms)
+        {
+            //Get sub properties of ModeSettingsViewModel of type SharedProperties
+            var sharedProperties = ms.GetType().GetProperties().Where(p => p.PropertyType == typeof(SharedProperties));
+            //Get the value of each sub property "Value" and also "Bits". Use the Bits property to convert the value to binary
+            foreach (var prop in sharedProperties)
+            {
+                //Get the value of the sub property
+                var value = (SharedProperties)prop.GetValue(ms);
+                //Get the value of the "Value" property
+                var val = Convert.ToInt32(value.Value);
+                //Get the value of the "Bits" property
+                var bits = value.Bits;
+                //Convert the value to binary
+                var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
+                //Add the binary to the modified binary string
+                modifiedBinary += binary;
+            }
         }
 
         private string ConvertASCIItoBinary(string input)

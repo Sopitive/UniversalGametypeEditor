@@ -87,38 +87,90 @@ namespace UniversalGametypeEditor
             public int GameIcon;
         }
 
+        public enum VariantTypeEnum
+        {
+            Campaign,
+            Forge,
+            Multiplayer,
+            Firefight
+        }
+
         public enum IconEnum
         {
-            Flag = 0,
-            Slayer = 1,
-            Skull = 2,
+            Flag,
+            Slayer,
+            Skull,
             KOTH = 3,
-            Juggernaut = 4,
-            Territories = 5,
-            Assault = 6,
-            Infection = 7,
-            VIP = 8,
-            Invasion = 9,
-            EliteandSkull = 10,
-            Stockpile = 11,
-            ActionSack = 12,
-            Lightning = 13,
-            Rocket = 14,
-            Griffball = 15,
-            Biohazard = 16,
-            Headhunter = 17,
-            SpikySwirl = 18,
-            Wings = 19,
-            Swirl = 20,
-            Castle = 21,
+            Juggernaut,
+            Territories,
+            Assault,
+            Infection,
+            VIP,
+            Invasion,
+            EliteandSkull,
+            Stockpile,
+            ActionSack,
+            Lightning,
+            Rocket,
+            Griffball,
+            Biohazard,
+            Headhunter,
+            SpikySwirl,
+            Wings,
+            Swirl,
+            Castle,
             Plus = 22,
-            Shield = 23,
-            Arrow = 24,
-            Infinity = 25,
-            EightBall = 26,
-            UNSC = 27,
-            Unknown = 28,
-            Diamond = 29
+            Shield,
+            Arrow,
+            Infinity,
+            Forerunner,
+            EightBall,
+            UNSC,
+            Unknown,
+            Diamond
+        }
+
+        public enum WeaponSetEnum
+        {
+            
+            Human,
+            Covenant,
+            NoSnipers,
+            Rockets,
+            NoPower,
+            Juggernaut,
+            SlayerPro,
+            Rifles,
+            MidRange,
+            LongRange,
+            Snipers,
+            Melee,
+            EnergySwords,
+            GravityHammers,
+            MassDestruction,
+            Random = 253,
+            MapDefault = 254,
+            None = 255,
+
+        }
+
+        public enum VehicleSetEnum
+        {
+            Mongooses,
+            Warthogs,
+            NoAircraft,
+            AircraftOnly,
+            NoTanks,
+            TanksOnly,
+            NoLightGround,
+            LightGroundOnly,
+            NoCovenant,
+            CovenantOnly,
+            NoHuman,
+            HumanOnly,
+            NoVehicles,
+            AllVehicles,
+            MapDefault = 254,
         }
 
         public class ModeSettings
@@ -370,24 +422,29 @@ namespace UniversalGametypeEditor
             public int EnableObservers;
             public int Teamchanging;
             public int FriendlyFire;
-            public int? BetrayalBooting;
-            public int? ProximityVoice;
+            public int BetrayalBooting;
+            public int ProximityVoice;
             public int Dontrestrictteamvoicechat;
-            public int? allowdeadplayerstotalk;
+            public int allowdeadplayerstotalk;
             public int Indestructiblevehicles;
             public int turretsonmap;
             public int powerupsonmap;
             public int abilitiesonmap;
             public int shortcutsonmap;
-            public int? grenadesonmap;
+            public int grenadesonmap;
             public PlayerTraits BasePlayerTraits { get; set;}
             public int WeaponSet;
             public int VehicleSet;
-            public int? EquipmentSet;
-            public int? Unknown1;
-            public int? Unknown2;
-            public int? Unknown3;
-            public string? Unknown4;
+            public H2AH4Settings H2AH4 { get; set; } // Fields exclusively for H2A+H4
+            public class H2AH4Settings
+            {
+                public int EquipmentSet;
+                public int Unknown1;
+                public int Unknown2;
+                public int Unknown3;
+                public string Unknown4;
+            }
+            
 
 
             
@@ -889,11 +946,12 @@ namespace UniversalGametypeEditor
             }
             if (Settings.Default.DecompiledVersion == 0)
             {
+                
+                ms.SuddenDeathTime = ConvertToInt(GetValue(7));
                 ms.Reach = new()
                 {
                     GracePeriod = ConvertToInt(GetValue(5))
                 };
-                ms.SuddenDeathTime = ConvertToInt(GetValue(7));
             }
             
             gt.ModeSettings = Newtonsoft.Json.JsonConvert.SerializeObject(ms);
@@ -956,23 +1014,18 @@ namespace UniversalGametypeEditor
                 gs.BasePlayerTraits = ReadTraits(binaryString, gs.BasePlayerTraits);
                 gs.WeaponSet = ConvertToInt(GetValue(8));
                 gs.VehicleSet = ConvertToInt(GetValue(8));
-
-                gs.Unknown1 = null;
-                gs.Unknown2 = null;
-                gs.Unknown3 = null;
-                gs.EquipmentSet = null;
-                gs.Unknown4 = null;
             }
 
             if (Settings.Default.DecompiledVersion > 0)
             {
+                gs.H2AH4 = new();
                 gs.EnableObservers = ConvertToInt(GetValue(1));
                 gs.Teamchanging = ConvertToInt(GetValue(2));
                 gs.FriendlyFire = ConvertToInt(GetValue(1));
-                gs.Unknown1 = ConvertToInt(GetValue(1));
+                gs.H2AH4.Unknown1 = ConvertToInt(GetValue(1));
                 gs.Dontrestrictteamvoicechat = ConvertToInt(GetValue(1));
-                gs.Unknown2 = ConvertToInt(GetValue(1));
-                gs.Unknown3 = ConvertToInt(GetValue(1));
+                gs.H2AH4.Unknown2 = ConvertToInt(GetValue(1));
+                gs.H2AH4.Unknown3 = ConvertToInt(GetValue(1));
                 gs.Indestructiblevehicles = ConvertToInt(GetValue(1));
                 gs.turretsonmap = ConvertToInt(GetValue(1));
                 gs.powerupsonmap = ConvertToInt(GetValue(1));
@@ -982,13 +1035,14 @@ namespace UniversalGametypeEditor
                 gs.BasePlayerTraits = ReadTraits(binaryString, gs.BasePlayerTraits);
                 gs.WeaponSet = ConvertToInt(GetValue(8));
                 gs.VehicleSet = ConvertToInt(GetValue(8));
-                gs.EquipmentSet = ConvertToInt(GetValue(8));
-                gs.Unknown4 = GetValue(55);
-
-                gs.BetrayalBooting = null;
-                gs.ProximityVoice = null;
-                gs.allowdeadplayerstotalk = null;
-                gs.grenadesonmap = null;
+                if (Settings.Default.DecompiledVersion > 0)
+                {
+                    gs.H2AH4 = new();
+                    gs.H2AH4.EquipmentSet = ConvertToInt(GetValue(8));
+                    gs.H2AH4.Unknown4 = GetValue(55);
+                }
+                
+                
             }
 
             gt.GameSettings = Newtonsoft.Json.JsonConvert.SerializeObject(gs);
