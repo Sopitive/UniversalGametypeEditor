@@ -29,7 +29,7 @@ Getting Started
 
 
 
-Latest Development Build:
+Latest Development Build
 -----------------------------
 This is the latest build of the project. This will contain the most recent updates that have been pushed to the repo and may contain bugs and errors.
 Report any encountered bugs by creating a new issue.
