@@ -4,7 +4,7 @@ GUI for copying and converting gametypes for use in hot reloading in MCC. Suppor
 
 Installation
 ----------------------------------------------
-1. Download the latest in development build using the link below.
+1. Download the latest in development build using the link below or download the latest release.
 2. Unzip the downloaded zip file into your desired directory.
 3. Launch UniversalGametypeEditor.exe from the files list.
 
@@ -29,7 +29,9 @@ Getting Started
 
 
 
-In Development Build:
-
+Latest Development Build:
+-----------------------------
+This is the latest build of the project. This will contain the most recent updates that have been pushed to the repo and may contain bugs and errors.
+Report any encountered bugs by creating a new issue.
 
 [![GitHub release](https://img.shields.io/github/release/Naereen/StrapDown.js.svg)](https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip)
