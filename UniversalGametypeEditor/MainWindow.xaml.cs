@@ -34,6 +34,8 @@ using Newtonsoft.Json;
 using System.Windows.Forms.Integration;
 using static System.Net.Mime.MediaTypeNames;
 using static UniversalGametypeEditor.MegaloEditPatcher;
+using System.Collections;
+using System.Runtime.Serialization;
 
 
 
@@ -538,6 +540,7 @@ namespace UniversalGametypeEditor
         private FileHeaderViewModel viewModel;
         private GametypeHeaderViewModel viewModel2;
         private ModeSettingsViewModel viewModel3;
+        private SpawnSettingsViewModel viewModel4;
 
         private void CompileGametype(object sender, RoutedEventArgs e)
         {
@@ -557,7 +560,7 @@ namespace UniversalGametypeEditor
                 string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
                 if (File.Exists(filePath))
                 {
-                    wg.WriteBinaryFile(filePath, deserializedJSON2, viewModel, viewModel2, viewModel3);
+                    wg.WriteBinaryFile(filePath, deserializedJSON2, viewModel, viewModel2, viewModel3, viewModel4);
                 }
                 
                 //Reselect the selected item
@@ -604,10 +607,32 @@ namespace UniversalGametypeEditor
                         if (nestedProperty.Name == "HasValue" || nestedProperty.Name == "Value") continue;
 
                         var nestedPropertyValue = nestedProperty.GetValue(propertyValue);
-                        if (nestedPropertyValue != null && nestedPropertyValue != null)
+                        if (nestedPropertyValue != null)
                         {
+
                             GametypeData gd = new();
                             gd.value_name.Text = nestedProperty.Name;
+                            var nestedproperty = nestedPropertyValue;
+                            if (nestedPropertyValue is SharedProperties)
+                            {
+                                
+                                property = propertyValue.GetType().GetProperty("Value");
+                                //Get the property named "Value" from the SharedProperties class
+                                var sharedPropertyValue = nestedPropertyValue.GetType().GetProperty("Value").GetValue(nestedPropertyValue);
+                                nestedPropertyValue = sharedPropertyValue;
+                                int maxLen = nestedproperty.GetType().GetProperty("Bits").GetValue(nestedproperty) as int? ?? 100;
+                                //Check if the property value is an int and if it is divide by 8
+                                if (nestedPropertyValue.GetType() == typeof(int))
+                                {
+                                    maxLen /= 8;
+                                }
+                                if (nestedPropertyValue.GetType() == typeof(string))
+                                {
+                                    maxLen /= 8;
+                                }
+                                gd.value.MaxLength = maxLen;
+
+                            }
                             if (nestedPropertyValue.GetType() == typeof(bool))
                             {
                                 gd.value.Visibility = Visibility.Collapsed;
@@ -618,10 +643,27 @@ namespace UniversalGametypeEditor
                             {
                                 gd.value.Visibility = Visibility.Collapsed;
                                 gd.enum_dropdown.Visibility = Visibility.Visible;
-                                //add each enum name to the dropdown combobox
-                                foreach (var enumValue in Enum.GetValues(nestedPropertyValue.GetType()))
+
+                                // Get the value of "EnumTranslations"
+                                var enumTranslations = (IDictionary)nestedproperty.GetType().GetProperty("EnumTranslations").GetValue(nestedproperty);
+
+                                // Use the "EnumTranslations" dictionary if it's not null
+                                if (enumTranslations != null)
                                 {
-                                    gd.enum_dropdown.Items.Add(enumValue);
+                                    foreach (DictionaryEntry entry in enumTranslations)
+                                    {
+                                        Enum enumValue = (Enum)entry.Key;
+                                        string enumName = (string)entry.Value;
+                                        gd.enum_dropdown.Items.Add(enumName);
+                                    }
+
+                                    // Get the string value from the enum and select it in the combo box
+                                    string enumString = (string)enumTranslations[(Enum)nestedPropertyValue];
+                                    gd.enum_dropdown.SelectedItem = enumString;
+                                }
+                                else
+                                {
+                                    gd.enum_dropdown.SelectedItem = nestedPropertyValue;
                                 }
                             }
                             else
@@ -630,17 +672,84 @@ namespace UniversalGametypeEditor
                             }
                             nestedDropDown.DropdownData.Children.Add(gd);
                             gd.value.TextChanged += (sender, e) =>
+{
+                            if (nestedProperty.PropertyType == typeof(SharedProperties))
                             {
+                                // Convert the text to the type of the Value property of SharedProperties
+                                var val = Convert.ChangeType(gd.value.Text, typeof(int));
+                                // Create a new SharedProperties object
+                                var newSharedProperty = new SharedProperties(1) { Value = val };
+                                // Set the property to the new SharedProperties object
+                                nestedProperty.SetValue(propertyValue, newSharedProperty);
+                            }
+                            else
+                            {
+                                // Handle other types
                                 var val = Convert.ChangeType(gd.value.Text, nestedProperty.PropertyType);
                                 nestedProperty.SetValue(propertyValue, val);
-                            };
+                            }
+
+};
+
+
                             gd.enabled.Checked += (sender, e) =>
                             {
-                                nestedProperty.SetValue(propertyValue, true);
+                                
+                                if (nestedproperty is SharedProperties)
+                                {
+                                    //Get the property named "Value" from the SharedProperties class
+                                    var sharedProperty = nestedproperty.GetType().GetProperty("Value");
+                                    sharedProperty.SetValue(nestedproperty, true);
+                                }
+                                else
+                                {
+                                    nestedProperty.SetValue(propertyValue, true);
+                                }
                             };
                             gd.enabled.Unchecked += (sender, e) =>
                             {
-                                nestedProperty.SetValue(propertyValue, false);
+                                if (nestedproperty is SharedProperties)
+                                {
+                                    //Get the property named "Value" from the SharedProperties class
+                                    var sharedProperty = nestedproperty.GetType().GetProperty("Value");
+                                    sharedProperty.SetValue(nestedproperty, false);
+                                }
+                                else
+                                {
+                                    nestedProperty.SetValue(propertyValue, false);
+                                }
+                            };
+
+                            gd.enum_dropdown.SelectionChanged += (sender, e) =>
+                            {
+                                if (nestedproperty is SharedProperties)
+                                {
+                                    // Get the property named "Value" from the SharedProperties class
+                                    var sharedProperty = nestedproperty.GetType().GetProperty("Value");
+
+                                    // Get the current value of the "Value" property
+                                    var currentValue = sharedProperty.GetValue(nestedproperty);
+
+                                    // Get the type of the current value, which should be an enum type
+                                    var enumType = currentValue.GetType();
+
+                                    // Get all values of the enum
+                                    var enumValues = Enum.GetValues(enumType);
+
+                                    // Convert the enum values to a list
+                                    var enumList = new List<Enum>(enumValues.Cast<Enum>());
+
+                                    // Get the enum value at the selected index of the combo box
+                                    var enumValue = enumList[gd.enum_dropdown.SelectedIndex];
+
+                                    sharedProperty.SetValue(nestedproperty, enumValue);
+                                }
+
+
+                                else
+                                {
+                                    nestedProperty.SetValue(propertyValue, gd.enum_dropdown.SelectedItem);
+                                }
                             };
 
                         }
@@ -680,18 +789,21 @@ namespace UniversalGametypeEditor
                         gd.enabled.Visibility = Visibility.Visible;
                         gd.enabled.IsChecked = (bool)propertyValue;
                     }
-                    else if (property.PropertyType.IsEnum)
+                    else if (propertyValue.GetType().IsEnum)
                     {
                         gd.value.Visibility = Visibility.Collapsed;
                         gd.enum_dropdown.Visibility = Visibility.Visible;
-                        //add enum values to the dropdown combobox
-                        foreach (var enumValue in Enum.GetValues(propertyValue.GetType()))
+                        if (propertyValue.GetType() == typeof(DamageResistanceEnum))
                         {
-                            gd.enum_dropdown.Items.Add(enumValue);
+                            //add each enum name to the dropdown combobox
+                            foreach (DamageResistanceEnum enumValue in Enum.GetValues(propertyValue.GetType()))
+                            {
+                                string enumName = DamageResistanceStrings[enumValue];
+                                gd.enum_dropdown.Items.Add(enumName);
+                            }
                         }
-                        //int EnumIndex = (int)propertyValue;
-
                         gd.enum_dropdown.SelectedItem = propertyValue;
+
                     }
                     else
                     {
@@ -732,7 +844,14 @@ namespace UniversalGametypeEditor
                     };
                     gd.enum_dropdown.SelectionChanged += (sender, e) =>
                     {
-                        property.SetValue(viewModel, gd.enum_dropdown.SelectedItem);
+                        if (nestedproperty is SharedProperties)
+                        {
+                            property.SetValue(nestedproperty, gd.enum_dropdown.SelectedItem);
+                        }
+                        else
+                        {
+                            property.SetValue(viewModel, gd.enum_dropdown.SelectedItem);
+                        }
                     };
                 }
             }
@@ -800,7 +919,7 @@ namespace UniversalGametypeEditor
             SpawnSettings? deserializedJSON4 = JsonConvert.DeserializeObject<SpawnSettings>(JSON);
             if (rg.gt.SpawnSettings != null)
             {
-                SpawnSettingsViewModel viewModel4 = new SpawnSettingsViewModel(deserializedJSON4);
+                viewModel4 = new SpawnSettingsViewModel(deserializedJSON4);
                 AddDataToUI<SpawnSettingsViewModel>(viewModel4, "Spawn Settings", Gametype);
             }
             JSON = rg.gt.GameSettings;

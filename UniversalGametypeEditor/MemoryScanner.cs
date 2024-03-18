@@ -54,6 +54,10 @@ class MemoryScanner
         
         try
         {
+            if (processArr.Length == 0)
+            {
+                return;
+            }
             process = processArr[0];
             foreach (Process proc in processArr)
             {
