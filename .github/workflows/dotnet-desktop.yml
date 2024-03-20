@@ -11,45 +11,44 @@ on:
 
 jobs:
   build:
-
     runs-on: windows-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 6.0.x
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
-    - name: 'Upload Artifact'
-      uses: actions/upload-artifact@v2
-      with:
-        name: UniversalGametypeEditor
-        path: UniversalGametypeEditor/bin/Release/net6.0-windows
-        retention-days: 90
+      - uses: actions/checkout@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 6.0.x
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+      - name: Test
+        run: dotnet test --no-build --verbosity normal
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v2
+        with:
+          name: UniversalGametypeEditor
+          path: UniversalGametypeEditor/bin/Release/net6.0-windows
+          retention-days: 90
     
 
   create-release:
     needs: build
-    if: startsWith(github.event.head_commit.message, 'Release')
+    if: contains(github.event.head_commit.message, 'v')
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install jq
-      run: sudo apt-get -y install jq
+      - name: Install jq
+        run: sudo apt-get -y install jq
     
-    - name: Extract Version
-      id: extract_version
-      run: echo "::set-output name=version::$(echo ${GITHUB_EVENT_PATH} | jq -r '.commits[0].message | capture("Release(?<version>v\\d+\\.\\d+\\.\\d+)").version')"
+      - name: Extract Version
+        id: extract_version
+        run: echo "::set-output name=version::$(echo ${GITHUB_EVENT_PATH} | jq -r '.commits[0].message | capture("v(?<version>\\d+\\.\\d+\\.\\d+)").version')"
       
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: UniversalGametypeEditor/bin/Release/net6.0-windows/*
-        tag_name: ${{ steps.extract_version.outputs.version }}
-        name: ${{ steps.extract_version.outputs.version }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: UniversalGametypeEditor/bin/Release/net6.0-windows/*
+          tag_name: ${{ steps.extract_version.outputs.version }}
+          name: ${{ steps.extract_version.outputs.version }}
+          prerelease: true # Set as a pre-release
