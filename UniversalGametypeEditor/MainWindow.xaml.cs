@@ -586,6 +586,7 @@ namespace UniversalGametypeEditor
             if (viewModel == null) return;
 
             DropDown parentDropDown = new();
+            parentDropDown.MaxHeight = 400;
             parentDropDown.Expander.Header = header;
             Type viewModelType = typeof(T);
             PropertyInfo[] properties = viewModelType.GetProperties();
@@ -598,9 +599,17 @@ namespace UniversalGametypeEditor
 
                 {
                     // If the property is an instance of a class, iterate through its properties
-
-                    DropDown nestedDropDown = new();
-                    nestedDropDown.Expander.Header = property.Name;
+                    StackPanel DropdownData = new()
+                    {
+                        Name = "DropdownData"
+                    };
+                    Expander nestedDropDown = new()
+                    {
+                        Header = property.Name,
+                        Foreground = new SolidColorBrush(Colors.White),
+                        Content = DropdownData
+                    };
+                    
                     foreach (var nestedProperty in nestedProperties)
                     {
                         // Exclude "HasValue" and "Value" properties from being added to the UI
@@ -663,6 +672,12 @@ namespace UniversalGametypeEditor
                                 }
                                 else
                                 {
+                                    //add each enum name to the dropdown combobox
+                                    foreach (Enum enumValue in Enum.GetValues(nestedPropertyValue.GetType()))
+                                    {
+                                        string enumName = enumValue.ToString();
+                                        gd.enum_dropdown.Items.Add(enumName);
+                                    }
                                     gd.enum_dropdown.SelectedItem = nestedPropertyValue;
                                 }
                             }
@@ -670,7 +685,7 @@ namespace UniversalGametypeEditor
                             {
                                 gd.value.Text = nestedPropertyValue.ToString();
                             }
-                            nestedDropDown.DropdownData.Children.Add(gd);
+                            DropdownData.Children.Add(gd);
                             gd.value.TextChanged += (sender, e) =>
 {
                             if (nestedProperty.PropertyType == typeof(SharedProperties))
@@ -754,7 +769,7 @@ namespace UniversalGametypeEditor
 
                         }
                     }
-                    if (nestedDropDown.DropdownData.Children.Count > 0)
+                    if (DropdownData.Children.Count > 0)
                     {
                         parentDropDown.DropdownData.Children.Add(nestedDropDown);
                     }
@@ -770,6 +785,10 @@ namespace UniversalGametypeEditor
                         //Get the property named "Value" from the SharedProperties class
                         var sharedPropertyValue = propertyValue.GetType().GetProperty("Value").GetValue(propertyValue);
                         propertyValue = sharedPropertyValue;
+                        if (propertyValue == null)
+                        {
+                            continue;
+                        }
                         int maxLen = nestedproperty.GetType().GetProperty("Bits").GetValue(nestedproperty) as int? ?? 100;
                         //Check if the property value is an int and if it is divide by 8
                         if (propertyValue.GetType() == typeof(int))
@@ -792,17 +811,38 @@ namespace UniversalGametypeEditor
                     else if (propertyValue.GetType().IsEnum)
                     {
                         gd.value.Visibility = Visibility.Collapsed;
-                        gd.enum_dropdown.Visibility = Visibility.Visible;
-                        if (propertyValue.GetType() == typeof(DamageResistanceEnum))
-                        {
-                            //add each enum name to the dropdown combobox
-                            foreach (DamageResistanceEnum enumValue in Enum.GetValues(propertyValue.GetType()))
-                            {
-                                string enumName = DamageResistanceStrings[enumValue];
-                                gd.enum_dropdown.Items.Add(enumName);
-                            }
-                        }
-                        gd.enum_dropdown.SelectedItem = propertyValue;
+                                gd.enum_dropdown.Visibility = Visibility.Visible;
+
+                                // Get the value of "EnumTranslations"
+                                var enumTranslations = (IDictionary)property.GetType().GetProperty("EnumTranslations");
+
+                                // Use the "EnumTranslations" dictionary if it's not null
+                                if (enumTranslations != null)
+                                {
+                                    enumTranslations = (IDictionary)propertyValue.GetType().GetProperty("EnumTranslations").GetValue(propertyValue);
+                                    foreach (DictionaryEntry entry in enumTranslations)
+                                    {
+                                        Enum enumValue = (Enum)entry.Key;
+                                        string enumName = (string)entry.Value;
+                                        gd.enum_dropdown.Items.Add(enumName);
+                                    }
+
+                                    // Get the string value from the enum and select it in the combo box
+                                    string enumString = (string)enumTranslations[(Enum)propertyValue];
+                                    gd.enum_dropdown.SelectedItem = enumString;
+                                }
+                                else
+                                {
+                                    //add each enum name to the dropdown combobox
+                                    foreach (Enum enumValue in Enum.GetValues(propertyValue.GetType()))
+                                    {
+                                        string enumName = enumValue.ToString();
+                                        gd.enum_dropdown.Items.Add(enumName);
+                                    }
+                            //Get the string value from the enum and select it in the combo box
+                            string enumString = propertyValue.ToString();
+                            gd.enum_dropdown.SelectedItem = enumString;
+                                }
 
                     }
                     else
@@ -846,11 +886,43 @@ namespace UniversalGametypeEditor
                     {
                         if (nestedproperty is SharedProperties)
                         {
-                            property.SetValue(nestedproperty, gd.enum_dropdown.SelectedItem);
+                            // Get the property named "Value" from the SharedProperties class
+                            var sharedProperty = nestedproperty.GetType().GetProperty("Value");
+
+                            // Get the current value of the "Value" property
+                            var currentValue = sharedProperty.GetValue(nestedproperty);
+
+                            // Get the type of the current value, which should be an enum type
+                            var enumType = currentValue.GetType();
+
+                            // Get all values of the enum
+                            var enumValues = Enum.GetValues(enumType);
+
+                            // Convert the enum values to a list
+                            var enumList = new List<Enum>(enumValues.Cast<Enum>());
+
+                            // Get the enum value at the selected index of the combo box
+                            var enumValue = enumList[gd.enum_dropdown.SelectedIndex];
+
+                            sharedProperty.SetValue(nestedproperty, enumValue);
                         }
                         else
                         {
-                            property.SetValue(viewModel, gd.enum_dropdown.SelectedItem);
+
+                            // Get the type of the current value, which should be an enum type
+                            var enumType = nestedproperty.GetType();
+
+                            // Get all values of the enum
+                            var enumValues = Enum.GetValues(enumType);
+
+                            // Convert the enum values to a list
+
+                            var enumList = new List<Enum>(enumValues.Cast<Enum>());
+
+                            // Get the enum value at the selected index of the combo box
+                            var enumValue = enumList[gd.enum_dropdown.SelectedIndex];
+
+                            property.SetValue(propertyValue, enumValue);
                         }
                     };
                 }
@@ -905,7 +977,7 @@ namespace UniversalGametypeEditor
                 AddDataToUI<GametypeHeaderViewModel>(viewModel2, "Gametype Header", Gametype);
                 if (Settings.Default.ConvertToForge)
                 {
-                    viewModel.VariantType = (ReadGametype.VariantTypeEnum)1;
+                    viewModel.VariantType.Value = (ReadGametype.VariantTypeEnum)1;
                 }
             }
                 JSON = rg.gt.ModeSettings;
@@ -2635,15 +2707,12 @@ namespace UniversalGametypeEditor
                 }
             }
             int length;
-            if (fileBytes.Length > 25000)
-            {
-                length = 31744;
-            } else
-            {
-                length = 20480;
-            }
-            byte[] newArray = new byte[length - 1];
-            for (int i = 0; i < newArray.Length; i++)
+            
+            length = fileBytes.Length - header.Length - 1;
+            length = fileBytes.Length > 10000 ? length - 1273 : length;
+            byte[] newArray = new byte[length];
+            
+            for (int i = 0; i < length; i++)
             {
                 try
                 {

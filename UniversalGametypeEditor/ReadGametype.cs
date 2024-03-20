@@ -101,7 +101,7 @@ namespace UniversalGametypeEditor
             Flag,
             Slayer,
             Skull,
-            KOTH = 3,
+            KOTH,
             Juggernaut,
             Territories,
             Assault,
@@ -120,7 +120,7 @@ namespace UniversalGametypeEditor
             Wings,
             Swirl,
             Castle,
-            Plus = 22,
+            Plus,
             Shield,
             Arrow,
             Infinity,
@@ -131,7 +131,44 @@ namespace UniversalGametypeEditor
             Diamond
         }
 
-        public enum WeaponSetEnum
+        public enum H2AH4IconEnum
+        {
+            None = 0,
+            Speaker = 1,
+            X = 2,
+            LightningBolt = 3,
+            Bullseye = 4,
+            Diamond = 5,
+            Bomb = 6,
+            Flag = 7,
+            Skull = 8,
+            Crown = 9,
+            VIP = 10,
+            Locked = 11,
+            A = 12,
+            B = 13,
+            C = 14,
+            D = 15,
+            E = 16,
+            F = 17,
+            G = 18,
+            H = 19,
+            I = 20,
+            Ordnance = 21,
+            Activate = 22,
+            Parachute = 23,
+            Ammo = 24,
+            Uplink = 25,
+            Shield = 26,
+            Inwards = 27,
+            Teardrop = 28,
+            Unlabelled1 = 29,
+            Unlabelled2 = 30,
+            Unlabelled3 = 31
+        }
+
+
+    public enum WeaponSetEnum
         {
             
             Human,
@@ -294,6 +331,49 @@ namespace UniversalGametypeEditor
             MapDefault = 254,
             None = 255
         }
+
+        public static Dictionary<VariantTypeEnum, string> VariantTypeStrings = new Dictionary<VariantTypeEnum, string>
+        {
+            { VariantTypeEnum.Campaign, "Campaign" },
+            { VariantTypeEnum.Forge, "Forge" },
+            { VariantTypeEnum.Multiplayer, "Multiplayer" },
+            { VariantTypeEnum.Firefight, "Firefight" }
+        };
+
+        public static Dictionary<IconEnum, string> IconStrings = new Dictionary<IconEnum, string>
+        {
+            { IconEnum.Flag, "Flag" },
+            { IconEnum.Slayer, "Slayer" },
+            { IconEnum.Skull, "Skull" },
+            { IconEnum.KOTH, "KOTH" },
+            { IconEnum.Juggernaut, "Juggernaut" },
+            { IconEnum.Territories, "Territories" },
+            { IconEnum.Assault, "Assault" },
+            { IconEnum.Infection, "Infection" },
+            { IconEnum.VIP, "VIP" },
+            { IconEnum.Invasion, "Invasion" },
+            { IconEnum.EliteandSkull, "Elite and Skull" },
+            { IconEnum.Stockpile, "Stockpile" },
+            { IconEnum.ActionSack, "Action Sack" },
+            { IconEnum.Lightning, "Lightning" },
+            { IconEnum.Rocket, "Rocket" },
+            { IconEnum.Griffball, "Griffball" },
+            { IconEnum.Biohazard, "Biohazard" },
+            { IconEnum.Headhunter, "Headhunter" },
+            { IconEnum.SpikySwirl, "Spiky Swirl" },
+            { IconEnum.Wings, "Wings" },
+            { IconEnum.Swirl, "Swirl" },
+            { IconEnum.Castle, "Castle" },
+            { IconEnum.Plus, "Plus" },
+            { IconEnum.Shield, "Shield" },
+            { IconEnum.Arrow, "Arrow" },
+            { IconEnum.Infinity, "Infinity" },
+            { IconEnum.Forerunner, "Forerunner" },
+            { IconEnum.EightBall, "Eight Ball" },
+            { IconEnum.UNSC, "UNSC" },
+            { IconEnum.Unknown, "Unknown" },
+            { IconEnum.Diamond, "Diamond" }
+        };
 
         public static Dictionary<WeaponEnum, string> WeaponStrings = new Dictionary<WeaponEnum, string>
         {

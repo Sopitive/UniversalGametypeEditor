@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UniversalGametypeEditor.Properties;
 using static UniversalGametypeEditor.ReadGametype;
 
 namespace UniversalGametypeEditor
@@ -272,29 +273,30 @@ namespace UniversalGametypeEditor
             }
         }
 
-        public VariantTypeEnum VariantType
+        
+
+        public SharedProperties VariantType
         {
             get
             {
                 if (_variantType == null)
                 {
-                    _variantType = new SharedProperties(2)
-                    {
-                        Value = data.VariantType
-                    };
+                    _variantType = new SharedProperties(2) { Value = (VariantTypeEnum)data.VariantType, EnumTranslations = VariantTypeStrings };
                 }
-                return (VariantTypeEnum)_variantType.Value;
+                return _variantType;
             }
             set
             {
-                if (data.VariantType != (int)value)
+                VariantTypeEnum newValue = VariantTypeStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.VariantType != (int)newValue)
                 {
-                    data.VariantType = (int)value;
-                    _variantType.Value = (int)value;
+                    data.VariantType = (int)newValue;
+                    _variantType = new SharedProperties(2) { Value = newValue };
                     OnPropertyChanged(nameof(VariantType));
                 }
             }
         }
+        
 
 
         public int Unknown0x319
@@ -634,14 +636,24 @@ namespace UniversalGametypeEditor
             }
         }
 
-        public IconEnum GameIcon
+        private SharedProperties _gameIcon;
+        public SharedProperties GameIcon
         {
-            get { return (IconEnum)data.GameIcon; }
+            get
+            {
+                if (_gameIcon == null)
+                {
+                    _gameIcon = new SharedProperties(5) { Value = (IconEnum)data.GameIcon, EnumTranslations = IconStrings };
+                }
+                return _gameIcon;
+            }
             set
             {
-                if ((IconEnum)data.GameIcon != value)
+                IconEnum newValue = IconStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.GameIcon != (int)newValue)
                 {
-                    data.GameIcon = (int)value;
+                    data.GameIcon = (int)newValue;
+                    _gameIcon = new SharedProperties(5) { Value = newValue };
                     OnPropertyChanged(nameof(GameIcon));
                 }
             }
@@ -721,10 +733,21 @@ namespace UniversalGametypeEditor
             {
                 if (_unknownFlag2 == null)
                 {
-                    _unknownFlag2 = new SharedProperties(1)
+                    if (Settings.Default.DecompiledVersion == 0)
                     {
-                        Value = Convert.ToBoolean(data.UnknownFlag2)
-                    };
+                        _unknownFlag2 = new SharedProperties(1)
+                        {
+                            Value = Convert.ToBoolean(data.UnknownFlag2)
+                        };
+                    }
+                    else
+                    {
+                        _unknownFlag2 = new SharedProperties(2)
+                        {
+                            Value = Convert.ToBoolean(data.UnknownFlag2)
+                        };
+                    }
+
                 }
                 return _unknownFlag2;
             }
@@ -2933,7 +2956,7 @@ namespace UniversalGametypeEditor
         {
             get
             {
-                if (_gracePeriod == null)
+                if (_gracePeriod == null && reachSettings != null)
                 {
                     _gracePeriod = new SharedProperties(5) { Value = Convert.ToInt32(reachSettings.GracePeriod) };
                 }
@@ -3021,7 +3044,7 @@ namespace UniversalGametypeEditor
         {
             get
             {
-                if (_respawnOnKills == null)
+                if (_respawnOnKills == null && reachSettings != null)
                 {
                     _respawnOnKills = new SharedProperties(1) { Value = Convert.ToBoolean(reachSettings?.RespawnOnKills) };
                 }
@@ -3045,7 +3068,7 @@ namespace UniversalGametypeEditor
         {
             get
             {
-                if (_respawnAtLocationUnused == null)
+                if (_respawnAtLocationUnused == null && reachSettings != null)
                 {
                     _respawnAtLocationUnused = new SharedProperties(1) { Value = Convert.ToBoolean(reachSettings?.respawnatlocationunused) };
                 }
@@ -3067,7 +3090,7 @@ namespace UniversalGametypeEditor
         {
             get
             {
-                if (_respawnWithTeammateUnused == null)
+                if (_respawnWithTeammateUnused == null && reachSettings != null)
                 {
                     _respawnWithTeammateUnused = new SharedProperties(1) { Value = Convert.ToBoolean(reachSettings?.respawnwithteammateunused) };
                 }
@@ -3089,7 +3112,7 @@ namespace UniversalGametypeEditor
         {
             get
             {
-                if (_respawnSyncWithTeam == null)
+                if (_respawnSyncWithTeam == null && reachSettings != null)
                 {
                     _respawnSyncWithTeam = new SharedProperties(1) { Value = Convert.ToBoolean(reachSettings?.RespawnSyncwithteam) };
                 }

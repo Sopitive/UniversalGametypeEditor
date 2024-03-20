@@ -39,8 +39,12 @@ namespace UniversalGametypeEditor
             }
             WriteFileHeaders(fh);
             int len = WriteGametypeHeaders(gh, gt);
-            WriteModeSettings(ms);
-            WriteSpawnSettings(ss);
+            if (Settings.Default.DecompiledVersion == 0)
+            {
+                WriteModeSettings(ms);
+                WriteSpawnSettings(ss);
+            }
+            
             int slice = modifiedBinary.Length - len;
 
 
@@ -67,7 +71,7 @@ namespace UniversalGametypeEditor
 
 
             // Convert variant type to string and then to binary
-            string VariantType = Convert.ToString((int)fh.VariantType, 2).PadLeft(2, '0');
+            string VariantType = Convert.ToString((int)fh.VariantType.Value, 2).PadLeft(2, '0');
 
             string Unknown0x319 = Convert.ToString(fh.Unknown0x319, 2).PadLeft(4, '0');
             string Unknown0x31D = Convert.ToString(fh.Unknown0x31D, 2).PadLeft(32, '0');
@@ -146,7 +150,7 @@ namespace UniversalGametypeEditor
             //diff = modifiedBinary.Length - diff;
             Settings.Default.Description = gh.Description;
             Settings.Default.Title = gh.Title;
-            modifiedBinary += Convert.ToString((int)gh.GameIcon, 2).PadLeft(8, '0');
+            modifiedBinary += Convert.ToString((int)gh.GameIcon.Value, 2).PadLeft(8, '0');
             //modifiedBinary2 += UnknownFlag1;
             ////modlen = modifiedBinary.Length;
             //int total3 = modlen + titlelen + total + total2 + modifiedBinary2.Length;
@@ -202,7 +206,7 @@ namespace UniversalGametypeEditor
                     var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
                     modifiedBinary += binary;
                 }
-                else if (prop.PropertyType == typeof(ReachSettingsViewModel))
+                else if (prop.PropertyType == typeof(ReachSettingsViewModel) && Settings.Default.DecompiledVersion == 0)
                 {
                     // Handle ReachSettingsViewModel
                     var reachViewModel = (ReachSettingsViewModel)prop.GetValue(ms);
@@ -235,10 +239,14 @@ namespace UniversalGametypeEditor
                 if (prop.PropertyType == typeof(SharedProperties))
                 {
                     var value = (SharedProperties)prop.GetValue(viewModel);
-                    var val = Convert.ToInt32(value.Value);
-                    var bits = value.Bits;
-                    var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
-                    modifiedBinary += binary;
+                    if (value != null)
+                    {
+                        var val = Convert.ToInt32(value.Value);
+                        var bits = value.Bits;
+                        var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
+                        modifiedBinary += binary;
+                    }
+                    
                 }
                 // Check if the property is a ViewModel that contains SharedProperties
                 else if (prop.PropertyType == typeof(SpawnReachSettingsViewModel) || prop.PropertyType == typeof(PlayerTraitsViewModel))
