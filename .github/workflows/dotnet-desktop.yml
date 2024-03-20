@@ -38,6 +38,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+    
       - name: Install jq
         run: sudo apt-get -y install jq
     
@@ -47,9 +50,11 @@ jobs:
       
       - name: Create Tag
         run: git tag -a v${{ steps.extract_version.outputs.version }} -m "Version v${{ steps.extract_version.outputs.version }}"
+        working-directory: ${{ github.workspace }}
       
       - name: Push Tag
         run: git push origin v${{ steps.extract_version.outputs.version }}
+        working-directory: ${{ github.workspace }}
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
