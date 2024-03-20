@@ -38,6 +38,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+    
       - name: Install jq
         run: sudo apt-get -y install jq
     
@@ -45,10 +48,18 @@ jobs:
         id: extract_version
         run: echo "::set-output name=version::$(echo ${GITHUB_EVENT_PATH} | jq -r '.commits[0].message | capture("v(?<version>\\d+\\.\\d+\\.\\d+)").version')"
       
+      - name: Create Tag
+        run: git tag -a v${{ steps.extract_version.outputs.version }} -m "Version v${{ steps.extract_version.outputs.version }}"
+        working-directory: ${{ github.workspace }}
+      
+      - name: Push Tag
+        run: git push origin v${{ steps.extract_version.outputs.version }}
+        working-directory: ${{ github.workspace }}
+      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: UniversalGametypeEditor/bin/Release/net6.0-windows/*
-          tag_name: ${{ steps.extract_version.outputs.version }}
+          tag_name: v${{ steps.extract_version.outputs.version }}
           name: ${{ steps.extract_version.outputs.version }}
           prerelease: true # Set as a pre-release
