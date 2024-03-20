@@ -32,44 +32,14 @@ jobs:
           retention-days: 90
     
 
-  create-release:
+  CreateRelease:
     needs: build
     if: contains(github.event.head_commit.message, 'v')
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-    
       - name: Install jq
         run: sudo apt-get -y install jq
-    
-      - name: Set Git user identity
-        run: |
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-      
       - name: Extract Version
-        id: extract_version
-        run: echo "::set-output name=version::$(echo ${GITHUB_EVENT_PATH} | jq -r '.commits[0].message | capture("v(?<version>\\d+\\.\\d+\\.\\d+)").version')"
-      
-      - name: Create Tag
-        run: git tag -a v${{ steps.extract_version.outputs.version }} -m "Version v${{ steps.extract_version.outputs.version }}"
-        working-directory: ${{ github.workspace }}
-      
-      - name: Push Tag
-        run: git push origin v${{ steps.extract_version.outputs.version }}
-        working-directory: ${{ github.workspace }}
-      
-      name: Create Release
-
-    -name: Create Release
-    if: contains(github.event.head_commit.message, 'v')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install jq
-        run: sudo apt-get -y install jq
-        - name: Extract Version
         id: extract_version
         run: echo "::set-output name=version::$(echo ${GITHUB_EVENT_PATH} | jq -r '.commits[0].message | capture("v(?<version>\\d+\\.\\d+\\.\\d+)").version')"
       - name: Checkout code
@@ -84,3 +54,8 @@ jobs:
           release_name: Release ${{ steps.extract_version.outputs.version }}
           draft: false
           prerelease: true
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url }}
+          asset_path: ./UniversalGametypeEditor.zip
+          asset_name: UniversalGametypeEditor.zip
+          asset_content_type: application/zip
