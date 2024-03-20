@@ -44,6 +44,11 @@ jobs:
       - name: Install jq
         run: sudo apt-get -y install jq
     
+      - name: Set Git user identity
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+      
       - name: Extract Version
         id: extract_version
         run: echo "::set-output name=version::$(echo ${GITHUB_EVENT_PATH} | jq -r '.commits[0].message | capture("v(?<version>\\d+\\.\\d+\\.\\d+)").version')"
