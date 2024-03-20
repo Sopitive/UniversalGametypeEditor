@@ -46,4 +46,42 @@ class MemoryWriter
             Debug.WriteLine("Failed to write the value.");
         }
     }
+
+    // Import the OpenProcess function from the Windows API
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+
+
+    public static void WriteOpcode()
+    {
+        // Get the process
+        Process process = Process.GetProcessesByName("mcc-win64-shipping")[0];
+
+        // Get the base address of the mcc-win64-shipping.exe module
+        IntPtr baseAddress = process.MainModule.BaseAddress;
+
+        // Define PROCESS_ALL_ACCESS
+        const int PROCESS_ALL_ACCESS = 0x1F0FFF;
+
+        // Open the process with all access
+        IntPtr processHandle = OpenProcess(PROCESS_ALL_ACCESS, false, process.Id);
+
+        // Define the patch (from jne to je)
+        byte[] patch = { 0x74 };
+
+
+        // Define the memory offset
+        int memoryOffset = 0x5042B1;
+
+        // Calculate the absolute memory address
+        IntPtr memoryAddress = IntPtr.Add(baseAddress, memoryOffset);
+
+        // Apply the patch
+        WriteProcessMemory(processHandle, memoryAddress, patch, patch.Length, out _);
+        //Restore the original value
+        byte[] original = { 0x75 };
+        //Wait 10ms
+        System.Threading.Thread.Sleep(1000);
+        WriteProcessMemory(processHandle, memoryAddress, original, original.Length, out _);
+    }
 }

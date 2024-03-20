@@ -123,7 +123,7 @@ namespace UniversalGametypeEditor
             //rg.ReadBinary();
 
             MegaloEditPatcher.Patch();
-            
+            //MemoryWriter.WriteOpcode();
 
 
             if (Settings.Default.GameDir != "Undefined")
