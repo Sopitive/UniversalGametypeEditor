@@ -24,42 +24,35 @@ jobs:
         run: dotnet build --configuration Release --no-restore
       - name: Test
         run: dotnet test --no-build --verbosity normal
-      - name: 'Upload Artifact'
+      - name: Upload Artifact
         uses: actions/upload-artifact@v2
         with:
           name: UniversalGametypeEditor
           path: UniversalGametypeEditor/bin/Release/net6.0-windows
           retention-days: 90
-    
 
-  create-release:
-    needs: build
+  create_release:
     if: contains(github.event.head_commit.message, 'v')
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-    
       - name: Install jq
         run: sudo apt-get -y install jq
-    
       - name: Extract Version
         id: extract_version
         run: echo "::set-output name=version::$(echo ${GITHUB_EVENT_PATH} | jq -r '.commits[0].message | capture("v(?<version>\\d+\\.\\d+\\.\\d+)").version')"
-      
-      - name: Create Tag
-        run: git tag -a v${{ steps.extract_version.outputs.version }} -m "Version v${{ steps.extract_version.outputs.version }}"
-        working-directory: ${{ github.workspace }}
-      
-      - name: Push Tag
-        run: git push origin v${{ steps.extract_version.outputs.version }}
-        working-directory: ${{ github.workspace }}
-      
+      - name: Checkout code
+        uses: actions/checkout@v2
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        id: create_release
+        uses: actions/create-release@v1 
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
         with:
-          files: UniversalGametypeEditor/bin/Release/net6.0-windows/*
-          tag_name: v${{ steps.extract_version.outputs.version }}
-          name: ${{ steps.extract_version.outputs.version }}
-          prerelease: true # Set as a pre-release
+          tag_name: ${{ steps.extract_version.outputs.version }}
+          release_name: Release ${{ steps.extract_version.outputs.version }}
+          draft: false
+          prerelease: true
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./UniversalGametypeEditor.zip
+          asset_name: UniversalGametypeEditor.zip
+          asset_content_type: application/zip
