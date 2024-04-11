@@ -122,7 +122,10 @@ namespace UniversalGametypeEditor
 
             //rg.ReadBinary();
 
-            MegaloEditPatcher.Patch();
+            //MegaloEditPatcher.Patch();
+
+            //MemoryWriter.WriteOpcode2();
+
             //MemoryWriter.WriteOpcode();
 
 
@@ -182,7 +185,10 @@ namespace UniversalGametypeEditor
 
         }
 
-        
+        private void PatchMegaloEdit(object sender, RoutedEventArgs e)
+        {
+            MemoryWriter.WriteOpcode2();
+        }
 
 
 
@@ -2734,7 +2740,7 @@ namespace UniversalGametypeEditor
                 {
                     File.WriteAllBytes($"{directory}\\{name.Replace(".bin", "")}.mglo", newArray);
                     fileLocked = false;
-                } catch (IOException)
+                } catch (Exception e)
                 {
                     Debug.WriteLine("File still in use!");
                     fileLocked = true;

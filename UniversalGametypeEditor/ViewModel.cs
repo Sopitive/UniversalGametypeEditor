@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Markup;
 using UniversalGametypeEditor.Properties;
 using static UniversalGametypeEditor.ReadGametype;
 
@@ -1240,6 +1241,7 @@ namespace UniversalGametypeEditor
         {
             this.data = data;
             H2AH4 = new TraitsH2AH4SettingsViewModel(data.H2AH4);
+            
         }
 
 
@@ -3380,6 +3382,7 @@ namespace UniversalGametypeEditor
 
     public class H2AH4GameSettingsViewModel
     {
+        
         public GameSettings.H2AH4Settings gameSettings;
         public int EquipmentSet
         {
@@ -3460,6 +3463,7 @@ namespace UniversalGametypeEditor
         public GameSettingsViewModel(GameSettings gameSettings)
         {
             this.gameSettings = gameSettings;
+            BasePlayerTraits = new PlayerTraitsViewModel(gameSettings.BasePlayerTraits);
         }
 
         public bool EnableObservers

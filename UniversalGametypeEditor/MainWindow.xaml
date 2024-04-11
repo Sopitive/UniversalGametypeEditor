@@ -736,6 +736,10 @@
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Help" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ShowTut" Header="Tutorial" ToolTip="Show tutorial" Click="ShowTutorial" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
+                    <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Tools" Foreground="{StaticResource TextColor}" Background="#333333">
+                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="Patch" Header="Patch MegaloEdit" ToolTip="Patch MegaloEdit" Click="PatchMegaloEdit" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                    </MenuItem>
+                    
                 </Menu>
                 <Popup Name="Tutorial" Height="Auto" Width="200" IsOpen="True" PlacementTarget="{Binding ElementName=Menu}" Placement="Bottom">
                     <StackPanel Background="Transparent">
