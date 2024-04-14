@@ -88,13 +88,13 @@ class MemoryWriter
         WriteProcessMemory(processHandle, memoryAddress, original, original.Length, out _);
     }
 
-    public static async void WriteOpcode2()
+    public static int WriteOpcode2()
     {
         // Get the process
         Process process = Process.GetProcessesByName("MegaloEdit")[0];
         if (process == null)
         {
-            return;
+            return 1;
         }
         // Get the base address of the MegaloEdit.exe module
         IntPtr baseAddress = process.MainModule.BaseAddress;
@@ -140,12 +140,12 @@ class MemoryWriter
                     // Write the replacement bytes
                     WriteProcessMemory(processHandle, IntPtr.Add(p, i), replaceBytes, replaceBytes.Length, out int bytesWritten);
                     Debug.WriteLine("Patched Successfully");
-                    return;
+                    return 2;
                 }
             }
             
         }
-        
+        return 3;
         Debug.WriteLine("No match found");
     }
 

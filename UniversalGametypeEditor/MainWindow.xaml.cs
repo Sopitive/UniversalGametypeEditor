@@ -188,8 +188,24 @@ namespace UniversalGametypeEditor
         private async void PatchMegaloEdit(object sender, RoutedEventArgs e)
         {
             UpdateLastEvent("Patching MegaloEdit");
-            await Task.Run(() => MemoryWriter.WriteOpcode2());
-
+            int result = await Task.Run(() => MemoryWriter.WriteOpcode2());
+            if (result == 1)
+            {
+                UpdateLastEvent("ERROR: Failed to Patch MegaloEdit: MegaloEdit Not Running");
+                return;
+            }
+            
+            if (result == 2)
+            {
+                UpdateLastEvent("SUCCESS: Patched MegaloEdit");
+                return;
+            }
+            if (result == 3)
+            {
+                UpdateLastEvent("ERROR: Failed to patch MegaloEdit: Could not find address or already patched");
+                return;
+            }
+            UpdateLastEvent("ERROR: Failed to patch MegaloEdit ");
         }
 
 
