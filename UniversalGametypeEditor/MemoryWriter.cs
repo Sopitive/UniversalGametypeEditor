@@ -88,7 +88,7 @@ class MemoryWriter
         WriteProcessMemory(processHandle, memoryAddress, original, original.Length, out _);
     }
 
-    public static void WriteOpcode2()
+    public static async void WriteOpcode2()
     {
         // Get the process
         Process process = Process.GetProcessesByName("MegaloEdit")[0];
@@ -109,14 +109,17 @@ class MemoryWriter
         byte[] searchBytes = { 0x74, 0x6E, 0x48, 0x8B, 0x4D, 0x10, 0xE8 };
 
         // Define the byte sequence to replace it with
-        byte[] replaceBytes = { 0x75, 0x6E, 0x48, 0x8B, 0x4D, 0x10, 0xE8 };
+        byte[] replaceBytes = { 0xEB, 0x6E, 0x48, 0x8B, 0x4D, 0x10, 0xE8 };
+
 
         // Define the size of the buffer
         // Define the size of the buffer
         const int bufferSize = 32768; // adjust this to the size you want
 
+        //7FFAAB173A70 
+
         // Define the start and end addresses
-        IntPtr startAddress = new IntPtr(0x7FFF78D00000); // replace with your start address
+        IntPtr startAddress = new IntPtr(0x7FFA78D00000); // replace with your start address
         IntPtr endAddress = new IntPtr(0x7FFF78DFFA40); // replace with your end address
 
         // Create the buffer
@@ -136,11 +139,13 @@ class MemoryWriter
                 {
                     // Write the replacement bytes
                     WriteProcessMemory(processHandle, IntPtr.Add(p, i), replaceBytes, replaceBytes.Length, out int bytesWritten);
+                    Debug.WriteLine("Patched Successfully");
                     return;
                 }
             }
             
         }
+        
         Debug.WriteLine("No match found");
     }
 

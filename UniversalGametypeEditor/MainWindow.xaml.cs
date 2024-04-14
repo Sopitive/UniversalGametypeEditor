@@ -185,9 +185,11 @@ namespace UniversalGametypeEditor
 
         }
 
-        private void PatchMegaloEdit(object sender, RoutedEventArgs e)
+        private async void PatchMegaloEdit(object sender, RoutedEventArgs e)
         {
-            MemoryWriter.WriteOpcode2();
+            UpdateLastEvent("Patching MegaloEdit");
+            await Task.Run(() => MemoryWriter.WriteOpcode2());
+
         }
 
 
