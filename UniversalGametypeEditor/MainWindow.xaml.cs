@@ -663,11 +663,11 @@ namespace UniversalGametypeEditor
                         propertyValue = sharedPropertyValue;
                         int maxLen = nestedproperty.GetType().GetProperty("Bits").GetValue(nestedproperty) as int? ?? 100;
                         //Check if the property value is an int and if it is divide by 8
-                        if (propertyValue.GetType() == typeof(int))
+                        if (propertyValue != null && propertyValue.GetType() == typeof(int))
                         {
                             maxLen /= 8;
                         }
-                        if (propertyValue.GetType() == typeof(string))
+                        if (propertyValue != null && propertyValue.GetType() == typeof(string))
                         {
                             maxLen /= 8;
                         }
@@ -675,7 +675,7 @@ namespace UniversalGametypeEditor
 
                     }
                     //Check if the value is a boolean and if it is, hide the text box and show the checkbox
-                    if (propertyValue.GetType() == typeof(bool)) {
+                    if (propertyValue != null && propertyValue.GetType() == typeof(bool)) {
                         gd.value.Visibility = Visibility.Collapsed;
                         gd.enabled.Visibility = Visibility.Visible;
                         gd.enabled.IsChecked = (bool)propertyValue;
@@ -693,7 +693,7 @@ namespace UniversalGametypeEditor
 
                         gd.enum_dropdown.SelectedItem = propertyValue;
                     }
-                    else
+                    else if (propertyValue != null)
                     {
                         gd.value.Text = propertyValue.ToString();
                     }

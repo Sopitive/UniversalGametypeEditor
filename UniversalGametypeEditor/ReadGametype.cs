@@ -2006,6 +2006,7 @@ namespace UniversalGametypeEditor
 
             //Read Conditions
             List<string> ConditionsList = new();
+            List<long> ConditionOffsetList = new();
             Conditions c = new();
             c.ConditionCount = ConvertToInt(GetValue(10));
 
@@ -2061,6 +2062,7 @@ namespace UniversalGametypeEditor
                 //Build condition string
                 string condition = $"condition {c.NOT} {conditionType} {c.SpecificType}{subplayer} {oper} {c.SpecificType2}{subplayer2}";
                 ConditionsList.Add(condition);
+                ConditionOffsetList.Add(c.ConditionOffset);
             }
 
             gametypeItems.Add(gt);
@@ -2120,11 +2122,13 @@ namespace UniversalGametypeEditor
                         //Delete Object
                         type = ConvertToInt(GetValue(objectTypeRef));
                         (ac.Parameter1, subvalue) = GetRefType(type);
+                        ActionList.Add($"action delete_object {ac.Parameter1}{subvalue}");
                         break;
                     case 4:
                         //Navpoint Set Visible
-                        ac.Parameter1 = Objects[ConvertToInt(GetValue(objectType))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
+                        ActionList.Add($"action navpoint_set_visible {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 5:
                         //Navpoint Set Icon
@@ -2132,11 +2136,13 @@ namespace UniversalGametypeEditor
                         (ac.Parameter1, subvalue) = GetRefType(type);
                         int icon = ConvertToInt(GetValue(5));
                         ac.Parameter2 = WaypointIcon[icon];
+                        string num = "";
                         if (icon == 12)
                         {
                             icon = ConvertToInt(GetValue(7));
-                            string number = GetNumericRefType(icon);
+                            num = GetNumericRefType(icon);
                         }
+                        ActionList.Add($"action navpoint_set_icon {ac.Parameter1}{subvalue} {ac.Parameter2} {num}");
                         break;
                     case 6:
                         //Navpoint Secondary Icon
@@ -2144,24 +2150,29 @@ namespace UniversalGametypeEditor
                         (ac.Parameter1, subvalue) = GetRefType(type);
                         int icon2 = ConvertToInt(GetValue(5));
                         ac.Parameter2 = WaypointIcon[icon2];
+                        num = "";
                         if (icon2 == 12)
                         {
                             icon2 = ConvertToInt(GetValue(7));
-                            string number = GetNumericRefType(icon2);
+                            num = GetNumericRefType(icon2);
                         }
+                        ActionList.Add($"action NavPointSetSecondaryIcon {ac.Parameter1}{subvalue} {ac.Parameter2} {num}");
                         break;
                     case 7:
                         //Navpoint Priority
                         type = ConvertToInt(GetValue(objectTypeRef));
                         (ac.Parameter1, subvalue) = GetRefType(type);
                         ac.Parameter2 = WaypointPriority[ConvertToInt(GetValue(2))];
+                        ActionList.Add($"action navpoint_set_priority {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 8:
                         //Navpoint Timer
                         type = ConvertToInt(GetValue(objectTypeRef));
                         (ac.Parameter1, subvalue) = GetRefType(type);
                         int timer = ConvertToInt(GetValue(1));
-                        ac.Parameter4 = timer == 1 ? ConvertToInt(GetValue(2)) : -1;
+                        ac.Parameter3 = timer == 0 ? Convert.ToString(ConvertToInt(GetValue(2))) : "none";
+                        Convert.ToString(ac.Parameter4);
+                        ActionList.Add($"action navpoint_set_timer {ac.Parameter1}{subvalue} ObjectTimer{ac.Parameter4}");
                         break;
                     case 9:
                         //Navpoint Range
@@ -2171,74 +2182,137 @@ namespace UniversalGametypeEditor
                         ac.Parameter2 = GetNumericRefType(type);
                         type = ConvertToInt(GetValue(7));
                         ac.Parameter3 = GetNumericRefType(type);
+                        ActionList.Add($"action navpoint_set_visible_range {ac.Parameter1}{subvalue} {ac.Parameter2} {ac.Parameter3}");
                         break;
                     case 10:
                         //Object Territory
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action NavPointSetIsTerritory {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 11:
                         //Object Territory Team
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action NavPointSetIsSpawningTerritory {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 12:
                         //Object Territory Level
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action NavPointSetTerritoryLevel {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 13:
                         //Object territory max level
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action NavPointSetMaxTerritoryLevel {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 14:
                         //Object Territory Sort Order
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action NavPointSetTerritorySortOrder {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 15:
                         //Object Territory Cap Timer
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         int timer2 = ConvertToInt(GetValue(1));
-                        ac.Parameter4 = timer2 == 1 ? ConvertToInt(GetValue(2)) : -1;
+                        ac.Parameter3 = timer2 == 0 ? Convert.ToString(ConvertToInt(GetValue(2))) : "none";
+                        ActionList.Add($"action NavPointSetTerritoryTimer {ac.Parameter1}{subvalue} ObjectTimer{ac.Parameter3}");
                         break;
                     case 16:
                         //Object Nav Template
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = Names[ConvertToInt(GetValue(8))];
+                        ActionList.Add($"action NavPointSetType {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 17:
                         //Object Action Team
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        (ac.Parameter2, subvalue2) = GetTeamRefType(ConvertToInt(GetValue(3)));
+                        ActionList.Add($"action NavPointSetActionTeam {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
                         break;
                     case 20:
                         //Object Boundary Set
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        int shape = ConvertToInt(GetValue(2));
+                        string len = "";
+                        string top = "";
+                        string bottom = "";
+                        string width = "";
+                        switch (shape)
+                        {
+                            case 0:
+                                ac.Parameter2 = "none";
+                                break;
+                            case 1:
+                                ac.Parameter2 = "sphere";
+                                len = GetNumericRefType(ConvertToInt(GetValue(7)));
+                                break;
+                            case 2:
+                                ac.Parameter2 = "cylinder";
+                                len = GetNumericRefType(ConvertToInt(GetValue(7)));
+                                bottom = GetNumericRefType(ConvertToInt(GetValue(7)));
+                                top = GetNumericRefType(ConvertToInt(GetValue(7)));
+                                break;
+                            case 3:
+                                ac.Parameter2 = "box";
+                                len = GetNumericRefType(ConvertToInt(GetValue(7)));
+                                top = GetNumericRefType(ConvertToInt(GetValue(7)));
+                                bottom = GetNumericRefType(ConvertToInt(GetValue(7)));
+                                width = GetNumericRefType(ConvertToInt(GetValue(7)));
+                                break;
+                        }
+                        ActionList.Add($"action set_boundary {ac.Parameter1}{subvalue} {ac.Parameter2} {len} {top} {width} {bottom} ");
                         break;
                     case 22:
                         //Object Pickup Perms
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
+                        ActionList.Add($"action set_pickup_filter {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 23:
                         //Object Spawn Perms
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
+                        ActionList.Add($"action set_respawn_filter {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 24:
                         //Object Fireteam Spawn Perms
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                        ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        int filter = ConvertToInt(GetValue(8));
+                        string filterString = "";
+                        switch (filter)
+                        {
+                            case 0:
+                                filterString = "none";
+                                break;
+                            case 1:
+                                filterString = "0";
+                                break;
+                            case 2:
+                                filterString = "1";
+                                break;
+                            case 4:
+                                filterString = "2";
+                                break;
+                            case 8:
+                                filterString = "3";
+                                break;
+                            case 255:
+                                filterString = "all";
+                                break;
+                        }
+                        ActionList.Add($"action set_fireteam_respawn_filter {ac.Parameter1}{subvalue} {filterString}");
                         break;
                     case 25:
                         //Object Progress Bar
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
                         int timer3 = ConvertToInt(GetValue(1));
-                        ac.Parameter4 = timer3 == 1 ? ConvertToInt(GetValue(2)) : -1;
+                        ac.Parameter3 = timer3 == 0 ? Convert.ToString(ConvertToInt(GetValue(2))) : "none";
+                        ActionList.Add($"action set_progress_bar {ac.Parameter1}{subvalue} {ac.Parameter2} ObjectTimer{ac.Parameter3}");
                         break;
                     case 30:
                         //Object Carrier Get
@@ -2288,18 +2362,51 @@ namespace UniversalGametypeEditor
                 int unk2 = ConvertToInt(GetValue(8));
 
                 //Build trigger block
-                //Get longest of either condition or action count
-                int count = conditionCount > actionCount ? conditionCount : actionCount;
-                string actions = "";
-                for (int j = 0; j < count; j++)
+
+                string conditions = "";
+
+
+                for (int j = 0; j < conditionCount; j++)
                 {
-                    actions += $"{ActionList[j + actionOffset - 1]}\n";
+                    int index = (int)ConditionOffsetList[j];
+
+                    // Ensure the index is within the bounds of the list
+                    if (index >= 0 && index <= ActionList.Count)
+                    {
+                        string condition = ConditionsList[j + conditionOffset - 1];
+                        ActionList.Insert(index, condition);
+                    }
                 }
 
+
+                //string actions = "";
+                //for (int j = 0; j < actionCount; j++)
+                //{
+                //    actions += $"{ActionList[j + actionOffset - 1]}\n";
+                //}
+
+                //Build a string of actions and conditions using the sum of action and condition count
+                string actions = "";
+                for (int j = 0; j < actionCount + conditionCount; j++)
+                {
+                    actions += $"\t{ActionList[j]}\n";
+                }
+
+
+                
+
                 //Build trigger string
-                string trigger = type + "\n" + actions + "\n" + "end";
+                string trigger = type + "\n" + actions + "\n" + "end\n";
+                //Remove the first entries from ActionsList equal to the action and condition count
+                ActionList.RemoveRange(0, actionCount + conditionCount);
 
-
+                //Get the filename from the filepath variable
+                string filename = Path.GetFileNameWithoutExtension(filePath);
+                //Get only the file path without the filename
+                string filepath = Path.GetDirectoryName(filePath);
+                //Append the trigger to a new text file with the filename at the file pat locaation and overwrite the existing
+                
+                File.AppendAllText($"{filepath}\\{filename}.txt", trigger);
             }
 
 
@@ -2338,7 +2445,7 @@ namespace UniversalGametypeEditor
                     }
                     break;
                 case 2:
-                    type = ConvertToInt(GetValue(2));
+                    type = ConvertToInt(GetValue(3));
                     switch (type)
                     {
                         case 0:
@@ -2720,9 +2827,43 @@ namespace UniversalGametypeEditor
             return (value, subvalue);
         }
 
-        
-        
-        
+        private (string, string) GetTeamRefType(int type)
+        {
+            string subvalue = "";
+            string value = "";
+            switch (type)
+            {
+                case 0:
+                    value = TeamTypeRef[ConvertToInt(GetValue(5))];
+                    break;
+                case 1:
+                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+                    break;
+                case 2:
+                    value = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+                    break;
+                case 3:
+                    value = TeamTypeRef[ConvertToInt(GetValue(5))];
+                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+                    break;
+                case 4:
+                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+                    subvalue = ".team";
+                    break;
+                case 5:
+                    value = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                    subvalue = ".team";
+                    break;
+
+            }
+            return (value, subvalue);
+        }
+
+
+
+
 
 
         private OrdnanceWeights ReadOrdnanceWeights()
