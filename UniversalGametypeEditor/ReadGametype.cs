@@ -644,6 +644,7 @@ namespace UniversalGametypeEditor
             public LoadoutOptions? Loadout28;
             public LoadoutOptions? Loadout29;
             public LoadoutOptions? Loadout30;
+            public LoadoutOptions? Loadout31;
         }
 
 
@@ -1601,7 +1602,9 @@ namespace UniversalGametypeEditor
             ss.LoadoutCamTime = ConvertToInt(GetValue(4));
             ss.Respawntraitsduration = ConvertToInt(GetValue(6));
             ss.RespawnPlayerTraits = new();
+            //GetValue(333);
             ss.RespawnPlayerTraits = ReadTraits(binaryString, ss.RespawnPlayerTraits);
+            //GetValue(3);
             gt.SpawnSettings = Newtonsoft.Json.JsonConvert.SerializeObject(ss);
 
             //ConvertAndSaveToXml(ss, "gametype.xml");
@@ -1649,14 +1652,15 @@ namespace UniversalGametypeEditor
                 gs.BasePlayerTraits = ReadTraits(binaryString, gs.BasePlayerTraits);
                 gs.WeaponSet = ConvertToInt(GetValue(8));
                 gs.VehicleSet = ConvertToInt(GetValue(8));
-                if (Settings.Default.DecompiledVersion > 0)
+                gs.H2AH4.EquipmentSet = ConvertToInt(GetValue(8));
+                if (Settings.Default.IsGvar)
                 {
-                    gs.H2AH4 = new();
-                    gs.H2AH4.EquipmentSet = ConvertToInt(GetValue(8));
+                    gs.H2AH4.Unknown4 = GetValue(41);
+                } else
+                {
                     gs.H2AH4.Unknown4 = GetValue(55);
                 }
-
-
+                
             }
 
             gt.GameSettings = Newtonsoft.Json.JsonConvert.SerializeObject(gs);
@@ -1698,29 +1702,86 @@ namespace UniversalGametypeEditor
                 pt.H2AH4.CustomTraits = new();
                 pt.H2AH4.CustomTraitsRuntime = new();
                 pt.H2AH4.DamageTraits = ReadTraits(binaryString, pt.H2AH4.DamageTraits);
-                pt.H2AH4.DamageTraitsDuration = ConvertToInt(GetValue(6));
+                
+                
+                
+                if (Settings.Default.IsGvar)
+                {
+                    pt.H2AH4.DamageTraitsDuration = ConvertToInt(GetValue(7));
+                } else
+                {
+                    pt.H2AH4.DamageTraitsDuration = ConvertToInt(GetValue(6));
+                }
                 pt.H2AH4.DamageTraitsRuntime = ReadTraits(binaryString, pt.H2AH4.DamageTraitsRuntime);
-                pt.H2AH4.DamageTraitsRuntimeDuration = ConvertToInt(GetValue(6));
-
+                
+                if (Settings.Default.IsGvar)
+                {
+                    pt.H2AH4.DamageTraitsRuntimeDuration = ConvertToInt(GetValue(7));
+                } else
+                {
+                    pt.H2AH4.DamageTraitsRuntimeDuration = ConvertToInt(GetValue(6));
+                }
                 pt.H2AH4.SpeedTraits = ReadTraits(binaryString, pt.H2AH4.SpeedTraits);
-                pt.H2AH4.SpeedTraitsDuration = ConvertToInt(GetValue(6));
+
+                if (Settings.Default.IsGvar)
+                {
+                    pt.H2AH4.SpeedTraitsDuration = ConvertToInt(GetValue(7));
+                } else
+                {
+                    pt.H2AH4.SpeedTraitsDuration = ConvertToInt(GetValue(6));
+                }
+                
+
                 pt.H2AH4.SpeedTraitsRuntime = ReadTraits(binaryString, pt.H2AH4.SpeedTraitsRuntime);
-                pt.H2AH4.SpeedTraitsRuntimeDuration = ConvertToInt(GetValue(6));
+                if (Settings.Default.IsGvar)
+                {
+                    pt.H2AH4.SpeedTraitsRuntimeDuration = ConvertToInt(GetValue(7));
+                } else
+                {
+                    pt.H2AH4.SpeedTraitsRuntimeDuration = ConvertToInt(GetValue(6));
+                }
+                
 
                 pt.H2AH4.OverShieldTraits = ReadTraits(binaryString, pt.H2AH4.OverShieldTraits);
-                pt.H2AH4.OverShieldTraitsDuration = ConvertToInt(GetValue(6));
+                if (Settings.Default.IsGvar)
+                {
+                    pt.H2AH4.OverShieldTraitsDuration = ConvertToInt(GetValue(7));
+                } else
+                {
+                    pt.H2AH4.OverShieldTraitsDuration = ConvertToInt(GetValue(6));
+                }
+
                 pt.H2AH4.OverShieldTraitsRuntime = ReadTraits(binaryString, pt.H2AH4.OverShieldTraitsRuntime);
-                pt.H2AH4.OverShieldTraitsRuntimeDuration = ConvertToInt(GetValue(6));
+                if (Settings.Default.IsGvar)
+                {
+                    pt.H2AH4.OverShieldTraitsRuntimeDuration = ConvertToInt(GetValue(7));
+                } else
+                {
+                    pt.H2AH4.OverShieldTraitsRuntimeDuration = ConvertToInt(GetValue(6));
+                }
+                
 
                 pt.H2AH4.CustomTraits = ReadTraits(binaryString, pt.H2AH4.DamageTraits);
-                pt.H2AH4.CustomTraitsDuration = ConvertToInt(GetValue(6));
+
+                
+                if (Settings.Default.IsGvar)
+                {
+                    pt.H2AH4.CustomTraitsDuration = ConvertToInt(GetValue(7));
+                } else
+                {
+                    pt.H2AH4.CustomTraitsDuration = ConvertToInt(GetValue(6));
+                }
                 pt.H2AH4.CustomTraitsRuntime = ReadTraits(binaryString, pt.H2AH4.CustomTraitsRuntime);
-                pt.H2AH4.CustomTraitsRuntimeDuration = ConvertToInt(GetValue(6));
+                if (Settings.Default.IsGvar)
+                {
+                    pt.H2AH4.CustomTraitsRuntimeDuration = ConvertToInt(GetValue(7));
+                } else
+                {
+                    pt.H2AH4.CustomTraitsRuntimeDuration = ConvertToInt(GetValue(6));
+                }
             }
 
             gt.PowerupTraits = Newtonsoft.Json.JsonConvert.SerializeObject(pt);
-
-            //ConvertAndSaveToXml(pt, "gametype.xml");
 
             //Read TeamSettings
             TeamSettings ts = new();
@@ -1763,9 +1824,8 @@ namespace UniversalGametypeEditor
             lc.Loadout3 = ReadLoadoutOptions();
             lc.Loadout4 = ReadLoadoutOptions();
             lc.Loadout5 = ReadLoadoutOptions();
-            lc.Loadout6 = ReadLoadoutOptions();
-            if (Settings.Default.DecompiledVersion == 0)
-            {
+            //lc.Loadout6 = ReadLoadoutOptions();
+
                 lc.Loadout7 = ReadLoadoutOptions();
                 lc.Loadout8 = ReadLoadoutOptions();
                 lc.Loadout9 = ReadLoadoutOptions();
@@ -1790,7 +1850,11 @@ namespace UniversalGametypeEditor
                 lc.Loadout28 = ReadLoadoutOptions();
                 lc.Loadout29 = ReadLoadoutOptions();
                 lc.Loadout30 = ReadLoadoutOptions();
-            }
+                if (Settings.Default.DecompiledVersion > 0)
+                {
+                    lc.Loadout31 = ReadLoadoutOptions();
+                }
+
             gt.loadoutCluster = Newtonsoft.Json.JsonConvert.SerializeObject(lc);
 
             if (Settings.Default.DecompiledVersion > 0)
@@ -1840,10 +1904,14 @@ namespace UniversalGametypeEditor
                     spt.H2AH4 = new();
                     spt.String1 = ConvertToInt(GetValue(8));
                     spt.String2 = ConvertToInt(GetValue(8));
-                    spt.H2AH4.hidden = ConvertToInt(GetValue(1));
+                    
                 }
                 spt.PlayerTraits = new();
                 spt.PlayerTraits = ReadTraits(binaryString, spt.PlayerTraits);
+                if (Settings.Default.DecompiledVersion > 0 )
+                {
+                    spt.H2AH4.hidden = ConvertToInt(GetValue(1));
+                }
             }
 
             gt.scriptedPlayerTraits = Newtonsoft.Json.JsonConvert.SerializeObject(spt);
@@ -1988,9 +2056,30 @@ namespace UniversalGametypeEditor
             gt.playerratings = pr;
 
             //ConvertAndSaveToXml(pr, "gametype.xml");
-            if (Settings.Default.IsGvar)
+            if (Settings.Default.DecompiledVersion > 0)
             {
-                GetValue(205);
+
+                
+                    GetValue(42);
+                    int loadouts = ConvertToInt(GetValue(9));
+                for (int i = 0; i < loadouts; i++)
+                {
+                    int size = ConvertToInt(GetValue(2));
+                    int enabled = ConvertToInt(GetValue(1));
+                    int loadoutName = ConvertToInt(GetValue(1)) == 0 ? ConvertToInt(GetValue(7)) : -1;
+                    int primary = ConvertToInt(GetValue(8));
+                    int secondary = ConvertToInt(GetValue(8));
+                    int armorAbility = ConvertToInt(GetValue(8));
+                    int tacticalPackage = ConvertToInt(GetValue(8));
+                    int supportUpgrade = ConvertToInt(GetValue(8));
+                    int grenadeCount = ConvertToInt(GetValue(5));
+                    int unknown = ConvertToInt(GetValue(6));
+
+                }
+                    GetValue(1728);
+
+                    
+
             }
             else
             {
@@ -2013,9 +2102,7 @@ namespace UniversalGametypeEditor
             for (int i = 0; i < c.ConditionCount; i++)
             {
                 c.ConditionType = ConvertToInt(GetValue(5));
-                c.NOT = ConvertToInt(GetValue(1)) == 1 ? "not" : "";
-                c.ORSequence = ConvertToInt(GetValue(10));
-                c.ConditionOffset = Convert.ToInt64(GetValue(11));
+                
                 string subplayer = "";
                 string subplayer2 = "";
                 string subplayer3 = "";
@@ -2023,6 +2110,9 @@ namespace UniversalGametypeEditor
                 string oper = "";
                 switch (c.ConditionType) {
                     case 1:
+                        c.NOT = ConvertToInt(GetValue(1)) == 1 ? "not" : "";
+                        c.ORSequence = ConvertToInt(GetValue(10));
+                        c.ConditionOffset = Convert.ToInt64(GetValue(11));
                         conditionType = "if";
                         c.Vartype1 = ConvertToInt(GetValue(3));
                         (c.SpecificType, subplayer) = GetVarType(c.Vartype1);
@@ -2030,39 +2120,39 @@ namespace UniversalGametypeEditor
                         c.Vartype2 = ConvertToInt(GetValue(3));
                         (c.SpecificType2, subplayer2) = GetVarType(c.Vartype2);
 
+                        //c.RefType2 = ConvertToInt(GetValue(6));
+                        c.Oper = ConvertToInt(GetValue(3));
+                        switch (c.Oper)
+                        {
+                            case 0:
+                                oper = "<";
+                                break;
+                            case 1:
+                                oper = ">";
+                                break;
+                            case 2:
+                                oper = "==";
+                                break;
+                            case 3:
+                                oper = "<=";
+                                break;
+                            case 4:
+                                oper = ">=";
+                                break;
+                            case 5:
+                                oper = "!=";
+                                break;
+                        }
 
                         //Build condition string
-                        
-                        break;
-                }
-                //c.RefType2 = ConvertToInt(GetValue(6));
-                c.Oper = ConvertToInt(GetValue(3));
-                switch (c.Oper)
-                {
-                    case 0:
-                        oper = "<";
-                        break;
-                    case 1:
-                        oper = ">";
-                        break;
-                    case 2:
-                        oper = "==";
-                        break;
-                    case 3:
-                        oper = "<=";
-                        break;
-                    case 4:
-                        oper = ">=";
-                        break;
-                    case 5:
-                        oper = "!=";
-                        break;
-                }
+                        string condition = $"condition {c.NOT} {conditionType} {c.SpecificType}.{subplayer} {oper} {c.SpecificType2}.{subplayer2}";
+                        ConditionsList.Add(condition);
+                        ConditionOffsetList.Add(c.ConditionOffset);
 
-                //Build condition string
-                string condition = $"condition {c.NOT} {conditionType} {c.SpecificType}{subplayer} {oper} {c.SpecificType2}{subplayer2}";
-                ConditionsList.Add(condition);
-                ConditionOffsetList.Add(c.ConditionOffset);
+                        break;
+                    
+                }
+                
             }
 
             gametypeItems.Add(gt);
@@ -2080,7 +2170,7 @@ namespace UniversalGametypeEditor
             int spawnFlags = 1;
             int offset = 8;
             int names = 8;
-            
+            bool isInline = false;
             for (int i = 0; i < ac.ActionCount; i++)
             {
                 ac.ActionType = ConvertToInt(GetValue(8));
@@ -2316,24 +2406,418 @@ namespace UniversalGametypeEditor
                         break;
                     case 30:
                         //Object Carrier Get
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                        ac.Parameter2 = PlayerTypeRef[ConvertToInt(GetValue(6))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        type = ConvertToInt(GetValue(2));
+                        (ac.Parameter2, subvalue2) = GetPlayerRefType(type);
+                        ActionList.Add($"action get_player_holding_object {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
                         break;
+                    case 32:
+                        //begin or inline
+                        //Modify the last action string to start with begin and end with end
+                        int conditionOffset = ConvertToInt(GetValue(10));
+                        int conditionCount = ConvertToInt(GetValue(10));
+                        int unknown3 = ConvertToInt(GetValue(11));
+                        int unknown4 = ConvertToInt(GetValue(11));
+
+                        
+                        ActionList[unknown3 + unknown4 - 2] += " \n\tend";
+                        for (int j = 0; j < conditionCount; j++)
+                        {
+                            int index = (int)ConditionOffsetList[j];
+
+                            // Ensure the index is within the bounds of the list
+                            if (index >= 0 && index <= ActionList.Count)
+                            {
+                                string condition = ConditionsList[j + conditionOffset - 1];
+                                ActionList[unknown3 - 1] = condition + "\n\t" + ActionList[unknown3 - 1];
+                            }
+                        }
+                        ActionList[unknown3 - 1] = "begin\n\t " + ActionList[unknown3 - 1];
+                        break;
+
                     case 35:
                         //Boundary Visibility Perms
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
+                        ActionList.Add($"action boundary_set_visible {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 36:
                         //Object kill
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                        ac.Parameter2 = Convert.ToString(ConvertToInt(GetValue(1)));
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = ConvertToInt(GetValue(1)) == 1 ? "no_statistics" : "";
+                        ActionList.Add($"action object_destroy {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
                     case 37:
-                        //Object Set INvincible
-                        ac.Parameter1 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                        //Object Set Invincible
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
                         ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action set_object_invincible {ac.Parameter1}{subvalue} {ac.Parameter2}");
                         break;
+                    case 40:
+                        //Get orientation
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action object_get_orientation {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 41:
+                        //Get speed
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action object_get_velocity {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 47:
+                        //Object attach
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        int offsetX = ConvertToInt(GetValue(8));
+                        int offsetY = ConvertToInt(GetValue(8));
+                        int offsetZ = ConvertToInt(GetValue(8));
+                        string absolute = ConvertToInt(GetValue(1)) == 1 ? "absolute_orientation" : "";
+                        ActionList.Add($"action object_attach {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} {offsetX} {offsetY} {offsetZ} {absolute}");
+                        break;
+                    case 48:
+                        //Object Detach
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ActionList.Add($"action object_detach {ac.Parameter1}{subvalue}");
+                        break;
+                    case 63:
+                        //Owner biped get
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ActionList.Add($"action objectGetImmediateParentPlayer {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
+                        break;
+                    case 65:
+                        //Object Pickup Pirority
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        int pickupMode = ConvertToInt(GetValue(2));
+                        switch (pickupMode)
+                        {
+                            case 0:
+                                ac.Parameter2 = "normal";
+                                break;
+                            case 1:
+                                ac.Parameter2 = "special";
+                                break;
+                            case 2:
+                                ac.Parameter2 = "auto";
+                                break;
+                        }
+                        ActionList.Add($"action weapon_set_pickup_priority {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 66:
+                        //Object push upwards
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ActionList.Add($"action object_bounce {ac.Parameter1}{subvalue}");
+                        break;
+                    case 74:
+                        //Object set scale
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action object_set_scale {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 75:
+                        //Navpoint set text
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        break;
+                    case 81:
+                        //Object get shields
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action object_get_shield {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 82:
+                        //Object get health
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action object_get_health {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 83:
+                        //Get health fraction
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action ObjectGetHealthAbsolute {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 92:
+                        //Object set shields
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        c.Oper = ConvertToInt(GetValue(4));
+                        string oper = "";
+                        switch (c.Oper)
+                        {
+                            case 0:
+                                oper = "+=";
+                                break;
+                            case 1:
+                                oper = "-=";
+                                break;
+                            case 2:
+                                oper = "*=";
+                                break;
+                            case 3:
+                                oper = "/=";
+                                break;
+                            case 4:
+                                oper = "=";
+                                break;
+                            case 5:
+                                oper = "%=";
+                                break;
+                            case 6:
+                                oper = "&=";
+                                break;
+                            case 7:
+                                oper = "|=";
+                                break;
+                            case 8:
+                                oper = "^=";
+                                break;
+                            case 9:
+                                oper = "~=";
+                                break;
+                        }
+                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action object_adjust_shield {ac.Parameter1}{subvalue} {oper} {ac.Parameter3}");
+                        break;
+                    case 94:
+                        //Object get distance
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        string dead = Convert.ToInt32(GetValue(1)) == 1 ? "allow_dead" : "";
+                        ActionList.Add($"action object_get_distance {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} {ac.Parameter3} {dead}");
+                        break;
+                    case 95:
+                        //Max shields get
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        c.Oper = ConvertToInt(GetValue(4));
+                        string oper2 = "";
+                        switch (c.Oper)
+                        {
+                            case 0:
+                                oper2 = "+=";
+                                break;
+                            case 1:
+                                oper2 = "-=";
+                                break;
+                            case 2:
+                                oper2 = "*=";
+                                break;
+                            case 3:
+                                oper2 = "/=";
+                                break;
+                            case 4:
+                                oper2 = "=";
+                                break;
+                            case 5:
+                                oper2 = "%=";
+                                break;
+                            case 6:
+                                oper2 = "&=";
+                                break;
+                            case 7:
+                                oper2 = "|=";
+                                break;
+                            case 8:
+                                oper2 = "^=";
+                                break;
+                            case 9:
+                                oper2 = "~=";
+                                break;
+                        }
+                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action object_adjust_maximum_shield {ac.Parameter1}{subvalue} {oper2} {ac.Parameter3}");
+                        break;
+                    case 96:
+                        //Max health get
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        c.Oper = ConvertToInt(GetValue(4));
+                        string oper3 = "";
+                        switch (c.Oper)
+                        {
+                            case 0:
+                                oper3 = "+=";
+                                break;
+                            case 1:
+                                oper3 = "-=";
+                                break;
+                            case 2:
+                                oper3 = "*=";
+                                break;
+                            case 3:
+                                oper3 = "/=";
+                                break;
+                            case 4:
+                                oper3 = "=";
+                                break;
+                            case 5:
+                                oper3 = "%=";
+                                break;
+                            case 6:
+                                oper3 = "&=";
+                                break;
+                            case 7:
+                                oper3 = "|=";
+                                break;
+                            case 8:
+                                oper3 = "^=";
+                                break;
+                            case 9:
+                                oper3 = "~=";
+                                break;
+                        }
+                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action object_adjust_maximum_health {ac.Parameter1}{subvalue} {oper3} {ac.Parameter3}");
+                        break;
+                    case 98:
+                        //Device power set
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action device_set_power {ac.Parameter1}{subvalue} {ac.Parameter3}");
+                        break;
+                    case 99:
+                        //Device power get
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action device_get_power {ac.Parameter1}{subvalue} {ac.Parameter3}");
+                        break;
+                    case 100:
+                        //Device position set
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action device_set_position {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 101:
+                        //Device position get
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action device_get_position {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 106:
+                        //Device track set
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = Names[ConvertToInt(GetValue(8))];
+                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action device_set_track {ac.Parameter1}{subvalue} {ac.Parameter2} {ac.Parameter3}");
+                        break;
+                    case 107:
+                        //Set animation position
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        string anim = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        string duration = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        string accel = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        string decel = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action device_animate_position {ac.Parameter1}{subvalue} {anim} {duration} {accel} {decel}");
+                        break;
+                    case 108:
+                        //Device immediate set
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action device_set_position_immediate {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 110:
+                        //Set spawn zone enabled
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action respawn_zone_enable {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 113:
+                        //Object cleanup set
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action object_set_cleanup {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 119:
+                        //Object copy rotation
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        int absolute2 = Convert.ToInt32(GetValue(1));
+                        ActionList.Add($"action object_copy_rotation {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} {absolute2}");
+                        break;
+                    case 120:
+                        //Object face object
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        int x = ConvertToInt(GetValue(8));
+                        int y = ConvertToInt(GetValue(8));
+                        int z = ConvertToInt(GetValue(8));
+                        ActionList.Add($"action object_face_object {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} offset {x} {y} {z}");
+                        break;
+                    case 121:
+                        //Object give weapon
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = Objects[ConvertToInt(GetValue(objectType))];
+                        int mode = Convert.ToInt32(GetValue(2));
+                        string modeString = "";
+                        switch (mode)
+                        {
+                            case 0:
+                                modeString = "primary";
+                                break;
+                            case 1:
+                                modeString = "secondary";
+                                break;
+                            case 2:
+                                modeString = "force";
+                                break;
+                        }
+                        ActionList.Add($"action biped_give_weapon {ac.Parameter1}{subvalue} '{ac.Parameter2}' {modeString}");
+                        break;
+                    case 122:
+                        //Object drop weapon
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        int mode2 = Convert.ToInt32(GetValue(2));
+                        string modeString2 = "";
+                        switch (mode2)
+                        {
+                            case 0:
+                                modeString2 = "primary";
+                                break;
+                            case 1:
+                                modeString2 = "secondary";
+                                break;
+                        }
+                        string delete = Convert.ToInt32(GetValue(1)) == 1 ? "delete_on_drop" : "";
+                        ActionList.Add($"action biped_drop_weapon {ac.Parameter1}{subvalue} {modeString2} {delete}");
+                        break;
+                    case 126:
+                        //Object shape player color set
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        int playerIndex = ConvertToInt(GetValue(1)) == 0 ? ConvertToInt(GetValue(2)) : 1;
+                        ActionList.Add($"action boundary_set_player_color {ac.Parameter1}{subvalue}Player{playerIndex}");
+                        break;
+                    case 133:
+                        //Object hide
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        int hide = Convert.ToInt32(GetValue(1));
+                        ActionList.Add($"action hide_object {ac.Parameter1}{subvalue} {hide}");
+                        break;
+                    case 134:
+                        //Object set turret
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        string par4 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action SetAutoTurret {ac.Parameter1}{subvalue} {ac.Parameter2} {ac.Parameter3} {par4}");
+                        break;
+                    case 135:
+                        //Set turret range
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+                        ActionList.Add($"action SetAutoTurretRange {ac.Parameter1}{subvalue} {ac.Parameter2}");
+                        break;
+                    case 145:
+                        //Device get user
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        (ac.Parameter2, subvalue2) = GetPlayerRefType(ConvertToInt(GetValue(2)));
+                        ActionList.Add($"action DeviceGetPlayerUser {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
+                        break;
+                    case 146:
+                        //Device get interracting player user
+                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+                        (ac.Parameter2, subvalue2) = GetPlayerRefType(ConvertToInt(GetValue(2)));
+                        ActionList.Add($"action DeviceGetInteractingPlayerUser {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
+                        break;
+
 
 
                     default:
@@ -2861,6 +3345,30 @@ namespace UniversalGametypeEditor
             return (value, subvalue);
         }
 
+        private (string, string) GetPlayerRefType(int type)
+        {
+            string subvalue = "";
+            string value = "";
+            switch (type)
+            {
+                case 0:
+                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+                    break;
+                case 1:
+                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+                    break;
+                case 2:
+                    value = ObjectTypeRef[ConvertToInt(GetValue(5))];
+                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+                    break;
+                case 3:
+                    value = TeamTypeRef[ConvertToInt(GetValue(5))];
+                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+                    break;
+            }
+            return (value, subvalue);
+        }
 
 
 
@@ -2907,19 +3415,13 @@ namespace UniversalGametypeEditor
             {
                 lo.TacticalPackage = ConvertToInt(GetValue(8));
                 lo.SupportUpgrade = ConvertToInt(GetValue(8));
-            }
-            if (Settings.Default.DecompiledVersion > 0)
-            {
                 lo.Grenades = ConvertToInt(GetValue(5));
+                lo.Unknown = ConvertToInt(GetValue(6));
             }
 
             if (Settings.Default.DecompiledVersion == 0)
             {
                 lo.Grenades = ConvertToInt(GetValue(4));
-            }
-            if (Settings.Default.DecompiledVersion > 0)
-            {
-                lo.Unknown = ConvertToInt(GetValue(6));
             }
 
             return lo;
@@ -3217,7 +3719,7 @@ namespace UniversalGametypeEditor
             if (Settings.Default.DecompiledVersion > 0)
             {
                 pt.H2AH4 = new();
-                pt.DamageResistance = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)): -1;
+                pt.DamageResistance = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.ShieldMultiplyer = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.Healthmultiplyer = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.H2AH4.shieldstunduration = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
@@ -3227,7 +3729,7 @@ namespace UniversalGametypeEditor
                 pt.shieldvampirism = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.H2AH4.explosivedamageresistance = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.H2AH4.wheelmanvehiclestuntime = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
-                pt.H2AH4.wheelmanvehiclerechargetime = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
+                pt.H2AH4.wheelmanvehiclerechargetime =  ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.H2AH4.wheelmanvehicleemp = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.H2AH4.falldamage = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.HeadshotImmunity = ConvertToInt(GetValue(2));
@@ -3311,7 +3813,10 @@ namespace UniversalGametypeEditor
                 pt.H2AH4.ShieldHud = ConvertToInt(GetValue(2));
                 pt.MotiontrackerRange = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.H2AH4.NemesisDuration = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
-                pt.H2AH4.Unknown4 = ConvertToInt(GetValue(1));
+                if (Settings.Default.IsGvar == false)
+                {
+                    pt.H2AH4.Unknown4 = ConvertToInt(GetValue(1));
+                }
                 pt.H2AH4.MotionTrackerEnabled = ConvertToInt(GetValue(3));
                 pt.H2AH4.MotionTrackerUsageZoomed = ConvertToInt(GetValue(2));
                 pt.DirectionalDamageindicator = ConvertToInt(GetValue(2));
