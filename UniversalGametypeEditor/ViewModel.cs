@@ -2869,9 +2869,9 @@ namespace UniversalGametypeEditor
         }
 
 
-        public int? Bit4
+        public int Bit4
         {
-            get { return h2AH4Settings?.Bit4; }
+            get { return (int)h2AH4Settings.Bit4; }
             set
             {
                 if (h2AH4Settings != null && h2AH4Settings.Bit4 != value)

@@ -1824,7 +1824,7 @@ namespace UniversalGametypeEditor
             lc.Loadout3 = ReadLoadoutOptions();
             lc.Loadout4 = ReadLoadoutOptions();
             lc.Loadout5 = ReadLoadoutOptions();
-            //lc.Loadout6 = ReadLoadoutOptions();
+            lc.Loadout6 = ReadLoadoutOptions();
 
                 lc.Loadout7 = ReadLoadoutOptions();
                 lc.Loadout8 = ReadLoadoutOptions();
@@ -1850,10 +1850,10 @@ namespace UniversalGametypeEditor
                 lc.Loadout28 = ReadLoadoutOptions();
                 lc.Loadout29 = ReadLoadoutOptions();
                 lc.Loadout30 = ReadLoadoutOptions();
-                if (Settings.Default.DecompiledVersion > 0)
-                {
-                    lc.Loadout31 = ReadLoadoutOptions();
-                }
+                //if (Settings.Default.DecompiledVersion > 0)
+                //{
+                //    lc.Loadout31 = ReadLoadoutOptions();
+                //}
 
             gt.loadoutCluster = Newtonsoft.Json.JsonConvert.SerializeObject(lc);
 
@@ -1984,7 +1984,7 @@ namespace UniversalGametypeEditor
             gt.scriptOptions = Newtonsoft.Json.JsonConvert.SerializeObject(so);
 
             //ConvertAndSaveToXml(so, "gametype.xml");
-
+            //return;
             //Read Strings
             Strings st = new();
             if (Settings.Default.DecompiledVersion > 0)
@@ -2056,7 +2056,7 @@ namespace UniversalGametypeEditor
             gt.playerratings = pr;
 
             //ConvertAndSaveToXml(pr, "gametype.xml");
-            if (Settings.Default.DecompiledVersion > 0)
+            if (Settings.Default.DecompiledVersion > 0 && Settings.Default.IsGvar == false)
             {
 
                 
@@ -2081,7 +2081,10 @@ namespace UniversalGametypeEditor
                     
 
             }
-            else
+            else if (Settings.Default.DecompiledVersion > 0 && Settings.Default.IsGvar == true)
+            {
+                GetValue(2126);
+            } else
             {
                 GetValue(2642);
             }
@@ -2418,9 +2421,11 @@ namespace UniversalGametypeEditor
                         int conditionCount = ConvertToInt(GetValue(10));
                         int unknown3 = ConvertToInt(GetValue(11));
                         int unknown4 = ConvertToInt(GetValue(11));
-
+                        unknown4 = unknown4 == 0 ? 1 : unknown4;
+                        unknown3 = unknown3 == 0 ? 1 : unknown3;
                         
-                        ActionList[unknown3 + unknown4 - 2] += " \n\tend";
+                        
+                        //ActionList[unknown3 + unknown4 - 2] += " \n\tend";
                         for (int j = 0; j < conditionCount; j++)
                         {
                             int index = (int)ConditionOffsetList[j];
@@ -2429,10 +2434,10 @@ namespace UniversalGametypeEditor
                             if (index >= 0 && index <= ActionList.Count)
                             {
                                 string condition = ConditionsList[j + conditionOffset - 1];
-                                ActionList[unknown3 - 1] = condition + "\n\t" + ActionList[unknown3 - 1];
+                                ActionList[unknown4 - 1] = condition + "\n\t" + ActionList[unknown3 - 1];
                             }
                         }
-                        ActionList[unknown3 - 1] = "begin\n\t " + ActionList[unknown3 - 1];
+                        ActionList[unknown4 - 1] = "begin\n\t " + ActionList[unknown4 - 1];
                         break;
 
                     case 35:
@@ -2849,7 +2854,7 @@ namespace UniversalGametypeEditor
 
                 string conditions = "";
 
-
+                return;
                 for (int j = 0; j < conditionCount; j++)
                 {
                     int index = (int)ConditionOffsetList[j];
@@ -3485,13 +3490,13 @@ namespace UniversalGametypeEditor
             for (int i=0; i<stringPresent; i++) 
             { 
                 ls.English = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
+                ls.Japanese = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
+                ls.German = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
                 ls.French = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
                 ls.Spanish = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
                 ls.LatinAmericanSpanish = ConvertToInt(GetValue(1)) == 0 ? "1" : GetValue(bits);
-                ls.German = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
                 ls.Italian = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
                 ls.Korean = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.Japanese = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
                 ls.ChineseTraditional = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
                 ls.ChineseSimplified = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
                 ls.Portuguese = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
@@ -3522,6 +3527,7 @@ namespace UniversalGametypeEditor
                 }
                 else
                 {
+                    //GetValue(1);
                     m3 = ConvertToInt(GetValue(bits));
                 }
                     

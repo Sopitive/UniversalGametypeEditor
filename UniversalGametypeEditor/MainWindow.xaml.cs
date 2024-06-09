@@ -717,7 +717,14 @@ namespace UniversalGametypeEditor
                     };
                     gd.enabled.Checked += (sender, e) =>
                     {
-                        property.SetValue(viewModel, true);
+                        if (nestedproperty is SharedProperties)
+                        {
+                            property.SetValue(nestedproperty, false);
+                        }
+                        else
+                        {
+                            property.SetValue(viewModel, false);
+                        }
                     };
                     gd.enabled.Unchecked += (sender, e) =>
                     {
@@ -767,51 +774,56 @@ namespace UniversalGametypeEditor
             {
                 ReadGametype.gametypeItems.Add(rg.gt);
             }
-            ReadGT = rg.gt;
-            List<ReadGametype.Gametype> gametypeItems = new();
-            gametypeItems.AddRange(ReadGametype.gametypeItems);
-            ReadGametype.gametypeItems.Clear();
-
-            ObservableCollection<FileHeader> items = new();
-            
-            string JSON = rg.gt.FileHeader;
-            FileHeader? deserializedJSON = JsonConvert.DeserializeObject<FileHeader>(JSON);
-            viewModel = new FileHeaderViewModel(deserializedJSON);
-            AddDataToUI<FileHeaderViewModel>(viewModel, "File Header", Gametype);
-            JSON = rg.gt.GametypeHeader;
-            GametypeHeader? deserializedJSON2 = JsonConvert.DeserializeObject<GametypeHeader>(JSON);
-            if (rg.gt.GametypeHeader != null)
-            {
-                viewModel2 = new GametypeHeaderViewModel(deserializedJSON2);
-                AddDataToUI<GametypeHeaderViewModel>(viewModel2, "Gametype Header", Gametype);
-                if (Settings.Default.ConvertToForge)
+                try
                 {
-                    viewModel.VariantType = (ReadGametype.VariantTypeEnum)1;
-                }
-            }
-                JSON = rg.gt.ModeSettings;
-            ModeSettings? deserializedJSON3 = JsonConvert.DeserializeObject<ModeSettings>(JSON);
-            if (rg.gt.ModeSettings != null)
-            {
-                viewModel3 = new ModeSettingsViewModel(deserializedJSON3);
-                AddDataToUI<ModeSettingsViewModel>(viewModel3, "Mode Settings", Gametype);
-            }
-            JSON = rg.gt.SpawnSettings;
-            SpawnSettings? deserializedJSON4 = JsonConvert.DeserializeObject<SpawnSettings>(JSON);
-            if (rg.gt.SpawnSettings != null)
-            {
-                SpawnSettingsViewModel viewModel4 = new SpawnSettingsViewModel(deserializedJSON4);
-                AddDataToUI<SpawnSettingsViewModel>(viewModel4, "Spawn Settings", Gametype);
-            }
-            JSON = rg.gt.GameSettings;
-                GameSettings? deserializedJSON5 = JsonConvert.DeserializeObject<GameSettings>(JSON);
-                if (rg.gt.GameSettings != null)
+                    ReadGT = rg.gt;
+                    List<ReadGametype.Gametype> gametypeItems = new();
+                    gametypeItems.AddRange(ReadGametype.gametypeItems);
+                    ReadGametype.gametypeItems.Clear();
+
+                    ObservableCollection<FileHeader> items = new();
+
+                    string JSON = rg.gt.FileHeader;
+                    FileHeader? deserializedJSON = JsonConvert.DeserializeObject<FileHeader>(JSON);
+                    viewModel = new FileHeaderViewModel(deserializedJSON);
+                    AddDataToUI<FileHeaderViewModel>(viewModel, "File Header", Gametype);
+                    JSON = rg.gt.GametypeHeader;
+                    GametypeHeader? deserializedJSON2 = JsonConvert.DeserializeObject<GametypeHeader>(JSON);
+                    if (rg.gt.GametypeHeader != null)
+                    {
+                        viewModel2 = new GametypeHeaderViewModel(deserializedJSON2);
+                        AddDataToUI<GametypeHeaderViewModel>(viewModel2, "Gametype Header", Gametype);
+                        if (Settings.Default.ConvertToForge)
+                        {
+                            viewModel.VariantType = (ReadGametype.VariantTypeEnum)1;
+                        }
+                    }
+                    JSON = rg.gt.ModeSettings;
+                    ModeSettings? deserializedJSON3 = JsonConvert.DeserializeObject<ModeSettings>(JSON);
+                    if (rg.gt.ModeSettings != null)
+                    {
+                        viewModel3 = new ModeSettingsViewModel(deserializedJSON3);
+                        AddDataToUI<ModeSettingsViewModel>(viewModel3, "Mode Settings", Gametype);
+                    }
+                    JSON = rg.gt.SpawnSettings;
+                    SpawnSettings? deserializedJSON4 = JsonConvert.DeserializeObject<SpawnSettings>(JSON);
+                    if (rg.gt.SpawnSettings != null)
+                    {
+                        SpawnSettingsViewModel viewModel4 = new SpawnSettingsViewModel(deserializedJSON4);
+                        AddDataToUI<SpawnSettingsViewModel>(viewModel4, "Spawn Settings", Gametype);
+                    }
+                    JSON = rg.gt.GameSettings;
+                    GameSettings? deserializedJSON5 = JsonConvert.DeserializeObject<GameSettings>(JSON);
+                    if (rg.gt.GameSettings != null)
+                    {
+                        GameSettingsViewModel viewModel5 = new GameSettingsViewModel(deserializedJSON5);
+                        AddDataToUI<GameSettingsViewModel>(viewModel5, "Game Settings", Gametype);
+                    }
+
+                } catch (Exception ex)
                 {
-                    GameSettingsViewModel viewModel5 = new GameSettingsViewModel(deserializedJSON5);
-                    AddDataToUI<GameSettingsViewModel>(viewModel5, "Game Settings", Gametype);
+                    Debug.WriteLine(ex.Message);
                 }
-
-
 
 
 
@@ -2546,10 +2558,11 @@ namespace UniversalGametypeEditor
                 {
                     File.WriteAllBytes($"{directory}\\{name.Replace(".bin", "")}.mglo", newArray);
                     fileLocked = false;
-                } catch (IOException)
+                } catch (Exception ex)
                 {
                     Debug.WriteLine("File still in use!");
                     fileLocked = true;
+                    Thread.Sleep(100);
                 }
             }
 
