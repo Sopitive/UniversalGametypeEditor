@@ -88,6 +88,14 @@ class MemoryScanner
 
     public static bool ScanPointer(int[] offsets, out int result, out IntPtr address)
     {
+        //Check if EasyAntiCheat is running
+        Process[] processes = Process.GetProcessesByName("EasyAntiCheat");
+        if (processes.Length > 0)
+        {
+            result = 0;
+            address = IntPtr.Zero;
+            return false;
+        }
         
         if (process == null)
         {

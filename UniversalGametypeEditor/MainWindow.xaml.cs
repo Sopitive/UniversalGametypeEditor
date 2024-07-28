@@ -122,11 +122,10 @@ namespace UniversalGametypeEditor
 
             //rg.ReadBinary();
 
-            //MegaloEditPatcher.Patch();
+            MegaloEditPatcher.Patch();
 
-            //MemoryWriter.WriteOpcode2();
-
-            //MemoryWriter.WriteOpcode();
+            CreatePlaylist.GetUUID();
+            
 
 
             if (Settings.Default.GameDir != "Undefined")
@@ -177,11 +176,14 @@ namespace UniversalGametypeEditor
             }
 
             CheckTutorialCompletion();
-            //Show Overlay window
+            //Show Overlay window if the process EasyAntiCheat.exe is not open
+            Process[] pname = Process.GetProcessesByName("EasyAntiCheat");
+            if (pname.Length == 0)
+            {
+                Overlay overlay = new();
+                overlay.Show();
+            }
             this.Show();
-            Overlay overlay = new();
-            overlay.Show();
-            
 
         }
 
@@ -568,6 +570,7 @@ namespace UniversalGametypeEditor
 
         private void CompileGametype(object sender, RoutedEventArgs e)
         {
+            Debug.WriteLine("Clicked Compile Gametype");
             CompileVariant();
         }
 
@@ -815,11 +818,11 @@ namespace UniversalGametypeEditor
                         }
                         int maxLen = nestedproperty.GetType().GetProperty("Bits").GetValue(nestedproperty) as int? ?? 100;
                         //Check if the property value is an int and if it is divide by 8
-                        if (propertyValue.GetType() == typeof(int))
+                        if (propertyValue != null && propertyValue.GetType() == typeof(int))
                         {
                             maxLen /= 8;
                         }
-                        if (propertyValue.GetType() == typeof(string))
+                        if (propertyValue != null && propertyValue.GetType() == typeof(string))
                         {
                             maxLen /= 8;
                         }
@@ -827,7 +830,7 @@ namespace UniversalGametypeEditor
 
                     }
                     //Check if the value is a boolean and if it is, hide the text box and show the checkbox
-                    if (propertyValue.GetType() == typeof(bool)) {
+                    if (propertyValue != null && propertyValue.GetType() == typeof(bool)) {
                         gd.value.Visibility = Visibility.Collapsed;
                         gd.enabled.Visibility = Visibility.Visible;
                         gd.enabled.IsChecked = (bool)propertyValue;
@@ -869,7 +872,7 @@ namespace UniversalGametypeEditor
                                 }
 
                     }
-                    else
+                    else if (propertyValue != null)
                     {
                         gd.value.Text = propertyValue.ToString();
                     }
@@ -893,7 +896,14 @@ namespace UniversalGametypeEditor
                     };
                     gd.enabled.Checked += (sender, e) =>
                     {
-                        property.SetValue(viewModel, true);
+                        if (nestedproperty is SharedProperties)
+                        {
+                            property.SetValue(nestedproperty, false);
+                        }
+                        else
+                        {
+                            property.SetValue(viewModel, false);
+                        }
                     };
                     gd.enabled.Unchecked += (sender, e) =>
                     {
@@ -910,42 +920,20 @@ namespace UniversalGametypeEditor
                     {
                         if (nestedproperty is SharedProperties)
                         {
-                            // Get the property named "Value" from the SharedProperties class
                             var sharedProperty = nestedproperty.GetType().GetProperty("Value");
-
-                            // Get the current value of the "Value" property
                             var currentValue = sharedProperty.GetValue(nestedproperty);
-
-                            // Get the type of the current value, which should be an enum type
                             var enumType = currentValue.GetType();
-
-                            // Get all values of the enum
                             var enumValues = Enum.GetValues(enumType);
-
-                            // Convert the enum values to a list
                             var enumList = new List<Enum>(enumValues.Cast<Enum>());
-
-                            // Get the enum value at the selected index of the combo box
                             var enumValue = enumList[gd.enum_dropdown.SelectedIndex];
-
                             sharedProperty.SetValue(nestedproperty, enumValue);
                         }
                         else
                         {
-
-                            // Get the type of the current value, which should be an enum type
                             var enumType = nestedproperty.GetType();
-
-                            // Get all values of the enum
                             var enumValues = Enum.GetValues(enumType);
-
-                            // Convert the enum values to a list
-
                             var enumList = new List<Enum>(enumValues.Cast<Enum>());
-
-                            // Get the enum value at the selected index of the combo box
                             var enumValue = enumList[gd.enum_dropdown.SelectedIndex];
-
                             property.SetValue(propertyValue, enumValue);
                         }
                     };
@@ -982,51 +970,60 @@ namespace UniversalGametypeEditor
             {
                 ReadGametype.gametypeItems.Add(rg.gt);
             }
-            ReadGT = rg.gt;
-            List<ReadGametype.Gametype> gametypeItems = new();
-            gametypeItems.AddRange(ReadGametype.gametypeItems);
-            ReadGametype.gametypeItems.Clear();
-
-            ObservableCollection<FileHeader> items = new();
-            
-            string JSON = rg.gt.FileHeader;
-            FileHeader? deserializedJSON = JsonConvert.DeserializeObject<FileHeader>(JSON);
-            viewModel = new FileHeaderViewModel(deserializedJSON);
-            AddDataToUI<FileHeaderViewModel>(viewModel, "File Header", Gametype);
-            JSON = rg.gt.GametypeHeader;
-            GametypeHeader? deserializedJSON2 = JsonConvert.DeserializeObject<GametypeHeader>(JSON);
-            if (rg.gt.GametypeHeader != null)
-            {
-                viewModel2 = new GametypeHeaderViewModel(deserializedJSON2);
-                AddDataToUI<GametypeHeaderViewModel>(viewModel2, "Gametype Header", Gametype);
-                if (Settings.Default.ConvertToForge)
+                try
                 {
-                    viewModel.VariantType.Value = (ReadGametype.VariantTypeEnum)1;
-                }
-            }
-                JSON = rg.gt.ModeSettings;
-            ModeSettings? deserializedJSON3 = JsonConvert.DeserializeObject<ModeSettings>(JSON);
-            if (rg.gt.ModeSettings != null)
-            {
-                viewModel3 = new ModeSettingsViewModel(deserializedJSON3);
-                AddDataToUI<ModeSettingsViewModel>(viewModel3, "Mode Settings", Gametype);
-            }
-            JSON = rg.gt.SpawnSettings;
-            SpawnSettings? deserializedJSON4 = JsonConvert.DeserializeObject<SpawnSettings>(JSON);
-            if (rg.gt.SpawnSettings != null)
-            {
-                viewModel4 = new SpawnSettingsViewModel(deserializedJSON4);
-                AddDataToUI<SpawnSettingsViewModel>(viewModel4, "Spawn Settings", Gametype);
-            }
-            JSON = rg.gt.GameSettings;
-                GameSettings? deserializedJSON5 = JsonConvert.DeserializeObject<GameSettings>(JSON);
-                if (rg.gt.GameSettings != null)
+                    ReadGT = rg.gt;
+                    List<ReadGametype.Gametype> gametypeItems = new();
+                    gametypeItems.AddRange(ReadGametype.gametypeItems);
+                    ReadGametype.gametypeItems.Clear();
+
+                    ObservableCollection<FileHeader> items = new();
+
+                    string JSON = rg.gt.FileHeader;
+                    FileHeader? deserializedJSON = JsonConvert.DeserializeObject<FileHeader>(JSON);
+                    viewModel = new FileHeaderViewModel(deserializedJSON);
+                    AddDataToUI<FileHeaderViewModel>(viewModel, "File Header", Gametype);
+                    JSON = rg.gt.GametypeHeader;
+                    GametypeHeader? deserializedJSON2 = JsonConvert.DeserializeObject<GametypeHeader>(JSON);
+                    if (rg.gt.GametypeHeader != null)
+                    {
+                        viewModel2 = new GametypeHeaderViewModel(deserializedJSON2);
+                        AddDataToUI<GametypeHeaderViewModel>(viewModel2, "Gametype Header", Gametype);
+                        if (Settings.Default.ConvertToForge)
+                        {
+                            viewModel.VariantType = new SharedProperties(1)
+                            {
+                                Value = (ReadGametype.VariantTypeEnum)1
+                            };
+                        }
+
+                    }
+                    JSON = rg.gt.ModeSettings;
+                    ModeSettings? deserializedJSON3 = JsonConvert.DeserializeObject<ModeSettings>(JSON);
+                    if (rg.gt.ModeSettings != null)
+                    {
+                        viewModel3 = new ModeSettingsViewModel(deserializedJSON3);
+                        AddDataToUI<ModeSettingsViewModel>(viewModel3, "Mode Settings", Gametype);
+                    }
+                    JSON = rg.gt.SpawnSettings;
+                    SpawnSettings? deserializedJSON4 = JsonConvert.DeserializeObject<SpawnSettings>(JSON);
+                    if (rg.gt.SpawnSettings != null)
+                    {
+                        SpawnSettingsViewModel viewModel4 = new SpawnSettingsViewModel(deserializedJSON4);
+                        AddDataToUI<SpawnSettingsViewModel>(viewModel4, "Spawn Settings", Gametype);
+                    }
+                    JSON = rg.gt.GameSettings;
+                    GameSettings? deserializedJSON5 = JsonConvert.DeserializeObject<GameSettings>(JSON);
+                    if (rg.gt.GameSettings != null)
+                    {
+                        GameSettingsViewModel viewModel5 = new GameSettingsViewModel(deserializedJSON5);
+                        AddDataToUI<GameSettingsViewModel>(viewModel5, "Game Settings", Gametype);
+                    }
+
+                } catch (Exception ex)
                 {
-                    GameSettingsViewModel viewModel5 = new GameSettingsViewModel(deserializedJSON5);
-                    AddDataToUI<GameSettingsViewModel>(viewModel5, "Game Settings", Gametype);
+                    Debug.WriteLine(ex.Message);
                 }
-
-
 
 
 
@@ -1585,6 +1582,12 @@ namespace UniversalGametypeEditor
             CheckTutorialCompletion();
         }
 
+        public void EditPlaylist(object sender, RoutedEventArgs e)
+        {
+            PlaylistEditor pe = new();
+            pe.Show();
+        }
+
         public void UpdateDirHistoryComboBox()
         {
             if (Settings.Default.FilePathList != null)
@@ -2038,11 +2041,16 @@ namespace UniversalGametypeEditor
         {
             SystemCommands.RestoreWindow(this);
         }
-
+        private Overlay overlay;
         // Close
         private void CommandBinding_Executed_Close(object sender, ExecutedRoutedEventArgs e)
         {
             SystemCommands.CloseWindow(this);
+        }
+
+        private void OnApplicationExit(object sender, ExitEventArgs e)
+        {
+            //overlay.UnregisterHotkey();
         }
 
         //Close all other windows when this window is closed
@@ -2758,10 +2766,11 @@ namespace UniversalGametypeEditor
                 {
                     File.WriteAllBytes($"{directory}\\{name.Replace(".bin", "")}.mglo", newArray);
                     fileLocked = false;
-                } catch (Exception e)
+                } catch (Exception ex)
                 {
                     Debug.WriteLine("File still in use!");
                     fileLocked = true;
+                    Thread.Sleep(100);
                 }
             }
 

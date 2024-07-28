@@ -64,16 +64,34 @@ namespace UniversalGametypeEditor
             PreviewMouseWheel += (sender, e) => e.Handled = true;
             Cursor = Cursors.None;
             globalHotkey = new GlobalHotkey();
-            globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
-            globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
+            //globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
+            //globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
         }
 
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-            HwndSource source = PresentationSource.FromVisual(Application.Current.MainWindow) as HwndSource;
-            source.AddHook(WndProc); 
+            var mainWindow = Application.Current.MainWindow;
+            if (mainWindow != null)
+            {
+                HwndSource source = PresentationSource.FromVisual(mainWindow) as HwndSource;
+                if (source != null)
+                {
+                    source.AddHook(WndProc);
+                }
+                else
+                {
+                    // Handle the case where source is null
+                    Debug.WriteLine("HwndSource is null.");
+                }
+            }
+            else
+            {
+                // Handle the case where mainWindow is null
+                Debug.WriteLine("MainWindow is null.");
+            }
         }
+
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
@@ -93,9 +111,15 @@ namespace UniversalGametypeEditor
             return IntPtr.Zero;
         }
 
+        // Remove the unregistration from OnClosed
         protected override void OnClosed(EventArgs e)
         {
             base.OnClosed(e);
+        }
+
+        // Add a method to unregister the global hotkey
+        public void UnregisterHotkey()
+        {
             globalHotkey.UnregisterGlobalHotKey(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
         }
 

@@ -47,8 +47,9 @@ namespace UniversalGametypeEditor
 
         public static implicit operator int(SharedProperties p)
         {
-            return p.Value;
+            return (int)p.Value;
         }
+
 
         public static implicit operator SharedProperties(int value)
         {
@@ -274,7 +275,6 @@ namespace UniversalGametypeEditor
             }
         }
 
-        
 
         public SharedProperties VariantType
         {
@@ -282,22 +282,26 @@ namespace UniversalGametypeEditor
             {
                 if (_variantType == null)
                 {
-                    _variantType = new SharedProperties(2) { Value = (VariantTypeEnum)data.VariantType, EnumTranslations = VariantTypeStrings };
+                    _variantType = new SharedProperties(2)
+                    {
+                        Value = (VariantTypeEnum)data.VariantType
+                    };
                 }
                 return _variantType;
             }
             set
             {
-                VariantTypeEnum newValue = VariantTypeStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
-                if (data.VariantType != (int)newValue)
+                if (data.VariantType != (int)value.Value)
                 {
-                    data.VariantType = (int)newValue;
-                    _variantType = new SharedProperties(2) { Value = newValue };
+                    data.VariantType = (int)value.Value;
+                    _variantType = value;
                     OnPropertyChanged(nameof(VariantType));
                 }
             }
         }
-        
+
+
+
 
 
         public int Unknown0x319

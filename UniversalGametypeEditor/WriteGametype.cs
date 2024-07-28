@@ -37,15 +37,14 @@ namespace UniversalGametypeEditor
             {
                 rawBinary = string.Join("", bytes.Skip(136).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
             }
+            int slice = 0;
             WriteFileHeaders(fh);
+
             int len = WriteGametypeHeaders(gh, gt);
-            if (Settings.Default.DecompiledVersion == 0)
-            {
-                WriteModeSettings(ms);
-                WriteSpawnSettings(ss);
-            }
+            WriteModeSettings(ms);
+            slice = modifiedBinary.Length;
+
             
-            int slice = modifiedBinary.Length - len;
 
 
             
@@ -56,6 +55,8 @@ namespace UniversalGametypeEditor
             byte[] newBytes = Enumerable.Range(0, rawBinary.Length / 8).Select(i => Convert.ToByte(rawBinary.Substring(i * 8, 8), 2)).ToArray();
             //Write the bytes to the file
             File.WriteAllBytes(filename, newBytes);
+            System.Threading.Thread.Sleep(1);
+            
         }
         
         public void WriteFileHeaders(FileHeaderViewModel fh)
@@ -71,7 +72,8 @@ namespace UniversalGametypeEditor
 
 
             // Convert variant type to string and then to binary
-            string VariantType = Convert.ToString((int)fh.VariantType.Value, 2).PadLeft(2, '0');
+            string VariantType = Convert.ToString((int)fh.VariantType, 2).PadLeft(2, '0');
+
 
             string Unknown0x319 = Convert.ToString(fh.Unknown0x319, 2).PadLeft(4, '0');
             string Unknown0x31D = Convert.ToString(fh.Unknown0x31D, 2).PadLeft(32, '0');
