@@ -273,25 +273,18 @@ namespace UniversalGametypeEditor
         {
             get
             {
-                if (_variantType == null)
-                {
-                    _variantType = new SharedProperties(2)
-                    {
-                        Value = data.VariantType
-                    };
-                }
-                return (VariantTypeEnum)_variantType.Value;
+                return (VariantTypeEnum)data.VariantType;
             }
             set
             {
                 if (data.VariantType != (int)value)
                 {
                     data.VariantType = (int)value;
-                    _variantType.Value = (int)value;
                     OnPropertyChanged(nameof(VariantType));
                 }
             }
         }
+
 
 
         public int Unknown0x319
