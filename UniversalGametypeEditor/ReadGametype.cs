@@ -2163,740 +2163,740 @@ namespace UniversalGametypeEditor
             //Read Actions
 
 
-            List<string> ActionList = new();
-            Actions ac = new();
-            ac.ActionCount = ConvertToInt(GetValue(11));
+            //List<string> ActionList = new();
+            //Actions ac = new();
+            //ac.ActionCount = ConvertToInt(GetValue(11));
 
-            int objectTypeRef = 3;
-            int objectType = 12;
-            int labelRef = 1;
-            int spawnFlags = 1;
-            int offset = 8;
-            int names = 8;
-            bool isInline = false;
-            for (int i = 0; i < ac.ActionCount; i++)
-            {
-                ac.ActionType = ConvertToInt(GetValue(8));
-                int type = 0;
-                string subvalue = "";
-                string subvalue2 = "";
-                switch (ac.ActionType)
-                {
+            //int objectTypeRef = 3;
+            //int objectType = 12;
+            //int labelRef = 1;
+            //int spawnFlags = 1;
+            //int offset = 8;
+            //int names = 8;
+            //bool isInline = false;
+            //for (int i = 0; i < ac.ActionCount; i++)
+            //{
+            //    ac.ActionType = ConvertToInt(GetValue(8));
+            //    int type = 0;
+            //    string subvalue = "";
+            //    string subvalue2 = "";
+            //    switch (ac.ActionType)
+            //    {
 
                     
                         
-                    case 2:
-                        //Create Object
+            //        case 2:
+            //            //Create Object
                         
-                        ac.Parameter1 = Objects[ConvertToInt(GetValue(objectType))];
-                        type = ConvertToInt(GetValue(objectTypeRef));
-                        (ac.Parameter2, subvalue) = GetRefType(type);
-                        type = ConvertToInt(GetValue(objectTypeRef));
-                        (ac.Parameter3, subvalue2) = GetRefType(type);
-                        ac.Parameter4 = ConvertToInt(GetValue(labelRef));
-                        if (ac.Parameter4 == 0)
-                        {
-                            ac.Parameter4 = ConvertToInt(GetValue(4));
-                        }
-                        ac.Parameter5 = ConvertToInt(GetValue(spawnFlags)) == 1 ? "never_garbage_collect": "";
-                        ac.Parameter6 = ConvertToInt(GetValue(spawnFlags)) == 1 ? "suppress_effect" : "";
-                        ac.Parameter7 = ConvertToInt(GetValue(spawnFlags)) == 1 ? "absolute_orientation" : "";
-                        ac.Parameter8 = ConvertToInt(GetValue(offset));
-                        ac.Parameter9 = ConvertToInt(GetValue(offset));
-                        ac.Parameter10 = ConvertToInt(GetValue(offset));
-                        ac.Parameter11 = Names[ConvertToInt(GetValue(names))];
+            //            ac.Parameter1 = Objects[ConvertToInt(GetValue(objectType))];
+            //            type = ConvertToInt(GetValue(objectTypeRef));
+            //            (ac.Parameter2, subvalue) = GetRefType(type);
+            //            type = ConvertToInt(GetValue(objectTypeRef));
+            //            (ac.Parameter3, subvalue2) = GetRefType(type);
+            //            ac.Parameter4 = ConvertToInt(GetValue(labelRef));
+            //            if (ac.Parameter4 == 0)
+            //            {
+            //                ac.Parameter4 = ConvertToInt(GetValue(4));
+            //            }
+            //            ac.Parameter5 = ConvertToInt(GetValue(spawnFlags)) == 1 ? "never_garbage_collect": "";
+            //            ac.Parameter6 = ConvertToInt(GetValue(spawnFlags)) == 1 ? "suppress_effect" : "";
+            //            ac.Parameter7 = ConvertToInt(GetValue(spawnFlags)) == 1 ? "absolute_orientation" : "";
+            //            ac.Parameter8 = ConvertToInt(GetValue(offset));
+            //            ac.Parameter9 = ConvertToInt(GetValue(offset));
+            //            ac.Parameter10 = ConvertToInt(GetValue(offset));
+            //            ac.Parameter11 = Names[ConvertToInt(GetValue(names))];
 
-                        //Build action string
-                        string action = $"action create_object '{ac.Parameter1}' at {ac.Parameter3}{subvalue} offset {ac.Parameter8} {ac.Parameter9} {ac.Parameter10} set {ac.Parameter2}{subvalue2} {ac.Parameter5} {ac.Parameter6} {ac.Parameter7} variant {ac.Parameter11}";
-                        ActionList.Add(action);
-                        break;
+            //            //Build action string
+            //            string action = $"action create_object '{ac.Parameter1}' at {ac.Parameter3}{subvalue} offset {ac.Parameter8} {ac.Parameter9} {ac.Parameter10} set {ac.Parameter2}{subvalue2} {ac.Parameter5} {ac.Parameter6} {ac.Parameter7} variant {ac.Parameter11}";
+            //            ActionList.Add(action);
+            //            break;
 
-                    case 3:
-                        //Delete Object
-                        type = ConvertToInt(GetValue(objectTypeRef));
-                        (ac.Parameter1, subvalue) = GetRefType(type);
-                        ActionList.Add($"action delete_object {ac.Parameter1}{subvalue}");
-                        break;
-                    case 4:
-                        //Navpoint Set Visible
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
-                        ActionList.Add($"action navpoint_set_visible {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 5:
-                        //Navpoint Set Icon
-                        type = ConvertToInt(GetValue(objectTypeRef));
-                        (ac.Parameter1, subvalue) = GetRefType(type);
-                        int icon = ConvertToInt(GetValue(5));
-                        ac.Parameter2 = WaypointIcon[icon];
-                        string num = "";
-                        if (icon == 12)
-                        {
-                            icon = ConvertToInt(GetValue(7));
-                            num = GetNumericRefType(icon);
-                        }
-                        ActionList.Add($"action navpoint_set_icon {ac.Parameter1}{subvalue} {ac.Parameter2} {num}");
-                        break;
-                    case 6:
-                        //Navpoint Secondary Icon
-                        type = ConvertToInt(GetValue(objectTypeRef));
-                        (ac.Parameter1, subvalue) = GetRefType(type);
-                        int icon2 = ConvertToInt(GetValue(5));
-                        ac.Parameter2 = WaypointIcon[icon2];
-                        num = "";
-                        if (icon2 == 12)
-                        {
-                            icon2 = ConvertToInt(GetValue(7));
-                            num = GetNumericRefType(icon2);
-                        }
-                        ActionList.Add($"action NavPointSetSecondaryIcon {ac.Parameter1}{subvalue} {ac.Parameter2} {num}");
-                        break;
-                    case 7:
-                        //Navpoint Priority
-                        type = ConvertToInt(GetValue(objectTypeRef));
-                        (ac.Parameter1, subvalue) = GetRefType(type);
-                        ac.Parameter2 = WaypointPriority[ConvertToInt(GetValue(2))];
-                        ActionList.Add($"action navpoint_set_priority {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 8:
-                        //Navpoint Timer
-                        type = ConvertToInt(GetValue(objectTypeRef));
-                        (ac.Parameter1, subvalue) = GetRefType(type);
-                        int timer = ConvertToInt(GetValue(1));
-                        ac.Parameter3 = timer == 0 ? Convert.ToString(ConvertToInt(GetValue(2))) : "none";
-                        Convert.ToString(ac.Parameter4);
-                        ActionList.Add($"action navpoint_set_timer {ac.Parameter1}{subvalue} ObjectTimer{ac.Parameter4}");
-                        break;
-                    case 9:
-                        //Navpoint Range
-                        type = ConvertToInt(GetValue(objectTypeRef));
-                        (ac.Parameter1, subvalue) = GetRefType(type);
-                        type = ConvertToInt(GetValue(7));
-                        ac.Parameter2 = GetNumericRefType(type);
-                        type = ConvertToInt(GetValue(7));
-                        ac.Parameter3 = GetNumericRefType(type);
-                        ActionList.Add($"action navpoint_set_visible_range {ac.Parameter1}{subvalue} {ac.Parameter2} {ac.Parameter3}");
-                        break;
-                    case 10:
-                        //Object Territory
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action NavPointSetIsTerritory {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 11:
-                        //Object Territory Team
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action NavPointSetIsSpawningTerritory {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 12:
-                        //Object Territory Level
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action NavPointSetTerritoryLevel {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 13:
-                        //Object territory max level
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action NavPointSetMaxTerritoryLevel {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 14:
-                        //Object Territory Sort Order
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action NavPointSetTerritorySortOrder {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 15:
-                        //Object Territory Cap Timer
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        int timer2 = ConvertToInt(GetValue(1));
-                        ac.Parameter3 = timer2 == 0 ? Convert.ToString(ConvertToInt(GetValue(2))) : "none";
-                        ActionList.Add($"action NavPointSetTerritoryTimer {ac.Parameter1}{subvalue} ObjectTimer{ac.Parameter3}");
-                        break;
-                    case 16:
-                        //Object Nav Template
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = Names[ConvertToInt(GetValue(8))];
-                        ActionList.Add($"action NavPointSetType {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 17:
-                        //Object Action Team
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        (ac.Parameter2, subvalue2) = GetTeamRefType(ConvertToInt(GetValue(3)));
-                        ActionList.Add($"action NavPointSetActionTeam {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
-                        break;
-                    case 20:
-                        //Object Boundary Set
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        int shape = ConvertToInt(GetValue(2));
-                        string len = "";
-                        string top = "";
-                        string bottom = "";
-                        string width = "";
-                        switch (shape)
-                        {
-                            case 0:
-                                ac.Parameter2 = "none";
-                                break;
-                            case 1:
-                                ac.Parameter2 = "sphere";
-                                len = GetNumericRefType(ConvertToInt(GetValue(7)));
-                                break;
-                            case 2:
-                                ac.Parameter2 = "cylinder";
-                                len = GetNumericRefType(ConvertToInt(GetValue(7)));
-                                bottom = GetNumericRefType(ConvertToInt(GetValue(7)));
-                                top = GetNumericRefType(ConvertToInt(GetValue(7)));
-                                break;
-                            case 3:
-                                ac.Parameter2 = "box";
-                                len = GetNumericRefType(ConvertToInt(GetValue(7)));
-                                top = GetNumericRefType(ConvertToInt(GetValue(7)));
-                                bottom = GetNumericRefType(ConvertToInt(GetValue(7)));
-                                width = GetNumericRefType(ConvertToInt(GetValue(7)));
-                                break;
-                        }
-                        ActionList.Add($"action set_boundary {ac.Parameter1}{subvalue} {ac.Parameter2} {len} {top} {width} {bottom} ");
-                        break;
-                    case 22:
-                        //Object Pickup Perms
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
-                        ActionList.Add($"action set_pickup_filter {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 23:
-                        //Object Spawn Perms
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
-                        ActionList.Add($"action set_respawn_filter {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 24:
-                        //Object Fireteam Spawn Perms
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        int filter = ConvertToInt(GetValue(8));
-                        string filterString = "";
-                        switch (filter)
-                        {
-                            case 0:
-                                filterString = "none";
-                                break;
-                            case 1:
-                                filterString = "0";
-                                break;
-                            case 2:
-                                filterString = "1";
-                                break;
-                            case 4:
-                                filterString = "2";
-                                break;
-                            case 8:
-                                filterString = "3";
-                                break;
-                            case 255:
-                                filterString = "all";
-                                break;
-                        }
-                        ActionList.Add($"action set_fireteam_respawn_filter {ac.Parameter1}{subvalue} {filterString}");
-                        break;
-                    case 25:
-                        //Object Progress Bar
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
-                        int timer3 = ConvertToInt(GetValue(1));
-                        ac.Parameter3 = timer3 == 0 ? Convert.ToString(ConvertToInt(GetValue(2))) : "none";
-                        ActionList.Add($"action set_progress_bar {ac.Parameter1}{subvalue} {ac.Parameter2} ObjectTimer{ac.Parameter3}");
-                        break;
-                    case 30:
-                        //Object Carrier Get
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        type = ConvertToInt(GetValue(2));
-                        (ac.Parameter2, subvalue2) = GetPlayerRefType(type);
-                        ActionList.Add($"action get_player_holding_object {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
-                        break;
-                    case 32:
-                        //begin or inline
-                        //Modify the last action string to start with begin and end with end
-                        int conditionOffset = ConvertToInt(GetValue(10));
-                        int conditionCount = ConvertToInt(GetValue(10));
-                        int unknown3 = ConvertToInt(GetValue(11));
-                        int unknown4 = ConvertToInt(GetValue(11));
-                        unknown4 = unknown4 == 0 ? 1 : unknown4;
-                        unknown3 = unknown3 == 0 ? 1 : unknown3;
+            //        case 3:
+            //            //Delete Object
+            //            type = ConvertToInt(GetValue(objectTypeRef));
+            //            (ac.Parameter1, subvalue) = GetRefType(type);
+            //            ActionList.Add($"action delete_object {ac.Parameter1}{subvalue}");
+            //            break;
+            //        case 4:
+            //            //Navpoint Set Visible
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
+            //            ActionList.Add($"action navpoint_set_visible {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 5:
+            //            //Navpoint Set Icon
+            //            type = ConvertToInt(GetValue(objectTypeRef));
+            //            (ac.Parameter1, subvalue) = GetRefType(type);
+            //            int icon = ConvertToInt(GetValue(5));
+            //            ac.Parameter2 = WaypointIcon[icon];
+            //            string num = "";
+            //            if (icon == 12)
+            //            {
+            //                icon = ConvertToInt(GetValue(7));
+            //                num = GetNumericRefType(icon);
+            //            }
+            //            ActionList.Add($"action navpoint_set_icon {ac.Parameter1}{subvalue} {ac.Parameter2} {num}");
+            //            break;
+            //        case 6:
+            //            //Navpoint Secondary Icon
+            //            type = ConvertToInt(GetValue(objectTypeRef));
+            //            (ac.Parameter1, subvalue) = GetRefType(type);
+            //            int icon2 = ConvertToInt(GetValue(5));
+            //            ac.Parameter2 = WaypointIcon[icon2];
+            //            num = "";
+            //            if (icon2 == 12)
+            //            {
+            //                icon2 = ConvertToInt(GetValue(7));
+            //                num = GetNumericRefType(icon2);
+            //            }
+            //            ActionList.Add($"action NavPointSetSecondaryIcon {ac.Parameter1}{subvalue} {ac.Parameter2} {num}");
+            //            break;
+            //        case 7:
+            //            //Navpoint Priority
+            //            type = ConvertToInt(GetValue(objectTypeRef));
+            //            (ac.Parameter1, subvalue) = GetRefType(type);
+            //            ac.Parameter2 = WaypointPriority[ConvertToInt(GetValue(2))];
+            //            ActionList.Add($"action navpoint_set_priority {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 8:
+            //            //Navpoint Timer
+            //            type = ConvertToInt(GetValue(objectTypeRef));
+            //            (ac.Parameter1, subvalue) = GetRefType(type);
+            //            int timer = ConvertToInt(GetValue(1));
+            //            ac.Parameter3 = timer == 0 ? Convert.ToString(ConvertToInt(GetValue(2))) : "none";
+            //            Convert.ToString(ac.Parameter4);
+            //            ActionList.Add($"action navpoint_set_timer {ac.Parameter1}{subvalue} ObjectTimer{ac.Parameter4}");
+            //            break;
+            //        case 9:
+            //            //Navpoint Range
+            //            type = ConvertToInt(GetValue(objectTypeRef));
+            //            (ac.Parameter1, subvalue) = GetRefType(type);
+            //            type = ConvertToInt(GetValue(7));
+            //            ac.Parameter2 = GetNumericRefType(type);
+            //            type = ConvertToInt(GetValue(7));
+            //            ac.Parameter3 = GetNumericRefType(type);
+            //            ActionList.Add($"action navpoint_set_visible_range {ac.Parameter1}{subvalue} {ac.Parameter2} {ac.Parameter3}");
+            //            break;
+            //        case 10:
+            //            //Object Territory
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action NavPointSetIsTerritory {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 11:
+            //            //Object Territory Team
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action NavPointSetIsSpawningTerritory {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 12:
+            //            //Object Territory Level
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action NavPointSetTerritoryLevel {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 13:
+            //            //Object territory max level
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action NavPointSetMaxTerritoryLevel {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 14:
+            //            //Object Territory Sort Order
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action NavPointSetTerritorySortOrder {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 15:
+            //            //Object Territory Cap Timer
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            int timer2 = ConvertToInt(GetValue(1));
+            //            ac.Parameter3 = timer2 == 0 ? Convert.ToString(ConvertToInt(GetValue(2))) : "none";
+            //            ActionList.Add($"action NavPointSetTerritoryTimer {ac.Parameter1}{subvalue} ObjectTimer{ac.Parameter3}");
+            //            break;
+            //        case 16:
+            //            //Object Nav Template
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = Names[ConvertToInt(GetValue(8))];
+            //            ActionList.Add($"action NavPointSetType {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 17:
+            //            //Object Action Team
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            (ac.Parameter2, subvalue2) = GetTeamRefType(ConvertToInt(GetValue(3)));
+            //            ActionList.Add($"action NavPointSetActionTeam {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
+            //            break;
+            //        case 20:
+            //            //Object Boundary Set
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            int shape = ConvertToInt(GetValue(2));
+            //            string len = "";
+            //            string top = "";
+            //            string bottom = "";
+            //            string width = "";
+            //            switch (shape)
+            //            {
+            //                case 0:
+            //                    ac.Parameter2 = "none";
+            //                    break;
+            //                case 1:
+            //                    ac.Parameter2 = "sphere";
+            //                    len = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //                    break;
+            //                case 2:
+            //                    ac.Parameter2 = "cylinder";
+            //                    len = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //                    bottom = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //                    top = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //                    break;
+            //                case 3:
+            //                    ac.Parameter2 = "box";
+            //                    len = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //                    top = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //                    bottom = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //                    width = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //                    break;
+            //            }
+            //            ActionList.Add($"action set_boundary {ac.Parameter1}{subvalue} {ac.Parameter2} {len} {top} {width} {bottom} ");
+            //            break;
+            //        case 22:
+            //            //Object Pickup Perms
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
+            //            ActionList.Add($"action set_pickup_filter {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 23:
+            //            //Object Spawn Perms
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
+            //            ActionList.Add($"action set_respawn_filter {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 24:
+            //            //Object Fireteam Spawn Perms
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            int filter = ConvertToInt(GetValue(8));
+            //            string filterString = "";
+            //            switch (filter)
+            //            {
+            //                case 0:
+            //                    filterString = "none";
+            //                    break;
+            //                case 1:
+            //                    filterString = "0";
+            //                    break;
+            //                case 2:
+            //                    filterString = "1";
+            //                    break;
+            //                case 4:
+            //                    filterString = "2";
+            //                    break;
+            //                case 8:
+            //                    filterString = "3";
+            //                    break;
+            //                case 255:
+            //                    filterString = "all";
+            //                    break;
+            //            }
+            //            ActionList.Add($"action set_fireteam_respawn_filter {ac.Parameter1}{subvalue} {filterString}");
+            //            break;
+            //        case 25:
+            //            //Object Progress Bar
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
+            //            int timer3 = ConvertToInt(GetValue(1));
+            //            ac.Parameter3 = timer3 == 0 ? Convert.ToString(ConvertToInt(GetValue(2))) : "none";
+            //            ActionList.Add($"action set_progress_bar {ac.Parameter1}{subvalue} {ac.Parameter2} ObjectTimer{ac.Parameter3}");
+            //            break;
+            //        case 30:
+            //            //Object Carrier Get
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            type = ConvertToInt(GetValue(2));
+            //            (ac.Parameter2, subvalue2) = GetPlayerRefType(type);
+            //            ActionList.Add($"action get_player_holding_object {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
+            //            break;
+            //        case 32:
+            //            //begin or inline
+            //            //Modify the last action string to start with begin and end with end
+            //            int conditionOffset = ConvertToInt(GetValue(10));
+            //            int conditionCount = ConvertToInt(GetValue(10));
+            //            int unknown3 = ConvertToInt(GetValue(11));
+            //            int unknown4 = ConvertToInt(GetValue(11));
+            //            unknown4 = unknown4 == 0 ? 1 : unknown4;
+            //            unknown3 = unknown3 == 0 ? 1 : unknown3;
                         
                         
-                        //ActionList[unknown3 + unknown4 - 2] += " \n\tend";
-                        for (int j = 0; j < conditionCount; j++)
-                        {
-                            int index = (int)ConditionOffsetList[j];
+            //            //ActionList[unknown3 + unknown4 - 2] += " \n\tend";
+            //            for (int j = 0; j < conditionCount; j++)
+            //            {
+            //                int index = (int)ConditionOffsetList[j];
 
-                            // Ensure the index is within the bounds of the list
-                            if (index >= 0 && index <= ActionList.Count)
-                            {
-                                string condition = ConditionsList[j + conditionOffset - 1];
-                                ActionList[unknown4 - 1] = condition + "\n\t" + ActionList[unknown3 - 1];
-                            }
-                        }
-                        ActionList[unknown4 - 1] = "begin\n\t " + ActionList[unknown4 - 1];
-                        break;
+            //                // Ensure the index is within the bounds of the list
+            //                if (index >= 0 && index <= ActionList.Count)
+            //                {
+            //                    string condition = ConditionsList[j + conditionOffset - 1];
+            //                    ActionList[unknown4 - 1] = condition + "\n\t" + ActionList[unknown3 - 1];
+            //                }
+            //            }
+            //            ActionList[unknown4 - 1] = "begin\n\t " + ActionList[unknown4 - 1];
+            //            break;
 
-                    case 35:
-                        //Boundary Visibility Perms
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
-                        ActionList.Add($"action boundary_set_visible {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 36:
-                        //Object kill
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = ConvertToInt(GetValue(1)) == 1 ? "no_statistics" : "";
-                        ActionList.Add($"action object_destroy {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 37:
-                        //Object Set Invincible
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action set_object_invincible {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 40:
-                        //Get orientation
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action object_get_orientation {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 41:
-                        //Get speed
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action object_get_velocity {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 47:
-                        //Object attach
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        int offsetX = ConvertToInt(GetValue(8));
-                        int offsetY = ConvertToInt(GetValue(8));
-                        int offsetZ = ConvertToInt(GetValue(8));
-                        string absolute = ConvertToInt(GetValue(1)) == 1 ? "absolute_orientation" : "";
-                        ActionList.Add($"action object_attach {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} {offsetX} {offsetY} {offsetZ} {absolute}");
-                        break;
-                    case 48:
-                        //Object Detach
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ActionList.Add($"action object_detach {ac.Parameter1}{subvalue}");
-                        break;
-                    case 63:
-                        //Owner biped get
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ActionList.Add($"action objectGetImmediateParentPlayer {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
-                        break;
-                    case 65:
-                        //Object Pickup Pirority
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        int pickupMode = ConvertToInt(GetValue(2));
-                        switch (pickupMode)
-                        {
-                            case 0:
-                                ac.Parameter2 = "normal";
-                                break;
-                            case 1:
-                                ac.Parameter2 = "special";
-                                break;
-                            case 2:
-                                ac.Parameter2 = "auto";
-                                break;
-                        }
-                        ActionList.Add($"action weapon_set_pickup_priority {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 66:
-                        //Object push upwards
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ActionList.Add($"action object_bounce {ac.Parameter1}{subvalue}");
-                        break;
-                    case 74:
-                        //Object set scale
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action object_set_scale {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 75:
-                        //Navpoint set text
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        break;
-                    case 81:
-                        //Object get shields
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action object_get_shield {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 82:
-                        //Object get health
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action object_get_health {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 83:
-                        //Get health fraction
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action ObjectGetHealthAbsolute {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 92:
-                        //Object set shields
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        c.Oper = ConvertToInt(GetValue(4));
-                        string oper = "";
-                        switch (c.Oper)
-                        {
-                            case 0:
-                                oper = "+=";
-                                break;
-                            case 1:
-                                oper = "-=";
-                                break;
-                            case 2:
-                                oper = "*=";
-                                break;
-                            case 3:
-                                oper = "/=";
-                                break;
-                            case 4:
-                                oper = "=";
-                                break;
-                            case 5:
-                                oper = "%=";
-                                break;
-                            case 6:
-                                oper = "&=";
-                                break;
-                            case 7:
-                                oper = "|=";
-                                break;
-                            case 8:
-                                oper = "^=";
-                                break;
-                            case 9:
-                                oper = "~=";
-                                break;
-                        }
-                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action object_adjust_shield {ac.Parameter1}{subvalue} {oper} {ac.Parameter3}");
-                        break;
-                    case 94:
-                        //Object get distance
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        string dead = Convert.ToInt32(GetValue(1)) == 1 ? "allow_dead" : "";
-                        ActionList.Add($"action object_get_distance {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} {ac.Parameter3} {dead}");
-                        break;
-                    case 95:
-                        //Max shields get
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        c.Oper = ConvertToInt(GetValue(4));
-                        string oper2 = "";
-                        switch (c.Oper)
-                        {
-                            case 0:
-                                oper2 = "+=";
-                                break;
-                            case 1:
-                                oper2 = "-=";
-                                break;
-                            case 2:
-                                oper2 = "*=";
-                                break;
-                            case 3:
-                                oper2 = "/=";
-                                break;
-                            case 4:
-                                oper2 = "=";
-                                break;
-                            case 5:
-                                oper2 = "%=";
-                                break;
-                            case 6:
-                                oper2 = "&=";
-                                break;
-                            case 7:
-                                oper2 = "|=";
-                                break;
-                            case 8:
-                                oper2 = "^=";
-                                break;
-                            case 9:
-                                oper2 = "~=";
-                                break;
-                        }
-                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action object_adjust_maximum_shield {ac.Parameter1}{subvalue} {oper2} {ac.Parameter3}");
-                        break;
-                    case 96:
-                        //Max health get
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        c.Oper = ConvertToInt(GetValue(4));
-                        string oper3 = "";
-                        switch (c.Oper)
-                        {
-                            case 0:
-                                oper3 = "+=";
-                                break;
-                            case 1:
-                                oper3 = "-=";
-                                break;
-                            case 2:
-                                oper3 = "*=";
-                                break;
-                            case 3:
-                                oper3 = "/=";
-                                break;
-                            case 4:
-                                oper3 = "=";
-                                break;
-                            case 5:
-                                oper3 = "%=";
-                                break;
-                            case 6:
-                                oper3 = "&=";
-                                break;
-                            case 7:
-                                oper3 = "|=";
-                                break;
-                            case 8:
-                                oper3 = "^=";
-                                break;
-                            case 9:
-                                oper3 = "~=";
-                                break;
-                        }
-                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action object_adjust_maximum_health {ac.Parameter1}{subvalue} {oper3} {ac.Parameter3}");
-                        break;
-                    case 98:
-                        //Device power set
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action device_set_power {ac.Parameter1}{subvalue} {ac.Parameter3}");
-                        break;
-                    case 99:
-                        //Device power get
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action device_get_power {ac.Parameter1}{subvalue} {ac.Parameter3}");
-                        break;
-                    case 100:
-                        //Device position set
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action device_set_position {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 101:
-                        //Device position get
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action device_get_position {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 106:
-                        //Device track set
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = Names[ConvertToInt(GetValue(8))];
-                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action device_set_track {ac.Parameter1}{subvalue} {ac.Parameter2} {ac.Parameter3}");
-                        break;
-                    case 107:
-                        //Set animation position
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        string anim = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        string duration = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        string accel = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        string decel = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action device_animate_position {ac.Parameter1}{subvalue} {anim} {duration} {accel} {decel}");
-                        break;
-                    case 108:
-                        //Device immediate set
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action device_set_position_immediate {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 110:
-                        //Set spawn zone enabled
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action respawn_zone_enable {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 113:
-                        //Object cleanup set
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action object_set_cleanup {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 119:
-                        //Object copy rotation
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        int absolute2 = Convert.ToInt32(GetValue(1));
-                        ActionList.Add($"action object_copy_rotation {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} {absolute2}");
-                        break;
-                    case 120:
-                        //Object face object
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        int x = ConvertToInt(GetValue(8));
-                        int y = ConvertToInt(GetValue(8));
-                        int z = ConvertToInt(GetValue(8));
-                        ActionList.Add($"action object_face_object {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} offset {x} {y} {z}");
-                        break;
-                    case 121:
-                        //Object give weapon
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = Objects[ConvertToInt(GetValue(objectType))];
-                        int mode = Convert.ToInt32(GetValue(2));
-                        string modeString = "";
-                        switch (mode)
-                        {
-                            case 0:
-                                modeString = "primary";
-                                break;
-                            case 1:
-                                modeString = "secondary";
-                                break;
-                            case 2:
-                                modeString = "force";
-                                break;
-                        }
-                        ActionList.Add($"action biped_give_weapon {ac.Parameter1}{subvalue} '{ac.Parameter2}' {modeString}");
-                        break;
-                    case 122:
-                        //Object drop weapon
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        int mode2 = Convert.ToInt32(GetValue(2));
-                        string modeString2 = "";
-                        switch (mode2)
-                        {
-                            case 0:
-                                modeString2 = "primary";
-                                break;
-                            case 1:
-                                modeString2 = "secondary";
-                                break;
-                        }
-                        string delete = Convert.ToInt32(GetValue(1)) == 1 ? "delete_on_drop" : "";
-                        ActionList.Add($"action biped_drop_weapon {ac.Parameter1}{subvalue} {modeString2} {delete}");
-                        break;
-                    case 126:
-                        //Object shape player color set
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        int playerIndex = ConvertToInt(GetValue(1)) == 0 ? ConvertToInt(GetValue(2)) : 1;
-                        ActionList.Add($"action boundary_set_player_color {ac.Parameter1}{subvalue}Player{playerIndex}");
-                        break;
-                    case 133:
-                        //Object hide
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        int hide = Convert.ToInt32(GetValue(1));
-                        ActionList.Add($"action hide_object {ac.Parameter1}{subvalue} {hide}");
-                        break;
-                    case 134:
-                        //Object set turret
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        string par4 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action SetAutoTurret {ac.Parameter1}{subvalue} {ac.Parameter2} {ac.Parameter3} {par4}");
-                        break;
-                    case 135:
-                        //Set turret range
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
-                        ActionList.Add($"action SetAutoTurretRange {ac.Parameter1}{subvalue} {ac.Parameter2}");
-                        break;
-                    case 145:
-                        //Device get user
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        (ac.Parameter2, subvalue2) = GetPlayerRefType(ConvertToInt(GetValue(2)));
-                        ActionList.Add($"action DeviceGetPlayerUser {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
-                        break;
-                    case 146:
-                        //Device get interracting player user
-                        (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
-                        (ac.Parameter2, subvalue2) = GetPlayerRefType(ConvertToInt(GetValue(2)));
-                        ActionList.Add($"action DeviceGetInteractingPlayerUser {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
-                        break;
-
-
-
-                    default:
-                        Debug.WriteLine("Failed to read action type: " + ac.ActionType);
-                        return;
-
-                }
-            }
+            //        case 35:
+            //            //Boundary Visibility Perms
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = PlayerSet[ConvertToInt(GetValue(3))];
+            //            ActionList.Add($"action boundary_set_visible {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 36:
+            //            //Object kill
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = ConvertToInt(GetValue(1)) == 1 ? "no_statistics" : "";
+            //            ActionList.Add($"action object_destroy {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 37:
+            //            //Object Set Invincible
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action set_object_invincible {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 40:
+            //            //Get orientation
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action object_get_orientation {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 41:
+            //            //Get speed
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action object_get_velocity {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 47:
+            //            //Object attach
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            int offsetX = ConvertToInt(GetValue(8));
+            //            int offsetY = ConvertToInt(GetValue(8));
+            //            int offsetZ = ConvertToInt(GetValue(8));
+            //            string absolute = ConvertToInt(GetValue(1)) == 1 ? "absolute_orientation" : "";
+            //            ActionList.Add($"action object_attach {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} {offsetX} {offsetY} {offsetZ} {absolute}");
+            //            break;
+            //        case 48:
+            //            //Object Detach
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ActionList.Add($"action object_detach {ac.Parameter1}{subvalue}");
+            //            break;
+            //        case 63:
+            //            //Owner biped get
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ActionList.Add($"action objectGetImmediateParentPlayer {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
+            //            break;
+            //        case 65:
+            //            //Object Pickup Pirority
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            int pickupMode = ConvertToInt(GetValue(2));
+            //            switch (pickupMode)
+            //            {
+            //                case 0:
+            //                    ac.Parameter2 = "normal";
+            //                    break;
+            //                case 1:
+            //                    ac.Parameter2 = "special";
+            //                    break;
+            //                case 2:
+            //                    ac.Parameter2 = "auto";
+            //                    break;
+            //            }
+            //            ActionList.Add($"action weapon_set_pickup_priority {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 66:
+            //            //Object push upwards
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ActionList.Add($"action object_bounce {ac.Parameter1}{subvalue}");
+            //            break;
+            //        case 74:
+            //            //Object set scale
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action object_set_scale {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 75:
+            //            //Navpoint set text
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            break;
+            //        case 81:
+            //            //Object get shields
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action object_get_shield {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 82:
+            //            //Object get health
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action object_get_health {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 83:
+            //            //Get health fraction
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action ObjectGetHealthAbsolute {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 92:
+            //            //Object set shields
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            c.Oper = ConvertToInt(GetValue(4));
+            //            string oper = "";
+            //            switch (c.Oper)
+            //            {
+            //                case 0:
+            //                    oper = "+=";
+            //                    break;
+            //                case 1:
+            //                    oper = "-=";
+            //                    break;
+            //                case 2:
+            //                    oper = "*=";
+            //                    break;
+            //                case 3:
+            //                    oper = "/=";
+            //                    break;
+            //                case 4:
+            //                    oper = "=";
+            //                    break;
+            //                case 5:
+            //                    oper = "%=";
+            //                    break;
+            //                case 6:
+            //                    oper = "&=";
+            //                    break;
+            //                case 7:
+            //                    oper = "|=";
+            //                    break;
+            //                case 8:
+            //                    oper = "^=";
+            //                    break;
+            //                case 9:
+            //                    oper = "~=";
+            //                    break;
+            //            }
+            //            ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action object_adjust_shield {ac.Parameter1}{subvalue} {oper} {ac.Parameter3}");
+            //            break;
+            //        case 94:
+            //            //Object get distance
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            string dead = Convert.ToInt32(GetValue(1)) == 1 ? "allow_dead" : "";
+            //            ActionList.Add($"action object_get_distance {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} {ac.Parameter3} {dead}");
+            //            break;
+            //        case 95:
+            //            //Max shields get
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            c.Oper = ConvertToInt(GetValue(4));
+            //            string oper2 = "";
+            //            switch (c.Oper)
+            //            {
+            //                case 0:
+            //                    oper2 = "+=";
+            //                    break;
+            //                case 1:
+            //                    oper2 = "-=";
+            //                    break;
+            //                case 2:
+            //                    oper2 = "*=";
+            //                    break;
+            //                case 3:
+            //                    oper2 = "/=";
+            //                    break;
+            //                case 4:
+            //                    oper2 = "=";
+            //                    break;
+            //                case 5:
+            //                    oper2 = "%=";
+            //                    break;
+            //                case 6:
+            //                    oper2 = "&=";
+            //                    break;
+            //                case 7:
+            //                    oper2 = "|=";
+            //                    break;
+            //                case 8:
+            //                    oper2 = "^=";
+            //                    break;
+            //                case 9:
+            //                    oper2 = "~=";
+            //                    break;
+            //            }
+            //            ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action object_adjust_maximum_shield {ac.Parameter1}{subvalue} {oper2} {ac.Parameter3}");
+            //            break;
+            //        case 96:
+            //            //Max health get
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            c.Oper = ConvertToInt(GetValue(4));
+            //            string oper3 = "";
+            //            switch (c.Oper)
+            //            {
+            //                case 0:
+            //                    oper3 = "+=";
+            //                    break;
+            //                case 1:
+            //                    oper3 = "-=";
+            //                    break;
+            //                case 2:
+            //                    oper3 = "*=";
+            //                    break;
+            //                case 3:
+            //                    oper3 = "/=";
+            //                    break;
+            //                case 4:
+            //                    oper3 = "=";
+            //                    break;
+            //                case 5:
+            //                    oper3 = "%=";
+            //                    break;
+            //                case 6:
+            //                    oper3 = "&=";
+            //                    break;
+            //                case 7:
+            //                    oper3 = "|=";
+            //                    break;
+            //                case 8:
+            //                    oper3 = "^=";
+            //                    break;
+            //                case 9:
+            //                    oper3 = "~=";
+            //                    break;
+            //            }
+            //            ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action object_adjust_maximum_health {ac.Parameter1}{subvalue} {oper3} {ac.Parameter3}");
+            //            break;
+            //        case 98:
+            //            //Device power set
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action device_set_power {ac.Parameter1}{subvalue} {ac.Parameter3}");
+            //            break;
+            //        case 99:
+            //            //Device power get
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action device_get_power {ac.Parameter1}{subvalue} {ac.Parameter3}");
+            //            break;
+            //        case 100:
+            //            //Device position set
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action device_set_position {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 101:
+            //            //Device position get
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action device_get_position {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 106:
+            //            //Device track set
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = Names[ConvertToInt(GetValue(8))];
+            //            ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action device_set_track {ac.Parameter1}{subvalue} {ac.Parameter2} {ac.Parameter3}");
+            //            break;
+            //        case 107:
+            //            //Set animation position
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            string anim = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            string duration = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            string accel = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            string decel = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action device_animate_position {ac.Parameter1}{subvalue} {anim} {duration} {accel} {decel}");
+            //            break;
+            //        case 108:
+            //            //Device immediate set
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action device_set_position_immediate {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 110:
+            //            //Set spawn zone enabled
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action respawn_zone_enable {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 113:
+            //            //Object cleanup set
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action object_set_cleanup {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 119:
+            //            //Object copy rotation
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            int absolute2 = Convert.ToInt32(GetValue(1));
+            //            ActionList.Add($"action object_copy_rotation {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} {absolute2}");
+            //            break;
+            //        case 120:
+            //            //Object face object
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            (ac.Parameter2, subvalue2) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            int x = ConvertToInt(GetValue(8));
+            //            int y = ConvertToInt(GetValue(8));
+            //            int z = ConvertToInt(GetValue(8));
+            //            ActionList.Add($"action object_face_object {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2} offset {x} {y} {z}");
+            //            break;
+            //        case 121:
+            //            //Object give weapon
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = Objects[ConvertToInt(GetValue(objectType))];
+            //            int mode = Convert.ToInt32(GetValue(2));
+            //            string modeString = "";
+            //            switch (mode)
+            //            {
+            //                case 0:
+            //                    modeString = "primary";
+            //                    break;
+            //                case 1:
+            //                    modeString = "secondary";
+            //                    break;
+            //                case 2:
+            //                    modeString = "force";
+            //                    break;
+            //            }
+            //            ActionList.Add($"action biped_give_weapon {ac.Parameter1}{subvalue} '{ac.Parameter2}' {modeString}");
+            //            break;
+            //        case 122:
+            //            //Object drop weapon
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            int mode2 = Convert.ToInt32(GetValue(2));
+            //            string modeString2 = "";
+            //            switch (mode2)
+            //            {
+            //                case 0:
+            //                    modeString2 = "primary";
+            //                    break;
+            //                case 1:
+            //                    modeString2 = "secondary";
+            //                    break;
+            //            }
+            //            string delete = Convert.ToInt32(GetValue(1)) == 1 ? "delete_on_drop" : "";
+            //            ActionList.Add($"action biped_drop_weapon {ac.Parameter1}{subvalue} {modeString2} {delete}");
+            //            break;
+            //        case 126:
+            //            //Object shape player color set
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            int playerIndex = ConvertToInt(GetValue(1)) == 0 ? ConvertToInt(GetValue(2)) : 1;
+            //            ActionList.Add($"action boundary_set_player_color {ac.Parameter1}{subvalue}Player{playerIndex}");
+            //            break;
+            //        case 133:
+            //            //Object hide
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            int hide = Convert.ToInt32(GetValue(1));
+            //            ActionList.Add($"action hide_object {ac.Parameter1}{subvalue} {hide}");
+            //            break;
+            //        case 134:
+            //            //Object set turret
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ac.Parameter3 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            string par4 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action SetAutoTurret {ac.Parameter1}{subvalue} {ac.Parameter2} {ac.Parameter3} {par4}");
+            //            break;
+            //        case 135:
+            //            //Set turret range
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            ac.Parameter2 = GetNumericRefType(ConvertToInt(GetValue(7)));
+            //            ActionList.Add($"action SetAutoTurretRange {ac.Parameter1}{subvalue} {ac.Parameter2}");
+            //            break;
+            //        case 145:
+            //            //Device get user
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            (ac.Parameter2, subvalue2) = GetPlayerRefType(ConvertToInt(GetValue(2)));
+            //            ActionList.Add($"action DeviceGetPlayerUser {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
+            //            break;
+            //        case 146:
+            //            //Device get interracting player user
+            //            (ac.Parameter1, subvalue) = GetRefType(ConvertToInt(GetValue(objectTypeRef)));
+            //            (ac.Parameter2, subvalue2) = GetPlayerRefType(ConvertToInt(GetValue(2)));
+            //            ActionList.Add($"action DeviceGetInteractingPlayerUser {ac.Parameter1}{subvalue} {ac.Parameter2}{subvalue2}");
+            //            break;
 
 
 
-            //Read Triggers
-            Triggers tr = new();
-            tr.TriggerCount = ConvertToInt(GetValue(8));
-            for (int i = 0; i < tr.TriggerCount; i++)
-            {
-                tr.TriggerType = ConvertToInt(GetValue(3));
-                string type = GetTriggerType(tr.TriggerType);
-                int attribute = ConvertToInt(GetValue(4));
-                string attributeString = GetTriggerAttribute(attribute);
-                int conditionOffset = ConvertToInt(GetValue(10));
-                int conditionCount = ConvertToInt(GetValue(10));
-                int actionOffset = ConvertToInt(GetValue(11));
-                int actionCount = ConvertToInt(GetValue(11));
-                int unk1 = ConvertToInt(GetValue(8));
-                int unk2 = ConvertToInt(GetValue(8));
+            //        default:
+            //            Debug.WriteLine("Failed to read action type: " + ac.ActionType);
+            //            return;
 
-                //Build trigger block
-
-                string conditions = "";
-
-                return;
-                for (int j = 0; j < conditionCount; j++)
-                {
-                    int index = (int)ConditionOffsetList[j];
-
-                    // Ensure the index is within the bounds of the list
-                    if (index >= 0 && index <= ActionList.Count)
-                    {
-                        string condition = ConditionsList[j + conditionOffset - 1];
-                        ActionList.Insert(index, condition);
-                    }
-                }
+            //    }
+            //}
 
 
-                //string actions = "";
-                //for (int j = 0; j < actionCount; j++)
-                //{
-                //    actions += $"{ActionList[j + actionOffset - 1]}\n";
-                //}
 
-                //Build a string of actions and conditions using the sum of action and condition count
-                string actions = "";
-                for (int j = 0; j < actionCount + conditionCount; j++)
-                {
-                    actions += $"\t{ActionList[j]}\n";
-                }
+            ////Read Triggers
+            //Triggers tr = new();
+            //tr.TriggerCount = ConvertToInt(GetValue(8));
+            //for (int i = 0; i < tr.TriggerCount; i++)
+            //{
+            //    tr.TriggerType = ConvertToInt(GetValue(3));
+            //    string type = GetTriggerType(tr.TriggerType);
+            //    int attribute = ConvertToInt(GetValue(4));
+            //    string attributeString = GetTriggerAttribute(attribute);
+            //    int conditionOffset = ConvertToInt(GetValue(10));
+            //    int conditionCount = ConvertToInt(GetValue(10));
+            //    int actionOffset = ConvertToInt(GetValue(11));
+            //    int actionCount = ConvertToInt(GetValue(11));
+            //    int unk1 = ConvertToInt(GetValue(8));
+            //    int unk2 = ConvertToInt(GetValue(8));
+
+            //    //Build trigger block
+
+            //    string conditions = "";
+
+            //    return;
+            //    for (int j = 0; j < conditionCount; j++)
+            //    {
+            //        int index = (int)ConditionOffsetList[j];
+
+            //        // Ensure the index is within the bounds of the list
+            //        //if (index >= 0 && index <= ActionList.Count)
+            //        //{
+            //            //string condition = ConditionsList[j + conditionOffset - 1];
+            //            //ActionList.Insert(index, condition);
+            //        //}
+            //    }
+
+
+            //    //string actions = "";
+            //    //for (int j = 0; j < actionCount; j++)
+            //    //{
+            //    //    actions += $"{ActionList[j + actionOffset - 1]}\n";
+            //    //}
+
+            //    //Build a string of actions and conditions using the sum of action and condition count
+            //    string actions = "";
+            //    for (int j = 0; j < actionCount + conditionCount; j++)
+            //    {
+            //        //actions += $"\t{ActionList[j]}\n";
+            //    }
 
 
                 
 
-                //Build trigger string
-                string trigger = type + "\n" + actions + "\n" + "end\n";
-                //Remove the first entries from ActionsList equal to the action and condition count
-                ActionList.RemoveRange(0, actionCount + conditionCount);
+            //    //Build trigger string
+            //    string trigger = type + "\n" + actions + "\n" + "end\n";
+            //    //Remove the first entries from ActionsList equal to the action and condition count
+            //    //ActionList.RemoveRange(0, actionCount + conditionCount);
 
-                //Get the filename from the filepath variable
-                string filename = Path.GetFileNameWithoutExtension(filePath);
-                //Get only the file path without the filename
-                string filepath = Path.GetDirectoryName(filePath);
-                //Append the trigger to a new text file with the filename at the file pat locaation and overwrite the existing
+            //    //Get the filename from the filepath variable
+            //    string filename = Path.GetFileNameWithoutExtension(filePath);
+            //    //Get only the file path without the filename
+            //    string filepath = Path.GetDirectoryName(filePath);
+            //    //Append the trigger to a new text file with the filename at the file pat locaation and overwrite the existing
                 
-                File.AppendAllText($"{filepath}\\{filename}.txt", trigger);
-            }
+            //    File.AppendAllText($"{filepath}\\{filename}.txt", trigger);
+            //}
 
 
 

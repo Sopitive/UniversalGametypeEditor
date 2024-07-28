@@ -55,6 +55,8 @@ namespace UniversalGametypeEditor
             byte[] newBytes = Enumerable.Range(0, rawBinary.Length / 8).Select(i => Convert.ToByte(rawBinary.Substring(i * 8, 8), 2)).ToArray();
             //Write the bytes to the file
             File.WriteAllBytes(filename, newBytes);
+            System.Threading.Thread.Sleep(1);
+            
         }
         
         public void WriteFileHeaders(FileHeaderViewModel fh)

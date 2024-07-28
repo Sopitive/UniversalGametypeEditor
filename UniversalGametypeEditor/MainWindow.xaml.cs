@@ -121,6 +121,8 @@ namespace UniversalGametypeEditor
             //rg.ReadBinary();
 
             MegaloEditPatcher.Patch();
+
+            CreatePlaylist.GetUUID();
             
 
 
@@ -172,11 +174,14 @@ namespace UniversalGametypeEditor
             }
 
             CheckTutorialCompletion();
-            //Show Overlay window
+            //Show Overlay window if the process EasyAntiCheat.exe is not open
+            Process[] pname = Process.GetProcessesByName("EasyAntiCheat");
+            if (pname.Length == 0)
+            {
+                Overlay overlay = new();
+                overlay.Show();
+            }
             this.Show();
-            Overlay overlay = new();
-            overlay.Show();
-            
 
         }
 
@@ -541,6 +546,7 @@ namespace UniversalGametypeEditor
 
         private void CompileGametype(object sender, RoutedEventArgs e)
         {
+            Debug.WriteLine("Clicked Compile Gametype");
             CompileVariant();
         }
 
@@ -1382,6 +1388,12 @@ namespace UniversalGametypeEditor
             CheckTutorialCompletion();
         }
 
+        public void EditPlaylist(object sender, RoutedEventArgs e)
+        {
+            PlaylistEditor pe = new();
+            pe.Show();
+        }
+
         public void UpdateDirHistoryComboBox()
         {
             if (Settings.Default.FilePathList != null)
@@ -1835,11 +1847,16 @@ namespace UniversalGametypeEditor
         {
             SystemCommands.RestoreWindow(this);
         }
-
+        private Overlay overlay;
         // Close
         private void CommandBinding_Executed_Close(object sender, ExecutedRoutedEventArgs e)
         {
             SystemCommands.CloseWindow(this);
+        }
+
+        private void OnApplicationExit(object sender, ExitEventArgs e)
+        {
+            //overlay.UnregisterHotkey();
         }
 
         //Close all other windows when this window is closed
