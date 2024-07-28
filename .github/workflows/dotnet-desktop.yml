@@ -11,45 +11,48 @@ on:
 
 jobs:
   build:
-
     runs-on: windows-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 6.0.x
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
-    - name: 'Upload Artifact'
-      uses: actions/upload-artifact@v2
-      with:
-        name: UniversalGametypeEditor
-        path: UniversalGametypeEditor/bin/Release/net6.0-windows
-        retention-days: 90
-    
+      - uses: actions/checkout@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 6.0.x
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+      - name: Test
+        run: dotnet test --no-build --verbosity normal
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: UniversalGametypeEditor
+          path: UniversalGametypeEditor/bin/Release/net6.0-windows
+          retention-days: 90
 
-  create-release:
-    needs: build
-    if: startsWith(github.event.head_commit.message, 'Release')
+  create_release:
+    if: contains(github.event.head_commit.message, 'v')
     runs-on: ubuntu-latest
-
     steps:
-    - name: Install jq
-      run: sudo apt-get -y install jq
-    
-    - name: Extract Version
-      id: extract_version
-      run: echo "::set-output name=version::$(echo ${GITHUB_EVENT_PATH} | jq -r '.commits[0].message | capture("Release(?<version>v\\d+\\.\\d+\\.\\d+)").version')"
-      
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: UniversalGametypeEditor/bin/Release/net6.0-windows/*
-        tag_name: ${{ steps.extract_version.outputs.version }}
-        name: ${{ steps.extract_version.outputs.version }}
+      - name: Install jq
+        run: sudo apt-get -y install jq
+      - name: Extract Version
+        id: extract_version
+        run: echo "::set-output name=version::$(echo ${GITHUB_EVENT_PATH} | jq -r '.commits[0].message | capture("v(?<version>\\d+\\.\\d+\\.\\d+)").version')"
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1 
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ steps.extract_version.outputs.version }}
+          release_name: Release ${{ steps.extract_version.outputs.version }}
+          draft: false
+          prerelease: true
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./UniversalGametypeEditor.zip
+          asset_name: UniversalGametypeEditor.zip
+          asset_content_type: application/zip

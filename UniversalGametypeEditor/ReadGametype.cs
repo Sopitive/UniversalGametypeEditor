@@ -103,7 +103,7 @@ namespace UniversalGametypeEditor
             Flag,
             Slayer,
             Skull,
-            KOTH = 3,
+            KOTH,
             Juggernaut,
             Territories,
             Assault,
@@ -122,7 +122,7 @@ namespace UniversalGametypeEditor
             Wings,
             Swirl,
             Castle,
-            Plus = 22,
+            Plus,
             Shield,
             Arrow,
             Infinity,
@@ -133,7 +133,44 @@ namespace UniversalGametypeEditor
             Diamond
         }
 
-        public enum WeaponSetEnum
+        public enum H2AH4IconEnum
+        {
+            None = 0,
+            Speaker = 1,
+            X = 2,
+            LightningBolt = 3,
+            Bullseye = 4,
+            Diamond = 5,
+            Bomb = 6,
+            Flag = 7,
+            Skull = 8,
+            Crown = 9,
+            VIP = 10,
+            Locked = 11,
+            A = 12,
+            B = 13,
+            C = 14,
+            D = 15,
+            E = 16,
+            F = 17,
+            G = 18,
+            H = 19,
+            I = 20,
+            Ordnance = 21,
+            Activate = 22,
+            Parachute = 23,
+            Ammo = 24,
+            Uplink = 25,
+            Shield = 26,
+            Inwards = 27,
+            Teardrop = 28,
+            Unlabelled1 = 29,
+            Unlabelled2 = 30,
+            Unlabelled3 = 31
+        }
+
+
+    public enum WeaponSetEnum
         {
             
             Human,
@@ -176,6 +213,290 @@ namespace UniversalGametypeEditor
             MapDefault = 254,
         }
 
+        public enum DamageResistanceEnum
+        {
+            Unchanged,
+            TenPercent,
+            FiftyPercent,
+            NinetyPercent,
+            OneHundredPercent,
+            OneHundredTenPercent,
+            OneHundredFiftyPercent,
+            TwoHundredPercent,
+            ThreeHundredPercent,
+            FiveHundredPercent,
+            OneThousandPercent,
+            TwoThousandPercent,
+            Invlulnerable
+
+        }
+
+        public enum HealthMultiplierEnum
+        {
+            Uncanged,
+            ZeroPercent,
+            TenPercent,
+            OnehundredFiftyPercent,
+            TwoHundredPercent,
+            ThreeHundredPercent,
+            FourHundredPercent,
+            
+
+        }
+
+
+        public enum RegenEnum
+        {
+            Unchanged,
+            NegativeTwentyFivePercent,
+            NegativeTenPercent,
+            NegativeFivePercent,
+            ZeroPercent,
+            FiftyPercent,
+            NinetyPercent,
+            OneHunredPercent,
+            OneHundredTenPercent,
+            TwoHunredPercent,
+        }
+
+        public enum ShieldMultiplyerEnum
+        {
+            Unchanged,
+            ZeroPercent,
+            OneHundredPercent,
+            TwoHundredPercent,
+            ThreeHundredPercent,
+            FourHundredPercent,
+        }
+
+        public enum ToggleEnum
+        {
+            Unchanged,
+            Disabled,
+            Enabled
+        }
+
+        public enum VampirismEnum
+        {
+            Uncanged,
+            None,
+            TenPercent,
+            TwentyFivePercent,
+            FiftyPercent,
+            OneHundredPercent
+        }
+
+        public enum DamageEnum
+        {
+            Unchanged,
+            ZeroPercent,
+            TwentyFivePercent,
+            FiftyPercent,
+            SeventyFivePercent,
+            NinetyPercent,
+            OneHundredPercent,
+            OneHundredTenPercent,
+            OneHundredTwentyFivePercent,
+            OneHundredFiftyPercent,
+            TwoHundredPercent,
+            ThreeHundredPercent,
+        }
+
+        public enum WeaponEnum
+        {
+            DMR = 0,
+            AssaultRifle = 1,
+            PlasmaPistol = 2,
+            Spiker = 3,
+            EnergySword = 4,
+            Magnum = 5,
+            Needler = 6,
+            PlasmaRifle = 7,
+            RocketLauncher = 8,
+            Shotgun = 9,
+            SniperRifle = 10,
+            SpartanLaser = 11,
+            GravityHammer = 12,
+            PlasmaRepeater = 13,
+            NeedleRifle = 14,
+            FocusRifle = 15,
+            PlasmaLauncher = 16,
+            ConcussionRifle = 17,
+            GrenadeLauncher = 18,
+            GolfClub = 19,
+            FuelRodCannon = 20,
+            DetachedMachineGun = 21,
+            DetachedPlasmaTurret = 22,
+            TargetLocator = 23,
+            Unchanged = 253,
+            Random = 252,
+            MapDefault = 254,
+            None = 255
+        }
+
+        public static Dictionary<VariantTypeEnum, string> VariantTypeStrings = new Dictionary<VariantTypeEnum, string>
+        {
+            { VariantTypeEnum.Campaign, "Campaign" },
+            { VariantTypeEnum.Forge, "Forge" },
+            { VariantTypeEnum.Multiplayer, "Multiplayer" },
+            { VariantTypeEnum.Firefight, "Firefight" }
+        };
+
+        public static Dictionary<IconEnum, string> IconStrings = new Dictionary<IconEnum, string>
+        {
+            { IconEnum.Flag, "Flag" },
+            { IconEnum.Slayer, "Slayer" },
+            { IconEnum.Skull, "Skull" },
+            { IconEnum.KOTH, "KOTH" },
+            { IconEnum.Juggernaut, "Juggernaut" },
+            { IconEnum.Territories, "Territories" },
+            { IconEnum.Assault, "Assault" },
+            { IconEnum.Infection, "Infection" },
+            { IconEnum.VIP, "VIP" },
+            { IconEnum.Invasion, "Invasion" },
+            { IconEnum.EliteandSkull, "Elite and Skull" },
+            { IconEnum.Stockpile, "Stockpile" },
+            { IconEnum.ActionSack, "Action Sack" },
+            { IconEnum.Lightning, "Lightning" },
+            { IconEnum.Rocket, "Rocket" },
+            { IconEnum.Griffball, "Griffball" },
+            { IconEnum.Biohazard, "Biohazard" },
+            { IconEnum.Headhunter, "Headhunter" },
+            { IconEnum.SpikySwirl, "Spiky Swirl" },
+            { IconEnum.Wings, "Wings" },
+            { IconEnum.Swirl, "Swirl" },
+            { IconEnum.Castle, "Castle" },
+            { IconEnum.Plus, "Plus" },
+            { IconEnum.Shield, "Shield" },
+            { IconEnum.Arrow, "Arrow" },
+            { IconEnum.Infinity, "Infinity" },
+            { IconEnum.Forerunner, "Forerunner" },
+            { IconEnum.EightBall, "Eight Ball" },
+            { IconEnum.UNSC, "UNSC" },
+            { IconEnum.Unknown, "Unknown" },
+            { IconEnum.Diamond, "Diamond" }
+        };
+
+        public static Dictionary<WeaponEnum, string> WeaponStrings = new Dictionary<WeaponEnum, string>
+        {
+            { WeaponEnum.DMR, "DMR" },
+            { WeaponEnum.AssaultRifle, "Assault Rifle" },
+            { WeaponEnum.PlasmaPistol, "Plasma Pistol" },
+            { WeaponEnum.Spiker, "Spiker" },
+            { WeaponEnum.EnergySword, "Energy Sword" },
+            { WeaponEnum.Magnum, "Magnum" },
+            { WeaponEnum.Needler, "Needler" },
+            { WeaponEnum.PlasmaRifle, "Plasma Rifle" },
+            { WeaponEnum.RocketLauncher, "Rocket Launcher" },
+            { WeaponEnum.Shotgun, "Shotgun" },
+            { WeaponEnum.SniperRifle, "Sniper Rifle" },
+            { WeaponEnum.SpartanLaser, "Spartan Laser" },
+            { WeaponEnum.GravityHammer, "Gravity Hammer" },
+            { WeaponEnum.PlasmaRepeater, "Plasma Repeater" },
+            { WeaponEnum.NeedleRifle, "Needle Rifle" },
+            { WeaponEnum.FocusRifle, "Focus Rifle" },
+            { WeaponEnum.PlasmaLauncher, "Plasma Launcher" },
+            { WeaponEnum.ConcussionRifle, "Concussion Rifle" },
+            { WeaponEnum.GrenadeLauncher, "Grenade Launcher" },
+            { WeaponEnum.GolfClub, "Golf Club" },
+            { WeaponEnum.FuelRodCannon, "Fuel Rod Cannon" },
+            { WeaponEnum.DetachedMachineGun, "Detached Machine Gun" },
+            { WeaponEnum.DetachedPlasmaTurret, "Detached Plasma Turret" },
+            { WeaponEnum.TargetLocator, "Target Locator" },
+            { WeaponEnum.Random, "Random"},
+            { WeaponEnum.Unchanged, "Unchanged" },
+            { WeaponEnum.MapDefault, "Map Default" },
+            { WeaponEnum.None, "None" }
+        };
+
+        public static Dictionary<DamageEnum, string> DamageStrings = new Dictionary<DamageEnum, string>
+        {
+            { DamageEnum.Unchanged, "Unchanged" },
+            { DamageEnum.ZeroPercent, "0%" },
+            { DamageEnum.TwentyFivePercent, "25%" },
+            { DamageEnum.FiftyPercent, "50%" },
+            { DamageEnum.SeventyFivePercent, "75%" },
+            { DamageEnum.NinetyPercent, "90%" },
+            { DamageEnum.OneHundredPercent, "100%" },
+            { DamageEnum.OneHundredTenPercent, "110%" },
+            { DamageEnum.OneHundredTwentyFivePercent, "125%" },
+            { DamageEnum.OneHundredFiftyPercent, "150%" },
+            { DamageEnum.TwoHundredPercent, "200%" },
+            { DamageEnum.ThreeHundredPercent, "300%" }
+        };
+
+        public static Dictionary<VampirismEnum, string> VamparismStrings = new Dictionary<VampirismEnum, string>
+        {
+            { VampirismEnum.Uncanged, "Unchanged" },
+            { VampirismEnum.None, "None" },
+            { VampirismEnum.TenPercent, "10%" },
+            { VampirismEnum.TwentyFivePercent, "25%" },
+            { VampirismEnum.FiftyPercent, "50%" },
+            { VampirismEnum.OneHundredPercent, "100%" }
+        };
+
+        public static Dictionary<ToggleEnum, string> ToggleEnumStrings = new Dictionary<ToggleEnum, string>
+        {
+            { ToggleEnum.Unchanged, "Unchanged" },
+            { ToggleEnum.Enabled, "Enabled" },
+            { ToggleEnum.Disabled, "Disabled" }
+        };
+
+
+        public static Dictionary<DamageResistanceEnum, string> DamageResistanceStrings = new Dictionary<DamageResistanceEnum, string>
+        {
+            { DamageResistanceEnum.Unchanged, "Unchanged" },
+            { DamageResistanceEnum.TenPercent, "10%" },
+            { DamageResistanceEnum.FiftyPercent, "50%" },
+            { DamageResistanceEnum.NinetyPercent, "90%" },
+            { DamageResistanceEnum.OneHundredPercent, "100%" },
+            { DamageResistanceEnum.OneHundredTenPercent, "110%" },
+            { DamageResistanceEnum.OneHundredFiftyPercent, "150%" },
+            { DamageResistanceEnum.TwoHundredPercent, "200%" },
+            { DamageResistanceEnum.ThreeHundredPercent, "300%" },
+            { DamageResistanceEnum.FiveHundredPercent, "500%" },
+            { DamageResistanceEnum.OneThousandPercent, "1000%" },
+            { DamageResistanceEnum.TwoThousandPercent, "2000%" },
+            { DamageResistanceEnum.Invlulnerable, "Invulnerable" }
+        };
+
+        public static Dictionary<HealthMultiplierEnum, string> HealthMultiplierStrings = new Dictionary<HealthMultiplierEnum, string>
+        {
+            { HealthMultiplierEnum.Uncanged, "Unchanged" },
+            { HealthMultiplierEnum.ZeroPercent, "0%" },
+            { HealthMultiplierEnum.TenPercent, "10%" },
+            { HealthMultiplierEnum.OnehundredFiftyPercent, "150%" },
+            { HealthMultiplierEnum.TwoHundredPercent, "200%" },
+            { HealthMultiplierEnum.ThreeHundredPercent, "300%" },
+            { HealthMultiplierEnum.FourHundredPercent, "400%" }
+        };
+
+        public static Dictionary<RegenEnum, string> RegenStrings = new Dictionary<RegenEnum, string>
+        {
+            { RegenEnum.Unchanged, "Unchanged" },
+            { RegenEnum.NegativeTwentyFivePercent, "-25%" },
+            { RegenEnum.NegativeTenPercent, "-10%" },
+            { RegenEnum.NegativeFivePercent, "-5%" },
+            { RegenEnum.ZeroPercent, "0%" },
+            { RegenEnum.FiftyPercent, "50%" },
+            { RegenEnum.NinetyPercent, "90%" },
+            { RegenEnum.OneHunredPercent, "100%" },
+            { RegenEnum.OneHundredTenPercent, "110%" },
+            { RegenEnum.TwoHunredPercent, "200%" }
+        };
+
+
+        public static Dictionary<ShieldMultiplyerEnum, string> ShieldMultiplyerStrings = new Dictionary<ShieldMultiplyerEnum, string>
+        {
+            { ShieldMultiplyerEnum.Unchanged, "Unchanged" },
+            { ShieldMultiplyerEnum.ZeroPercent, "0%" },
+            { ShieldMultiplyerEnum.OneHundredPercent, "100%" },
+            { ShieldMultiplyerEnum.TwoHundredPercent, "200%" },
+            { ShieldMultiplyerEnum.ThreeHundredPercent, "300%" },
+            { ShieldMultiplyerEnum.FourHundredPercent, "400%" }
+        };
+
+
         public class ModeSettings
         {
             public int UnknownFlag2;
@@ -191,7 +512,7 @@ namespace UniversalGametypeEditor
 
             public class ReachSettings
             {
-                public int? GracePeriod;
+                public int GracePeriod;
             }
 
 

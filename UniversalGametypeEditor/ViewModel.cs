@@ -5,6 +5,8 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Markup;
+using UniversalGametypeEditor.Properties;
 using static UniversalGametypeEditor.ReadGametype;
 
 namespace UniversalGametypeEditor
@@ -33,7 +35,10 @@ namespace UniversalGametypeEditor
     {
         public dynamic Value { get; set; }
         public int Bits { get; set; }
+
+        public dynamic EnumTranslations { get; set; }
         
+
 
         public SharedProperties(int bits)
         {
@@ -269,29 +274,30 @@ namespace UniversalGametypeEditor
             }
         }
 
-        public VariantTypeEnum VariantType
+        
+
+        public SharedProperties VariantType
         {
             get
             {
                 if (_variantType == null)
                 {
-                    _variantType = new SharedProperties(2)
-                    {
-                        Value = data.VariantType
-                    };
+                    _variantType = new SharedProperties(2) { Value = (VariantTypeEnum)data.VariantType, EnumTranslations = VariantTypeStrings };
                 }
-                return (VariantTypeEnum)_variantType.Value;
+                return _variantType;
             }
             set
             {
-                if (data.VariantType != (int)value)
+                VariantTypeEnum newValue = VariantTypeStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.VariantType != (int)newValue)
                 {
-                    data.VariantType = (int)value;
-                    _variantType.Value = (int)value;
+                    data.VariantType = (int)newValue;
+                    _variantType = new SharedProperties(2) { Value = newValue };
                     OnPropertyChanged(nameof(VariantType));
                 }
             }
         }
+        
 
 
         public int Unknown0x319
@@ -631,14 +637,24 @@ namespace UniversalGametypeEditor
             }
         }
 
-        public IconEnum GameIcon
+        private SharedProperties _gameIcon;
+        public SharedProperties GameIcon
         {
-            get { return (IconEnum)data.GameIcon; }
+            get
+            {
+                if (_gameIcon == null)
+                {
+                    _gameIcon = new SharedProperties(5) { Value = (IconEnum)data.GameIcon, EnumTranslations = IconStrings };
+                }
+                return _gameIcon;
+            }
             set
             {
-                if ((IconEnum)data.GameIcon != value)
+                IconEnum newValue = IconStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.GameIcon != (int)newValue)
                 {
-                    data.GameIcon = (int)value;
+                    data.GameIcon = (int)newValue;
+                    _gameIcon = new SharedProperties(5) { Value = newValue };
                     OnPropertyChanged(nameof(GameIcon));
                 }
             }
@@ -718,10 +734,21 @@ namespace UniversalGametypeEditor
             {
                 if (_unknownFlag2 == null)
                 {
-                    _unknownFlag2 = new SharedProperties(1)
+                    if (Settings.Default.DecompiledVersion == 0)
                     {
-                        Value = Convert.ToBoolean(data.UnknownFlag2)
-                    };
+                        _unknownFlag2 = new SharedProperties(1)
+                        {
+                            Value = Convert.ToBoolean(data.UnknownFlag2)
+                        };
+                    }
+                    else
+                    {
+                        _unknownFlag2 = new SharedProperties(2)
+                        {
+                            Value = Convert.ToBoolean(data.UnknownFlag2)
+                        };
+                    }
+
                 }
                 return _unknownFlag2;
             }
@@ -949,6 +976,11 @@ namespace UniversalGametypeEditor
     public class SpawnSettingsViewModel : INotifyPropertyChanged
     {
         private SpawnSettings data;
+        private SharedProperties _livesPerround;
+        private SharedProperties _respawnTime;
+        private SharedProperties _teamLivesPerround;
+        private SharedProperties _suicidepenalty;
+        private SharedProperties _betrayalpenalty;
 
         public SpawnSettingsViewModel(SpawnSettings data)
         { 
@@ -958,92 +990,174 @@ namespace UniversalGametypeEditor
             Reach = new SpawnReachSettingsViewModel(data.Reach);
         }
 
-        public int LivesPerround
+        public SpawnReachSettingsViewModel Reach { get; set; }
+
+        public SharedProperties LivesPerround
         {
-            get { return data.LivesPerround; }
+            get { 
+                if (_livesPerround == null)
+                {
+                    _livesPerround = new SharedProperties(6) { Value = data.LivesPerround };
+                }
+                return _livesPerround;
+            }
             set
             {
-                if (data.LivesPerround != value)
+                if (data.LivesPerround != Convert.ToInt32(value.Value))
                 {
-                    data.LivesPerround = value;
+                    
+                    data.LivesPerround = Convert.ToInt32(value.Value);
                     OnPropertyChanged(nameof(LivesPerround));
                 }
             }
         }
 
-        public int RespawnTime
+        public SharedProperties TeamLivesPerround
         {
-            get { return data.RespawnTime; }
+            get { 
+                if (_teamLivesPerround == null)
+                {
+                    _teamLivesPerround = new SharedProperties(7) { Value = data.TeamLivesPerround };
+                }
+                return _teamLivesPerround;
+            }
             set
             {
-                if (data.RespawnTime != value)
+                if (data.TeamLivesPerround != value.Value)
                 {
-                    data.RespawnTime = value;
+                    data.TeamLivesPerround = value.Value;
+                    OnPropertyChanged(nameof(TeamLivesPerround));
+                }
+            }
+        }
+
+        public SpawnH2AH4SettingsViewModel H2AH4 { get; set; }
+
+        public SharedProperties RespawnTime
+        {
+            get { 
+                if (_respawnTime == null)
+                {
+                    _respawnTime = new SharedProperties(8) { Value = data.RespawnTime };
+                }
+                return _respawnTime;
+            }
+            set
+            {
+                if (data.RespawnTime != value.Value)
+                {
+                    data.RespawnTime = value.Value;
                     OnPropertyChanged(nameof(RespawnTime));
                 }
             }
         }
 
-        public int Suicidepenalty
+        
+
+        public SharedProperties Suicidepenalty
         {
-            get { return data.Suicidepenalty; }
+            get
+            {
+                if (_suicidepenalty == null)
+                {
+                    _suicidepenalty = new SharedProperties(8) { Value = data.Suicidepenalty };
+                }
+                return _suicidepenalty;
+            }
             set
             {
-                if (data.Suicidepenalty != value)
+                if (data.Suicidepenalty != Convert.ToInt32(value.Value))
                 {
-                    data.Suicidepenalty = value;
+                    data.Suicidepenalty = Convert.ToInt32(value.Value);
+                    _suicidepenalty = value;
                     OnPropertyChanged(nameof(Suicidepenalty));
                 }
             }
         }
 
-        public int Betrayalpenalty
+        public SharedProperties Betrayalpenalty
         {
-            get { return data.Betrayalpenalty; }
+            get
+            {
+                if (_betrayalpenalty == null)
+                {
+                    _betrayalpenalty = new SharedProperties(8) { Value = data.Betrayalpenalty };
+                }
+                return _betrayalpenalty;
+            }
             set
             {
-                if (data.Betrayalpenalty != value)
+                if (data.Betrayalpenalty != Convert.ToInt32(value.Value))
                 {
-                    data.Betrayalpenalty = value;
+                    data.Betrayalpenalty = Convert.ToInt32(value.Value);
+                    _betrayalpenalty = value;
                     OnPropertyChanged(nameof(Betrayalpenalty));
                 }
             }
         }
 
-        public int RespawnTimegrowth
+        private SharedProperties _respawnTimegrowth;
+        private SharedProperties _loadoutCamTime;
+        private SharedProperties _respawntraitsduration;
+
+        public SharedProperties RespawnTimegrowth
         {
-            get { return data.RespawnTimegrowth; }
+            get
+            {
+                if (_respawnTimegrowth == null)
+                {
+                    _respawnTimegrowth = new SharedProperties(4) { Value = data.RespawnTimegrowth };
+                }
+                return _respawnTimegrowth;
+            }
             set
             {
-                if (data.RespawnTimegrowth != value)
+                if (data.RespawnTimegrowth != Convert.ToInt32(value.Value))
                 {
-                    data.RespawnTimegrowth = value;
+                    data.RespawnTimegrowth = Convert.ToInt32(value.Value);
+                    _respawnTimegrowth = value;
                     OnPropertyChanged(nameof(RespawnTimegrowth));
                 }
             }
         }
 
-        public int LoadoutCamTime
+        public SharedProperties LoadoutCamTime
         {
-            get { return data.LoadoutCamTime; }
+            get
+            {
+                if (_loadoutCamTime == null)
+                {
+                    _loadoutCamTime = new SharedProperties(4) { Value = data.LoadoutCamTime };
+                }
+                return _loadoutCamTime;
+            }
             set
             {
-                if (data.LoadoutCamTime != value)
+                if (data.LoadoutCamTime != Convert.ToInt32(value.Value))
                 {
-                    data.LoadoutCamTime = value;
+                    data.LoadoutCamTime = Convert.ToInt32(value.Value);
+                    _loadoutCamTime = value;
                     OnPropertyChanged(nameof(LoadoutCamTime));
                 }
             }
         }
 
-        public int Respawntraitsduration
+        public SharedProperties Respawntraitsduration
         {
-            get { return data.Respawntraitsduration; }
+            get
+            {
+                if (_respawntraitsduration == null)
+                {
+                    _respawntraitsduration = new SharedProperties(6) { Value = data.Respawntraitsduration };
+                }
+                return _respawntraitsduration;
+            }
             set
             {
-                if (data.Respawntraitsduration != value)
+                if (data.Respawntraitsduration != Convert.ToInt32(value.Value))
                 {
-                    data.Respawntraitsduration = value;
+                    data.Respawntraitsduration = Convert.ToInt32(value.Value);
+                    _respawntraitsduration = value;
                     OnPropertyChanged(nameof(Respawntraitsduration));
                 }
             }
@@ -1051,15 +1165,10 @@ namespace UniversalGametypeEditor
 
         public PlayerTraitsViewModel RespawnPlayerTraits { get; set; }
 
-        //public SpawnH2AH4Settings H2AH4 { get; set; }
+       
 
-        //public SpawnReachSettings ReachSettings { get; set; }
-
-
-        // Repeat the same pattern for the rest of the properties...
-
-        public SpawnReachSettingsViewModel Reach { get; set; }
-        public SpawnH2AH4SettingsViewModel H2AH4 { get; set; }
+        
+        
 
         // Implement INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
@@ -1118,190 +1227,343 @@ namespace UniversalGametypeEditor
     {
         private PlayerTraits data;
 
+        private SharedProperties _healthMultiplyer;
+        private SharedProperties _healthRegenRate;
+        private SharedProperties _damageResistance;
+        private SharedProperties _shieldRegenRate;
+        private SharedProperties _shieldMultiplyer;
+        private SharedProperties _overshieldRegenRate;
+        private SharedProperties _headshotImmunity;
+        private SharedProperties _shieldVampirism;
+
+
         public PlayerTraitsViewModel(PlayerTraits data)
         {
             this.data = data;
             H2AH4 = new TraitsH2AH4SettingsViewModel(data.H2AH4);
-        }
-        
-        public int HealthMultiplyer
-        {
-            get { return data.Healthmultiplyer; }
-            set
-            {
-                if (data.Healthmultiplyer != value)
-                {
-                    data.Healthmultiplyer = value;
-                    OnPropertyChanged(nameof(HealthMultiplyer));
-                }
-            }
+            
         }
 
-        public int HealthRegenRate
-        {
-            get { return data.Healthregenrate; }
-            set
-            {
-                if (data.Healthregenrate != value)
-                {
-                    data.Healthregenrate = value;
-                    OnPropertyChanged(nameof(HealthRegenRate));
-                }
-            }
-        }
 
-        public int DamageResistance
+
+        public SharedProperties DamageResistance
         {
-            get { return data.DamageResistance; }
+            
+            get
+            {
+                if (_damageResistance == null)
+                {
+                    _damageResistance = new SharedProperties(4) { Value = (DamageResistanceEnum)data.DamageResistance, EnumTranslations=DamageResistanceStrings };
+                }
+                return _damageResistance;
+            }
             set
             {
-                if (data.DamageResistance != value)
+                DamageResistanceEnum newValue = DamageResistanceStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.DamageResistance != (int)newValue)
                 {
-                    data.DamageResistance = value;
+                    data.DamageResistance = (int)newValue;
+                    _damageResistance = new SharedProperties(4) { Value = newValue };
                     OnPropertyChanged(nameof(DamageResistance));
                 }
             }
         }
 
-        public int ShieldRegenRate
+        public SharedProperties HealthMultiplyer
         {
-            get { return data.ShieldRegenrate; }
+            get
+            {
+                if (_healthMultiplyer == null)
+                {
+                    _healthMultiplyer = new SharedProperties(3) { Value = (HealthMultiplierEnum)data.Healthmultiplyer, EnumTranslations=HealthMultiplierStrings };
+                }
+                return _healthMultiplyer;
+            }
             set
             {
-                if (data.ShieldRegenrate != value)
+                HealthMultiplierEnum newValue = HealthMultiplierStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.Healthmultiplyer != (int)newValue)
                 {
-                    data.ShieldRegenrate = value;
-                    OnPropertyChanged(nameof(ShieldRegenRate));
+                    data.Healthmultiplyer = (int)newValue;
+                    _healthMultiplyer = new SharedProperties(3) { Value = newValue };
+                    OnPropertyChanged(nameof(HealthMultiplyer));
                 }
             }
         }
 
-        public int ShieldMultiplyer
+        public SharedProperties HealthRegenRate
         {
-            get { return data.ShieldMultiplyer; }
+            get
+            {
+                if (_healthRegenRate == null)
+                {
+                    _healthRegenRate = new SharedProperties(4) { Value = (RegenEnum)data.Healthregenrate, EnumTranslations = RegenStrings };
+                }
+                return _healthRegenRate;
+            }
             set
             {
-                if (data.ShieldMultiplyer != value)
+                RegenEnum newValue = RegenStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.Healthregenrate != (int)newValue)
                 {
-                    data.ShieldMultiplyer = value;
+                    data.Healthregenrate = (int)newValue;
+                    _healthRegenRate = new SharedProperties(4) { Value = newValue };
+                    OnPropertyChanged(nameof(HealthRegenRate));
+                }
+            }
+        }
+
+
+
+        public SharedProperties ShieldMultiplyer
+        {
+            get
+            {
+                if (_shieldMultiplyer == null)
+                {
+                    _shieldMultiplyer = new SharedProperties(3) { Value = (ShieldMultiplyerEnum)data.ShieldMultiplyer, EnumTranslations = ShieldMultiplyerStrings };
+                }
+                return _shieldMultiplyer;
+            }
+            set
+            {
+                ShieldMultiplyerEnum newValue = ShieldMultiplyerStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.ShieldMultiplyer != (int)newValue)
+                {
+                    data.ShieldMultiplyer = (int)newValue;
+                    _shieldMultiplyer = new SharedProperties(3) { Value = newValue };
                     OnPropertyChanged(nameof(ShieldMultiplyer));
                 }
             }
         }
 
-        public int OvershieldRegenRate
+        public SharedProperties ShieldRegenRate
         {
-            get { return data.Overshieldregenrate; }
+            get
+            {
+                if (_shieldRegenRate == null)
+                {
+                    _shieldRegenRate = new SharedProperties(4) { Value = (RegenEnum)data.ShieldRegenrate, EnumTranslations = RegenStrings };
+                }
+                return _shieldRegenRate;
+            }
             set
             {
-                if (data.Overshieldregenrate != value)
+                RegenEnum newValue = RegenStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.ShieldRegenrate != (int)newValue)
                 {
-                    data.Overshieldregenrate = value;
+                    data.ShieldRegenrate = (int)newValue;
+                    _shieldRegenRate = new SharedProperties(4) { Value = newValue };
+                    OnPropertyChanged(nameof(ShieldRegenRate));
+                }
+            }
+        }
+
+
+        public SharedProperties OvershieldRegenRate
+        {
+            get
+            {
+                if (_overshieldRegenRate == null)
+                {
+                    _overshieldRegenRate = new SharedProperties(4) { Value = (RegenEnum)data.Overshieldregenrate, EnumTranslations = RegenStrings };
+                }
+                return _overshieldRegenRate;
+            }
+            set
+            {
+                RegenEnum newValue = RegenStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.Overshieldregenrate != (int)newValue)
+                {
+                    data.Overshieldregenrate = (int)newValue;
+                    _overshieldRegenRate = new SharedProperties(4) { Value = newValue };
                     OnPropertyChanged(nameof(OvershieldRegenRate));
                 }
             }
         }
 
-        public int HeadshotImmunity
+
+        public SharedProperties HeadshotImmunity
         {
-            get { return data.HeadshotImmunity; }
+            get
+            {
+                if (_headshotImmunity == null)
+                {
+                    _headshotImmunity = new SharedProperties(2) { Value = (ToggleEnum)data.HeadshotImmunity, EnumTranslations = ToggleEnumStrings };
+                }
+                return _headshotImmunity;
+            }
             set
             {
-                if (data.HeadshotImmunity != value)
+                ToggleEnum newValue = ToggleEnumStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.HeadshotImmunity != (int)newValue)
                 {
-                    data.HeadshotImmunity = value;
+                    data.HeadshotImmunity = (int)newValue;
+                    _headshotImmunity = new SharedProperties(2) { Value = newValue };
                     OnPropertyChanged(nameof(HeadshotImmunity));
                 }
             }
         }
 
-        public int ShieldVampirism
+
+        public SharedProperties ShieldVampirism
         {
-            get { return data.shieldvampirism; }
+            get
+            {
+                if (_shieldVampirism == null)
+                {
+                    _shieldVampirism = new SharedProperties(3) { Value = (VampirismEnum)data.shieldvampirism, EnumTranslations = VamparismStrings };
+                }
+                return _shieldVampirism;
+            }
             set
             {
-                if (data.shieldvampirism != value)
+                VampirismEnum newValue = VamparismStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.shieldvampirism != (int)newValue)
                 {
-                    data.shieldvampirism = value;
+                    data.shieldvampirism = (int)newValue;
+                    _shieldVampirism = new SharedProperties(3) { Value = newValue };
                     OnPropertyChanged(nameof(ShieldVampirism));
                 }
             }
         }
 
 
-        public int Assassinationimmunity
+        private SharedProperties _assassinationImmunity;
+
+        public SharedProperties AssassinationImmunity
+        {
+            get
             {
-            get { return data.Assasinationimmunity; }
+                if (_assassinationImmunity == null)
+                {
+                    _assassinationImmunity = new SharedProperties(2) { Value = (ToggleEnum)data.Assasinationimmunity, EnumTranslations = ToggleEnumStrings };
+                }
+                return _assassinationImmunity;
+            }
             set
             {
-                if (data.Assasinationimmunity != value)
+                ToggleEnum newValue = ToggleEnumStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.Assasinationimmunity != (int)newValue)
                 {
-                    data.Assasinationimmunity = value;
-                    OnPropertyChanged(nameof(Assassinationimmunity));
+                    data.Assasinationimmunity = (int)newValue;
+                    _assassinationImmunity = new SharedProperties(2) { Value = newValue };
+                    OnPropertyChanged(nameof(AssassinationImmunity));
                 }
             }
         }
 
-        public int Invincible
+        private SharedProperties _invincible;
+
+        public SharedProperties Invincible
         {
-            get { return data.invincible; }
+            get
+            {
+                if (_invincible == null)
+                {
+                    _invincible = new SharedProperties(2) { Value = (ToggleEnum)data.invincible, EnumTranslations = ToggleEnumStrings };
+                }
+                return _invincible;
+            }
             set
             {
-                if (data.invincible != value)
+                ToggleEnum newValue = ToggleEnumStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.invincible != (int)newValue)
                 {
-                    data.invincible = value;
+                    data.invincible = (int)newValue;
+                    _invincible = new SharedProperties(2) { Value = newValue };
                     OnPropertyChanged(nameof(Invincible));
                 }
             }
         }
 
-        public int WeaponDamageMultiplier
+        private SharedProperties _weaponDamageMultiplier;
+        public SharedProperties WeaponDamageMultiplier
         {
-            get { return data.WeaponDamagemultiplier; }
+            get
+            {
+                if (_weaponDamageMultiplier == null)
+                {
+                    _weaponDamageMultiplier = new SharedProperties(4) { Value = (DamageEnum)data.WeaponDamagemultiplier, EnumTranslations = DamageStrings };
+                }
+                return _weaponDamageMultiplier;
+            }
             set
             {
-                if (data.WeaponDamagemultiplier != value)
+                DamageEnum newValue = DamageStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.WeaponDamagemultiplier != (int)newValue)
                 {
-                    data.WeaponDamagemultiplier = value;
+                    data.WeaponDamagemultiplier = (int)newValue;
+                    _weaponDamageMultiplier = new SharedProperties(4) { Value = newValue };
                     OnPropertyChanged(nameof(WeaponDamageMultiplier));
                 }
             }
         }
 
-        public int MeleeDamageMultiplier
+        private SharedProperties _meleeDamageMultiplier;
+        public SharedProperties MeleeDamageMultiplier
         {
-            get { return data.MeleeDamagemultiplier; }
+            get
+            {
+                if (_meleeDamageMultiplier == null)
+                {
+                    _meleeDamageMultiplier = new SharedProperties(4) { Value = (DamageEnum)data.MeleeDamagemultiplier, EnumTranslations = DamageStrings };
+                }
+                return _meleeDamageMultiplier;
+            }
             set
             {
-                if (data.MeleeDamagemultiplier != value)
+                DamageEnum newValue = DamageStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.MeleeDamagemultiplier != (int)newValue)
                 {
-                    data.MeleeDamagemultiplier = value;
+                    data.MeleeDamagemultiplier = (int)newValue;
+                    _meleeDamageMultiplier = new SharedProperties(4) { Value = newValue };
                     OnPropertyChanged(nameof(MeleeDamageMultiplier));
                 }
             }
         }
 
-        public int PrimaryWeapon
+        private SharedProperties _primaryWeapon;
+        public SharedProperties PrimaryWeapon
         {
-            get { return data.Primaryweapon; }
+            get
+            {
+                if (_primaryWeapon == null)
+                {
+                    _primaryWeapon = new SharedProperties(8) { Value = (WeaponEnum)data.Primaryweapon, EnumTranslations = WeaponStrings };
+                }
+                return _primaryWeapon;
+            }
             set
             {
-                if (data.Primaryweapon != value)
+                WeaponEnum newValue = WeaponStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.Primaryweapon != (int)newValue)
                 {
-                    data.Primaryweapon = value;
+                    data.Primaryweapon = (int)newValue;
+                    _primaryWeapon = new SharedProperties(8) { Value = newValue };
                     OnPropertyChanged(nameof(PrimaryWeapon));
                 }
             }
         }
 
-        public int SecondaryWeapon
+        private SharedProperties _secondaryWeapon;
+        public SharedProperties SecondaryWeapon
         {
-            get { return data.Secondaryweapon; }
+            get
+            {
+                if (_secondaryWeapon == null)
+                {
+                    _secondaryWeapon = new SharedProperties(8) { Value = (WeaponEnum)data.Secondaryweapon, EnumTranslations = WeaponStrings };
+                }
+                return _secondaryWeapon;
+            }
             set
             {
-                if (data.Secondaryweapon != value)
+                WeaponEnum newValue = WeaponStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
+                if (data.Secondaryweapon != (int)newValue)
                 {
-                    data.Secondaryweapon = value;
+                    data.Secondaryweapon = (int)newValue;
+                    _secondaryWeapon = new SharedProperties(8) { Value = newValue };
                     OnPropertyChanged(nameof(SecondaryWeapon));
                 }
             }
@@ -2690,14 +2952,25 @@ namespace UniversalGametypeEditor
             this.reachSettings = reachSettings;
         }
 
-        public int? GracePeriod
+        private SharedProperties _gracePeriod;
+
+        public SharedProperties GracePeriod
         {
-            get { return reachSettings?.GracePeriod; }
+            get
+            {
+                if (_gracePeriod == null && reachSettings != null)
+                {
+                    _gracePeriod = new SharedProperties(5) { Value = Convert.ToInt32(reachSettings.GracePeriod) };
+                }
+                return _gracePeriod;
+            }
             set
             {
-                if (reachSettings != null && reachSettings.GracePeriod != value)
+                int newValue = Convert.ToInt32(value.Value);
+                if (reachSettings != null && Convert.ToInt32(reachSettings.GracePeriod) != newValue)
                 {
-                    reachSettings.GracePeriod = value;
+                    reachSettings.GracePeriod = Convert.ToInt32(newValue);
+                    _gracePeriod = new SharedProperties(5) { Value = newValue };
                     OnPropertyChanged(nameof(GracePeriod));
                 }
             }
@@ -2764,53 +3037,96 @@ namespace UniversalGametypeEditor
             this.reachSettings = reachSettings;
         }
 
-        public bool? RespawnOnKills
+        private SharedProperties _respawnOnKills;
+        private SharedProperties _respawnAtLocationUnused;
+        private SharedProperties _respawnWithTeammateUnused;
+        private SharedProperties _respawnSyncWithTeam;
+
+        public SharedProperties RespawnOnKills
         {
-            get { return Convert.ToBoolean(reachSettings?.RespawnOnKills); }
+            get
+            {
+                if (_respawnOnKills == null && reachSettings != null)
+                {
+                    _respawnOnKills = new SharedProperties(1) { Value = Convert.ToBoolean(reachSettings?.RespawnOnKills) };
+                }
+                return _respawnOnKills;
+            }
             set
             {
-                if (reachSettings != null && Convert.ToBoolean(reachSettings.RespawnOnKills) != value)
+                bool newValue = Convert.ToBoolean(value.Value);
+                if (reachSettings != null && Convert.ToBoolean(reachSettings.RespawnOnKills) != newValue)
                 {
-                    reachSettings.RespawnOnKills = Convert.ToInt32(value);
+                    reachSettings.RespawnOnKills = Convert.ToInt32(newValue);
+                    _respawnOnKills = new SharedProperties(1) { Value = newValue };
                     OnPropertyChanged(nameof(RespawnOnKills));
                 }
             }
         }
 
-        public bool? RespawnAtLocationUnused
+        
+
+        public SharedProperties RespawnAtLocationUnused
         {
-            get { return Convert.ToBoolean(reachSettings?.respawnatlocationunused); }
+            get
+            {
+                if (_respawnAtLocationUnused == null && reachSettings != null)
+                {
+                    _respawnAtLocationUnused = new SharedProperties(1) { Value = Convert.ToBoolean(reachSettings?.respawnatlocationunused) };
+                }
+                return _respawnAtLocationUnused;
+            }
             set
             {
-                if (reachSettings != null && Convert.ToBoolean(reachSettings.respawnatlocationunused) != value)
+                bool newValue = Convert.ToBoolean(value.Value);
+                if (reachSettings != null && Convert.ToBoolean(reachSettings.respawnatlocationunused) != newValue)
                 {
-                    reachSettings.respawnatlocationunused = Convert.ToInt32(value);
+                    reachSettings.respawnatlocationunused = Convert.ToInt32(newValue);
+                    _respawnAtLocationUnused = new SharedProperties(1) { Value = newValue };
                     OnPropertyChanged(nameof(RespawnAtLocationUnused));
                 }
             }
         }
 
-        public bool? RespawnWithTeammateUnused
+        public SharedProperties RespawnWithTeammateUnused
         {
-            get { return Convert.ToBoolean(reachSettings?.respawnwithteammateunused); }
+            get
+            {
+                if (_respawnWithTeammateUnused == null && reachSettings != null)
+                {
+                    _respawnWithTeammateUnused = new SharedProperties(1) { Value = Convert.ToBoolean(reachSettings?.respawnwithteammateunused) };
+                }
+                return _respawnWithTeammateUnused;
+            }
             set
             {
-                if (reachSettings != null && Convert.ToBoolean(reachSettings.respawnwithteammateunused) != value)
+                bool newValue = Convert.ToBoolean(value.Value);
+                if (reachSettings != null && Convert.ToBoolean(reachSettings.respawnwithteammateunused) != newValue)
                 {
-                    reachSettings.respawnwithteammateunused = Convert.ToInt32(value);
+                    reachSettings.respawnwithteammateunused = Convert.ToInt32(newValue);
+                    _respawnWithTeammateUnused = new SharedProperties(1) { Value = newValue };
                     OnPropertyChanged(nameof(RespawnWithTeammateUnused));
                 }
             }
         }
 
-        public bool? RespawnSyncWithTeam
+        public SharedProperties RespawnSyncWithTeam
         {
-            get { return Convert.ToBoolean(reachSettings?.RespawnSyncwithteam); }
+            get
+            {
+                if (_respawnSyncWithTeam == null && reachSettings != null)
+                {
+                    _respawnSyncWithTeam = new SharedProperties(1) { Value = Convert.ToBoolean(reachSettings?.RespawnSyncwithteam) };
+                }
+                return _respawnSyncWithTeam;
+            }
             set
             {
-                if (reachSettings != null && Convert.ToBoolean(reachSettings.RespawnSyncwithteam) != value)
+                bool newValue = Convert.ToBoolean(value.Value);
+                if (reachSettings != null && Convert.ToBoolean(reachSettings.RespawnSyncwithteam) != newValue)
                 {
-                    reachSettings.RespawnSyncwithteam = Convert.ToInt32(value);
+                    reachSettings.RespawnSyncwithteam = Convert.ToInt32(newValue);
+                    _respawnSyncWithTeam = new SharedProperties(1) { Value = newValue };
                     OnPropertyChanged(nameof(RespawnSyncWithTeam));
                 }
             }
@@ -3066,6 +3382,7 @@ namespace UniversalGametypeEditor
 
     public class H2AH4GameSettingsViewModel
     {
+        
         public GameSettings.H2AH4Settings gameSettings;
         public int EquipmentSet
         {
@@ -3146,6 +3463,7 @@ namespace UniversalGametypeEditor
         public GameSettingsViewModel(GameSettings gameSettings)
         {
             this.gameSettings = gameSettings;
+            BasePlayerTraits = new PlayerTraitsViewModel(gameSettings.BasePlayerTraits);
         }
 
         public bool EnableObservers
