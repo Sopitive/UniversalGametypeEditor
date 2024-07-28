@@ -19,7 +19,7 @@ namespace UniversalGametypeEditor
         private string rawBinary = "";
         private string modifiedBinary = "";
         
-        public void WriteBinaryFile(string filename, GametypeHeader gt, FileHeaderViewModel fh, GametypeHeaderViewModel gh, ModeSettingsViewModel ms)
+        public void WriteBinaryFile(string filename, GametypeHeader gt, FileHeaderViewModel fh, GametypeHeaderViewModel gh, ModeSettingsViewModel ms, SpawnSettingsViewModel ss)
         {
             //Write the bytes for the file, starting at file offset 2F0
             byte[] bytes = File.ReadAllBytes(filename);
@@ -72,7 +72,7 @@ namespace UniversalGametypeEditor
 
 
             // Convert variant type to string and then to binary
-            string VariantType = Convert.ToString((int)fh.VariantType, 2).PadLeft(2, '0');
+            string VariantType = Convert.ToString((int)fh.VariantType.Value, 2).PadLeft(2, '0');
 
             string Unknown0x319 = Convert.ToString(fh.Unknown0x319, 2).PadLeft(4, '0');
             string Unknown0x31D = Convert.ToString(fh.Unknown0x31D, 2).PadLeft(32, '0');
@@ -151,7 +151,7 @@ namespace UniversalGametypeEditor
             //diff = modifiedBinary.Length - diff;
             Settings.Default.Description = gh.Description;
             Settings.Default.Title = gh.Title;
-            modifiedBinary += Convert.ToString((int)gh.GameIcon, 2).PadLeft(8, '0');
+            modifiedBinary += Convert.ToString((int)gh.GameIcon.Value, 2).PadLeft(8, '0');
             //modifiedBinary2 += UnknownFlag1;
             ////modlen = modifiedBinary.Length;
             //int total3 = modlen + titlelen + total + total2 + modifiedBinary2.Length;
@@ -194,21 +194,71 @@ namespace UniversalGametypeEditor
 
         private void WriteModeSettings(ModeSettingsViewModel ms)
         {
-            //Get sub properties of ModeSettingsViewModel of type SharedProperties
-            var sharedProperties = ms.GetType().GetProperties().Where(p => p.PropertyType == typeof(SharedProperties));
-            //Get the value of each sub property "Value" and also "Bits". Use the Bits property to convert the value to binary
-            foreach (var prop in sharedProperties)
+            // Get all properties of ModeSettingsViewModel
+            var properties = typeof(ModeSettingsViewModel).GetProperties();
+            foreach (var prop in properties)
             {
-                //Get the value of the sub property
-                var value = (SharedProperties)prop.GetValue(ms);
-                //Get the value of the "Value" property
-                var val = Convert.ToInt32(value.Value);
-                //Get the value of the "Bits" property
-                var bits = value.Bits;
-                //Convert the value to binary
-                var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
-                //Add the binary to the modified binary string
-                modifiedBinary += binary;
+                if (prop.PropertyType == typeof(SharedProperties))
+                {
+                    // Handle SharedProperties
+                    var value = (SharedProperties)prop.GetValue(ms);
+                    var val = Convert.ToInt32(value.Value);
+                    var bits = value.Bits;
+                    var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
+                    modifiedBinary += binary;
+                }
+                else if (prop.PropertyType == typeof(ReachSettingsViewModel) && Settings.Default.DecompiledVersion == 0)
+                {
+                    // Handle ReachSettingsViewModel
+                    var reachViewModel = (ReachSettingsViewModel)prop.GetValue(ms);
+                    if (reachViewModel != null)
+                    {
+                        // Get the GracePeriod property of ReachSettingsViewModel
+                        var gracePeriodProp = typeof(ReachSettingsViewModel).GetProperty("GracePeriod");
+                        if (gracePeriodProp != null)
+                        {
+                            // Handle SharedProperties.GracePeriod
+                            var gracePeriod = (SharedProperties)gracePeriodProp.GetValue(reachViewModel);
+                            var val = Convert.ToInt32(gracePeriod.Value);
+                            var bits = gracePeriod.Bits;
+                            var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
+                            modifiedBinary += binary;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void WriteSpawnSettings(object viewModel)
+        {
+            // Get properties of the ViewModel
+            var properties = viewModel.GetType().GetProperties();
+
+            foreach (var prop in properties)
+            {
+                // Check if the property is of type SharedProperties
+                if (prop.PropertyType == typeof(SharedProperties))
+                {
+                    var value = (SharedProperties)prop.GetValue(viewModel);
+                    if (value != null)
+                    {
+                        var val = Convert.ToInt32(value.Value);
+                        var bits = value.Bits;
+                        var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
+                        modifiedBinary += binary;
+                    }
+                    
+                }
+                // Check if the property is a ViewModel that contains SharedProperties
+                else if (prop.PropertyType == typeof(SpawnReachSettingsViewModel) || prop.PropertyType == typeof(PlayerTraitsViewModel))
+                {
+                    var nestedViewModel = prop.GetValue(viewModel);
+                    if (nestedViewModel != null)
+                    {
+                        // Recursively call WriteSpawnSettings on the nested ViewModel
+                        WriteSpawnSettings(nestedViewModel);
+                    }
+                }
             }
         }
 

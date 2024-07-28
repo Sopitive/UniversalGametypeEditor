@@ -64,7 +64,8 @@ namespace UniversalGametypeEditor
             PreviewMouseWheel += (sender, e) => e.Handled = true;
             Cursor = Cursors.None;
             globalHotkey = new GlobalHotkey();
-            globalHotkey.RegisterGlobalHotKey(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
+            globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
+            globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
         }
 
         protected override void OnSourceInitialized(EventArgs e)
@@ -96,7 +97,16 @@ namespace UniversalGametypeEditor
         {
             if (msg == 0x0312)
             {
-                HotkeyCommandExecuted(null, null); // Call the hotkey command when the hotkey is pressed
+                int hotkeyId = wParam.ToInt32();
+                switch (hotkeyId)
+                {
+                    case 1:
+                        HotkeyCommandExecuted_O(null, null); // Call the hotkey command for Control + O
+                        break;
+                    case 2:
+                        HotkeyCommandExecuted_Numpad7(null, null); // Call the hotkey command for Control + Numpad7
+                        break;
+                }
             }
             return IntPtr.Zero;
         }
@@ -115,7 +125,7 @@ namespace UniversalGametypeEditor
 
         Process[] processes = Array.Empty<Process>();
         private MainWindow mw;
-        private void HotkeyCommandExecuted(object sender, ExecutedRoutedEventArgs e)
+        private void HotkeyCommandExecuted_O(object sender, ExecutedRoutedEventArgs e)
         {
             processes = Process.GetProcessesByName("EasyAntiCheat");
             if (processes.Length == 0)
@@ -158,6 +168,28 @@ namespace UniversalGametypeEditor
                     }
                 }
             }
+        }
+
+        private void HotkeyCommandExecuted_Numpad7(object sender, ExecutedRoutedEventArgs e)
+        {
+            processes = Process.GetProcessesByName("EasyAntiCheat");
+            if (processes.Length == 0)
+            {
+                anticheat = false;
+            }
+            if (anticheat || processes.Length > 0)
+            {
+                mw = (MainWindow)Application.Current.MainWindow;
+                mw.UpdateLastEvent("Cannot Activate Overlay With EAC Enabled");
+                return;
+            }
+            if (processes.Length > 0)
+            {
+                mw = (MainWindow)Application.Current.MainWindow;
+                mw.UpdateLastEvent("Launch MCC With EAC Off To Use The Overlay");
+                return;
+            }
+            MemoryWriter.WriteOpcode();
         }
 
         private void dispatcherTimer_Tick(object sender, EventArgs e)

@@ -20,12 +20,21 @@ namespace UniversalGametypeEditor
 
         public const uint MOD_CONTROL = 0x0002;
         public const uint VK_O = 0x49;
+        public const uint VK_NUMPAD7 = 0x67;
 
-        public void RegisterGlobalHotKey(IntPtr hWnd, int id)
+        public void RegisterGlobalHotKey_O(IntPtr hWnd, int id)
         {
             if (!RegisterHotKey(hWnd, id, MOD_CONTROL, VK_O))
             {
-               // MessageBox.Show("Hotkey registration failed");
+                // MessageBox.Show("Hotkey registration failed");
+            }
+        }
+
+        public void RegisterGlobalHotKey_Numpad7(IntPtr hWnd, int id)
+        {
+            if (!RegisterHotKey(hWnd, id, MOD_CONTROL, VK_NUMPAD7))
+            {
+                // MessageBox.Show("Hotkey registration failed");
             }
         }
 
