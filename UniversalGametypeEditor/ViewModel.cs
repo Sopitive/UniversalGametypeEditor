@@ -274,9 +274,9 @@ namespace UniversalGametypeEditor
             }
         }
 
-        
 
-        public SharedProperties VariantType
+
+        public VariantTypeEnum VariantType
         {
             get
             {
@@ -284,15 +284,15 @@ namespace UniversalGametypeEditor
             }
             set
             {
-                VariantTypeEnum newValue = VariantTypeStrings.FirstOrDefault(x => x.Value == value.Value.ToString()).Key;
-                if (data.VariantType != (int)newValue)
+                if (data.VariantType != (int)value)
                 {
                     data.VariantType = (int)value;
                     OnPropertyChanged(nameof(VariantType));
                 }
             }
         }
-        
+
+
 
 
         public int Unknown0x319
