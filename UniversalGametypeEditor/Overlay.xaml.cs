@@ -64,8 +64,8 @@ namespace UniversalGametypeEditor
             PreviewMouseWheel += (sender, e) => e.Handled = true;
             Cursor = Cursors.None;
             globalHotkey = new GlobalHotkey();
-            globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
-            globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
+            //globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
+            //globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
         }
 
         protected override void OnSourceInitialized(EventArgs e)

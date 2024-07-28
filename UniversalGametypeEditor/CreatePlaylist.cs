@@ -112,7 +112,8 @@ namespace UniversalGametypeEditor
                     }
                     else
                     {
-                        hash = fileName;
+                        hash = Path.GetFileNameWithoutExtension(fileName);
+
                     }
 
                     string unicodeText = ReadUnicodeTextAtOffset(file, 0xC0);

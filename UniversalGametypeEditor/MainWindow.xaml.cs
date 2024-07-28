@@ -920,42 +920,20 @@ namespace UniversalGametypeEditor
                     {
                         if (nestedproperty is SharedProperties)
                         {
-                            // Get the property named "Value" from the SharedProperties class
                             var sharedProperty = nestedproperty.GetType().GetProperty("Value");
-
-                            // Get the current value of the "Value" property
                             var currentValue = sharedProperty.GetValue(nestedproperty);
-
-                            // Get the type of the current value, which should be an enum type
                             var enumType = currentValue.GetType();
-
-                            // Get all values of the enum
                             var enumValues = Enum.GetValues(enumType);
-
-                            // Convert the enum values to a list
                             var enumList = new List<Enum>(enumValues.Cast<Enum>());
-
-                            // Get the enum value at the selected index of the combo box
                             var enumValue = enumList[gd.enum_dropdown.SelectedIndex];
-
                             sharedProperty.SetValue(nestedproperty, enumValue);
                         }
                         else
                         {
-
-                            // Get the type of the current value, which should be an enum type
                             var enumType = nestedproperty.GetType();
-
-                            // Get all values of the enum
                             var enumValues = Enum.GetValues(enumType);
-
-                            // Convert the enum values to a list
-
                             var enumList = new List<Enum>(enumValues.Cast<Enum>());
-
-                            // Get the enum value at the selected index of the combo box
                             var enumValue = enumList[gd.enum_dropdown.SelectedIndex];
-
                             property.SetValue(propertyValue, enumValue);
                         }
                     };
@@ -1013,8 +991,12 @@ namespace UniversalGametypeEditor
                         AddDataToUI<GametypeHeaderViewModel>(viewModel2, "Gametype Header", Gametype);
                         if (Settings.Default.ConvertToForge)
                         {
-                            viewModel.VariantType = (ReadGametype.VariantTypeEnum)1;
+                            viewModel.VariantType = new SharedProperties(1)
+                            {
+                                Value = (ReadGametype.VariantTypeEnum)1
+                            };
                         }
+
                     }
                     JSON = rg.gt.ModeSettings;
                     ModeSettings? deserializedJSON3 = JsonConvert.DeserializeObject<ModeSettings>(JSON);

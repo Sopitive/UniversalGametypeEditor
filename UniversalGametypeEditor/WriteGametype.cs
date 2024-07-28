@@ -72,7 +72,8 @@ namespace UniversalGametypeEditor
 
 
             // Convert variant type to string and then to binary
-            string VariantType = Convert.ToString((int)fh.VariantType.Value, 2).PadLeft(2, '0');
+            string VariantType = Convert.ToString((int)fh.VariantType, 2).PadLeft(2, '0');
+
 
             string Unknown0x319 = Convert.ToString(fh.Unknown0x319, 2).PadLeft(4, '0');
             string Unknown0x31D = Convert.ToString(fh.Unknown0x31D, 2).PadLeft(32, '0');

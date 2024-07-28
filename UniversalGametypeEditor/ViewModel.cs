@@ -47,8 +47,9 @@ namespace UniversalGametypeEditor
 
         public static implicit operator int(SharedProperties p)
         {
-            return p.Value;
+            return (int)p.Value;
         }
+
 
         public static implicit operator SharedProperties(int value)
         {
@@ -275,22 +276,30 @@ namespace UniversalGametypeEditor
         }
 
 
-
-        public VariantTypeEnum VariantType
+        public SharedProperties VariantType
         {
             get
             {
-                return (VariantTypeEnum)data.VariantType;
+                if (_variantType == null)
+                {
+                    _variantType = new SharedProperties(2)
+                    {
+                        Value = (VariantTypeEnum)data.VariantType
+                    };
+                }
+                return _variantType;
             }
             set
             {
-                if (data.VariantType != (int)value)
+                if (data.VariantType != (int)value.Value)
                 {
-                    data.VariantType = (int)value;
+                    data.VariantType = (int)value.Value;
+                    _variantType = value;
                     OnPropertyChanged(nameof(VariantType));
                 }
             }
         }
+
 
 
 

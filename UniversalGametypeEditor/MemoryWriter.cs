@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 
-class MemoryWriter
+public static class MemoryWriter
 {
 
 
