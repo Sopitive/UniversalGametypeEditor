@@ -75,7 +75,7 @@ class MemoryScanner
                 throw new Exception("Process not responding or has exited");
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             
         }
