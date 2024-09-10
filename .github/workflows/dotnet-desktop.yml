@@ -25,7 +25,7 @@ jobs:
       - name: Test
         run: dotnet test --no-build --verbosity normal
       - name: Upload Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: UniversalGametypeEditor
           path: UniversalGametypeEditor/bin/Release/net6.0-windows
