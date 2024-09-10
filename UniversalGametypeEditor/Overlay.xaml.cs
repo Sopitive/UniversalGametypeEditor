@@ -64,6 +64,7 @@ namespace UniversalGametypeEditor
             PreviewMouseWheel += (sender, e) => e.Handled = true;
             Cursor = Cursors.None;
             globalHotkey = new GlobalHotkey();
+            RegisterHotkey();
             //globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
             //globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
         }
@@ -121,6 +122,13 @@ namespace UniversalGametypeEditor
         public void UnregisterHotkey()
         {
             globalHotkey.UnregisterGlobalHotKey(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
+            globalHotkey.UnregisterGlobalHotKey(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
+        }
+
+        public void RegisterHotkey()
+        {
+            globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
+            globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
         }
 
         Process[] processes = Array.Empty<Process>();
@@ -227,6 +235,50 @@ namespace UniversalGametypeEditor
             return globalnum;
         }
 
+        private void GetMegaloObjects()
+        {
+            int[] megalo_objects_address = new int[5] { 0x00C91C18, 0xf8, 0x18, 0x4C0, 0x4F0 };
+
+            // Scan the memory to get the address of megalo_objects
+            MemoryScanner.ScanPointer(megalo_objects_address, out int megalo_objects, out IntPtr address);
+
+            if (address == IntPtr.Zero)
+            {
+                // Handle invalid address
+                return;
+            }
+
+            // Add 68 bytes to the address to get the count of objects
+            IntPtr countAddress = IntPtr.Add(address, 0x44);
+
+            try
+            {
+                // Read the integer value at the countAddress
+                int object_count = (int)MemoryScanner.ReadInt64(processes[0].Handle, countAddress);
+
+                // Update the UI or handle the object count as needed
+                if (object_count > 0)
+                {
+                    MegaloObjectCount.Text = $"Megalo Objects: {object_count}";
+                }
+
+                //Get Static Object Count (64 bytes after the megalo_objects address)
+                IntPtr staticCountAddress = IntPtr.Add(address, 0x40);
+                int static_object_count = (int)MemoryScanner.ReadInt64(processes[0].Handle, staticCountAddress);
+                if (static_object_count > 0)
+                {
+                    StaticObjectCount.Text = $"Static Objects: {static_object_count}";
+                }
+
+            }
+            catch (AccessViolationException)
+            {
+                // Handle access violation
+            }
+        }
+
+
+
         private void GetCoordinates()
         {
             //Pointer haloreach.dll+4872890
@@ -261,6 +313,7 @@ namespace UniversalGametypeEditor
 
         private void UpdateGlobalNumbers(object sender, EventArgs e)
         {
+            GetMegaloObjects();
             GetCoordinates();
             processes = Process.GetProcessesByName("EasyAntiCheat");
             if (processes.Length > 0)

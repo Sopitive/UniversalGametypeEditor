@@ -821,7 +821,6 @@
                 <StackPanel x:Name="Playlist"  Orientation="Vertical" HorizontalAlignment="Right" Margin="10">
                 </StackPanel>
             </ScrollViewer>
-            
         </Grid>
     </Grid>
 </Window>

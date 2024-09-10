@@ -6,6 +6,8 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -19,7 +21,7 @@ namespace UniversalGametypeEditor
         private string rawBinary = "";
         private string modifiedBinary = "";
         
-        public void WriteBinaryFile(string filename, GametypeHeader gt, FileHeaderViewModel fh, GametypeHeaderViewModel gh, ModeSettingsViewModel ms, SpawnSettingsViewModel ss)
+        public void WriteBinaryFile(string filename, GametypeHeader gt, FileHeaderViewModel fh, GametypeHeaderViewModel gh, ModeSettingsViewModel ms, SpawnSettingsViewModel ss, GameSettingsViewModel gs, PowerupTraitsViewModel ps, TeamSettingsViewModel ts)
         {
             //Write the bytes for the file, starting at file offset 2F0
             byte[] bytes = File.ReadAllBytes(filename);
@@ -41,7 +43,15 @@ namespace UniversalGametypeEditor
             WriteFileHeaders(fh);
 
             int len = WriteGametypeHeaders(gh, gt);
-            WriteModeSettings(ms);
+            modifiedBinary += WriteModeSettings(ms);
+            if (Settings.Default.DecompiledVersion == 0)
+            {
+                modifiedBinary += WriteSpawnSettings(ss);
+                modifiedBinary += WriteGameSettings(gs);
+                modifiedBinary += WritePowerupSettings(ps);
+                modifiedBinary += WriteTeamSettings(ts);
+            }
+            
             slice = modifiedBinary.Length;
 
             
@@ -58,210 +68,391 @@ namespace UniversalGametypeEditor
             System.Threading.Thread.Sleep(1);
             
         }
-        
+
         public void WriteFileHeaders(FileHeaderViewModel fh)
         {
-            string mpvr = fh.Mpvr.Value;
-            string megaloversion = Convert.ToString(fh.MegaloVersion.Value, 2).PadLeft(32, '0');
-            string Unknown0x2F8 = Convert.ToString(fh.Unknown0x2F8, 2).PadLeft(16, '0');
-            string Unknown0x2FA = Convert.ToString(fh.Unknown0x2FA, 2).PadLeft(16, '0');
-            string UnknownHash0x2FC = fh.UnknownHash0x2FC.Value;
-            string Blank0x310 = fh.Blank0x310.Value;
-            string Fileusedsize = Convert.ToString(fh.FileUsedSize, 2).PadLeft(32, '0');
-            string Unknown0x318 = Convert.ToString(fh.Unknown0x318, 2).PadLeft(2, '0');
-
-
-            // Convert variant type to string and then to binary
-            string VariantType = Convert.ToString((int)fh.VariantType, 2).PadLeft(2, '0');
-
-
-            string Unknown0x319 = Convert.ToString(fh.Unknown0x319, 2).PadLeft(4, '0');
-            string Unknown0x31D = Convert.ToString(fh.Unknown0x31D, 2).PadLeft(32, '0');
-            string Unknown0x31C = Convert.ToString(fh.Unknown0x31C, 2).PadLeft(32, '0');
-            string FileLength = Convert.ToString(fh.FileLength, 2).PadLeft(32, '0');
-
-            if (Settings.Default.IsGvar == false)
+            string GetBinaryString(dynamic value, int bitSize)
             {
-                modifiedBinary = mpvr + megaloversion + Unknown0x2F8 + Unknown0x2FA + UnknownHash0x2FC + Blank0x310 + Fileusedsize + Unknown0x318 + VariantType + Unknown0x319 + Unknown0x31D + Unknown0x31C + FileLength;
+                if (value is string strValue)
+                {
+                    // Check if the string is a valid binary string
+                    if (strValue.All(c => c == '0' || c == '1'))
+                    {
+                        return strValue.PadLeft(bitSize, '0'); // Return the binary string directly
+                    }
+                    else
+                    {
+                        // Convert the non-binary string to an integer
+                        int intValue = int.Parse(strValue);
+                        return Convert.ToString(intValue, 2).PadLeft(bitSize, '0');
+                    }
+                }
+                else
+                {
+                    return Convert.ToString((int)value, 2).PadLeft(bitSize, '0');
+                }
             }
-            if (Settings.Default.IsGvar == true)
+
+
+
+
+            string GetPropertyBinaryString(FileHeaderViewModel fh, PropertyInfo property)
             {
-                modifiedBinary = Unknown0x2F8 + Unknown0x2FA + Unknown0x318 + VariantType + Unknown0x319 + Unknown0x31D + Unknown0x31C + FileLength;
+                var bitSizeAttribute = (BitSizeAttribute)Attribute.GetCustomAttribute(property, typeof(BitSizeAttribute));
+                int bitSize = bitSizeAttribute?.Bits ?? 0;
+                dynamic value = property.GetValue(fh);
+                return GetBinaryString(value, bitSize);
             }
+
+            var properties = typeof(FileHeaderViewModel).GetProperties()
+                .Where(p => Attribute.IsDefined(p, typeof(BitSizeAttribute)))
+                .ToList();
+
+            var binaryStrings = new List<string>();
+
+            for (int i = 0; i < properties.Count; i++)
+            {
+                if (Settings.Default.IsGvar && i < 2)
+                {
+                    // Skip the first two properties if IsGvar is true
+                    continue;
+                }
+
+                binaryStrings.Add(GetPropertyBinaryString(fh, properties[i]));
+            }
+
+            modifiedBinary = string.Join("", binaryStrings);
+
+            // Use the modifiedBinary as needed
         }
+
+
 
         private int WriteGametypeHeaders(GametypeHeaderViewModel gh, GametypeHeader gt)
         {
-            //if (Settings.Default.IsGvar)
-            //{
-            //    return 0;
-            //}
-            int gamertaglen = (gh.Gamertag.Length * 8);
-            int gamertaglen2 = (gh.EditGamertag.Length * 8);
-            int titlelen = (gh.Title.Length * 2);
-            int desclen = (gh.Description.Length * 2) ;
             int modlen = 0;
-            string sliced = "";
-            string prebits = "";
-            gh.Gamertag = gh.Gamertag == null ? "?" : gh.Gamertag;
-            gh.EditGamertag = gh.EditGamertag == null ? "?" : gh.EditGamertag;
-            gh.Title = gh.Title == null ? "?" : gh.Title;
-            gh.Description = gh.Description == null ? "?" : gh.Description;
+            gh.Gamertag = gh.Gamertag ?? "?";
+            gh.EditGamertag = gh.EditGamertag ?? "?";
+            gh.Title = gh.Title ?? "?";
+            gh.Description = gh.Description ?? "?";
 
-            string ID0x48 = gh.ID0x48;
-            string ID0x50 = gh.ID0x50;
-            string ID0x58 = gh.ID0x58;
-            string Blank0x60 = gh.Blank0x60;
-            string UnknownFlags = gh.UnknownFlags;
-            string Unknown_1 = Convert.ToString(gh.Unknown_1, 2).PadLeft(32, '0');
-            string Unknown0x1 = Convert.ToString(gh.Unknown0x1, 2).PadLeft(8, '0');
-            string Blank04 = Convert.ToString(gh.Blank04, 2).PadLeft(32, '0');
-            string TimeStampUint = Convert.ToString(gh.TimeStampUint, 2).PadLeft(32, '0');
-            string XUID = gh.XUID;
-            modifiedBinary += ID0x48 + ID0x50 + ID0x58 + Blank0x60 + UnknownFlags + Unknown_1 + Unknown0x1 + Blank04 + TimeStampUint + XUID;
-            modlen = modifiedBinary.Length;
-            string Gamertag = ConvertASCIItoBinary(gh.Gamertag);
-            modifiedBinary = modifiedBinary.Insert(modlen, Gamertag);
+            var properties = typeof(GametypeHeaderViewModel).GetProperties();
+            foreach (var prop in properties)
+            {
+                var bitSizeAttribute = (BitSizeAttribute)Attribute.GetCustomAttribute(prop, typeof(BitSizeAttribute));
+                int bitSize = bitSizeAttribute?.Bits ?? 0;
 
+                var value = prop.GetValue(gh);
+                string binaryValue = value switch
+                {
+                    string str when str.All(c => c == '0' || c == '1') => str.PadLeft(bitSize, '0'), // Already binary
+                    string str => prop.Name switch
+                    {
+                        nameof(gh.Title) => ConvertASCIItoBinary2(str).PadLeft(bitSize, '0') + "0000000000000000",
+                        nameof(gh.Description) => ConvertASCIItoBinary2(str).PadLeft(bitSize, '0') + "0000000000000000",
+                        _ => ConvertASCIItoBinary(str).PadLeft(bitSize, '0')
+                    },
+                    int intValue => Convert.ToString(intValue, 2).PadLeft(bitSize, '0'),
+                    _ => string.Empty
+                };
 
+                modifiedBinary += binaryValue;
+            }
 
-
-            string Blank041bit = gh.Blank041bit;
-            string EditTimeStampUint = Convert.ToString(gh.EditTimeStampUint, 2).PadLeft(32, '0');
-            string EditXUID = gh.EditXUID;
-            modifiedBinary += Blank041bit + EditTimeStampUint + EditXUID;
-            modlen = modifiedBinary.Length;
-            string EditGamertag = ConvertASCIItoBinary(gh.EditGamertag);
-            modifiedBinary = modifiedBinary.Insert(modlen, EditGamertag);
-
-
-            string UnknownFlag1 = Convert.ToString(gh.UnknownFlag1, 2).PadLeft(1, '0');
-            modifiedBinary += UnknownFlag1;
-            modlen = modifiedBinary.Length;
-            string Title = ConvertASCIItoBinary2(gh.Title);
-            Title += "0000000000000000";
-            modifiedBinary = modifiedBinary.Insert(modlen, Title);
-            modlen = modifiedBinary.Length;
-            string Description = ConvertASCIItoBinary2(gh.Description);
-            Description += "0000000000000000";
-            //Description = Description[..8];
-            modifiedBinary = modifiedBinary.Insert(modlen, Description);
-            int length = Gamertag.Length + EditGamertag.Length + Description.Length + Title.Length;
+            int length = gh.Gamertag.Length * 8 + gh.EditGamertag.Length * 8 + gh.Description.Length * 16 + 16 + gh.Title.Length * 16 + 16;
             int oldLen = (Settings.Default.Description.Length * 16 + 16) + (Settings.Default.Title.Length * 16 + 16) + (Settings.Default.Gamertag.Length * 8 + 8) + (Settings.Default.EditGamertag.Length * 8 + 8);
             int diff = length - oldLen;
-            //diff = modifiedBinary.Length - diff;
+
             Settings.Default.Description = gh.Description;
             Settings.Default.Title = gh.Title;
-            modifiedBinary += Convert.ToString((int)gh.GameIcon.Value, 2).PadLeft(8, '0');
-            //modifiedBinary2 += UnknownFlag1;
-            ////modlen = modifiedBinary.Length;
-            //int total3 = modlen + titlelen + total + total2 + modifiedBinary2.Length;
-            //sliced = modifiedBinary[total3..];
-            //prebits = modifiedBinary2[..total3];
-            //string Title = ConvertASCIItoBinary2(gh.Title);
-            //modifiedBinary2 += Title;
-            //modifiedBinary2 += sliced;
-            //modifiedBinary = modifiedBinary2;
-            //modifiedBinary2 = "";
-            ////modlen = modifiedBinary.Length;
-            //int total4 = modlen + desclen + total + total2 + total3 + modifiedBinary2.Length;
-            //sliced = modifiedBinary[total4..];
-            //string Description = ConvertASCIItoBinary2(gh.Description);
-            //modifiedBinary2 += Description;
-            //modifiedBinary2 += sliced;
-            //modifiedBinary = modifiedBinary2;
-            //modifiedBinary2 = "";
-            //int total5 = modlen + total + total2 + total3 + total4;
+            modifiedBinary += Convert.ToString((int)gh.GameIcon, 2).PadLeft(8, '0');
 
-
-            //string GameIcon = Convert.ToString(gh.GameIcon, 2).PadLeft(8, '0');
-            //modifiedBinary += GameIcon;
-
-            //var header = gt.GametypeHeader;
-            //var deserializedJSON = JsonConvert.DeserializeObject<ReadGametype.FileHeader>(header);
-            //int length = 0;
-            //deserializedJSON.GetType().GetProperties().ToList().ForEach(prop =>
-            //{
-            //    if ( prop.Name == "Gamertag")
-            //    {
-            //        length += prop.GetValue(deserializedJSON).ToString().Length;
-            //    }
-            //});
-            //length *= 8;
-            //modifiedBinary += ID0x48 + ID0x50 + ID0x58 + Blank0x60 + UnknownFlags + Unknown_1 + Unknown0x1 + Blank04 + TimeStampUint + XUID + Gamertag;
-            
             return diff;
         }
 
-        private void WriteModeSettings(ModeSettingsViewModel ms)
+
+
+
+        private string WriteModeSettings(ModeSettingsViewModel ms)
         {
-            // Get all properties of ModeSettingsViewModel
-            var properties = typeof(ModeSettingsViewModel).GetProperties();
-            foreach (var prop in properties)
+            StringBuilder modifiedBinaryBuilder = new StringBuilder();
+            ProcessViewModel(ms, modifiedBinaryBuilder);
+            return modifiedBinaryBuilder.ToString();
+        }
+
+
+
+        public string WriteSpawnSettings(object viewModel)
+        {
+            StringBuilder modifiedBinary = new StringBuilder();
+            ProcessViewModel(viewModel, modifiedBinary);
+            return modifiedBinary.ToString();
+        }
+
+        public string WriteGameSettings(object viewModel)
+        {
+            StringBuilder modifiedBinary = new StringBuilder();
+            ProcessViewModel(viewModel, modifiedBinary);
+            return modifiedBinary.ToString();
+        }
+
+        public string WritePowerupSettings(object viewModel)
+        {
+            StringBuilder modifiedBinary = new StringBuilder();
+            ProcessViewModel(viewModel, modifiedBinary);
+            return modifiedBinary.ToString();
+        }
+
+        private string WriteTeamSettings(object viewModel)
+        {
+            StringBuilder modifiedBinary = new StringBuilder();
+            ProcessViewModel(viewModel, modifiedBinary);
+            return modifiedBinary.ToString();
+        }
+
+        private void ProcessViewModel(object viewModel, StringBuilder modifiedBinary)
+        {
+            if (viewModel == null)
             {
-                if (prop.PropertyType == typeof(SharedProperties))
+                return; // Skip processing if viewModel is null
+            }
+
+            var properties = viewModel.GetType().GetProperties();
+            foreach (var property in properties)
+            {
+                try
                 {
-                    // Handle SharedProperties
-                    var value = (SharedProperties)prop.GetValue(ms);
-                    var val = Convert.ToInt32(value.Value);
-                    var bits = value.Bits;
-                    var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
-                    modifiedBinary += binary;
-                }
-                else if (prop.PropertyType == typeof(ReachSettingsViewModel) && Settings.Default.DecompiledVersion == 0)
-                {
-                    // Handle ReachSettingsViewModel
-                    var reachViewModel = (ReachSettingsViewModel)prop.GetValue(ms);
-                    if (reachViewModel != null)
+                    var bitSizeAttribute = property.GetCustomAttributes(typeof(BitSizeAttribute), false).FirstOrDefault() as BitSizeAttribute;
+                    if (bitSizeAttribute != null)
                     {
-                        // Get the GracePeriod property of ReachSettingsViewModel
-                        var gracePeriodProp = typeof(ReachSettingsViewModel).GetProperty("GracePeriod");
-                        if (gracePeriodProp != null)
+                        int bitSize = bitSizeAttribute.Bits;
+                        var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+                        var propertyValue = property.GetValue(viewModel);
+
+                        if (propertyValue == null)
                         {
-                            // Handle SharedProperties.GracePeriod
-                            var gracePeriod = (SharedProperties)gracePeriodProp.GetValue(reachViewModel);
-                            var val = Convert.ToInt32(gracePeriod.Value);
-                            var bits = gracePeriod.Bits;
-                            var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
-                            modifiedBinary += binary;
+                            continue; // Skip processing if property value is null
+                        }
+
+                        if (propertyType == typeof(int))
+                        {
+                            int? value = (int?)propertyValue;
+                            string binaryString = value.HasValue ? Convert.ToString(value.Value, 2).PadLeft(bitSize, '0') : new string('0', bitSize);
+                            modifiedBinary.Append(binaryString);
+                        }
+                        else if (propertyType == typeof(bool))
+                        {
+                            bool? value = (bool?)propertyValue;
+                            string binaryString = value.HasValue ? (value.Value ? "1" : "0") : "0";
+                            modifiedBinary.Append(binaryString.PadLeft(bitSize, '0'));
+                        }
+                        else if (propertyType == typeof(string))
+                        {
+                            string value = (string)propertyValue;
+                            string binaryString;
+
+                            if (IsHexString(value))
+                            {
+                                binaryString = ConvertHexToBinary(value).PadLeft(bitSize, '0');
+                            }
+                            else
+                            {
+                                binaryString = value != null && value.All(c => c == '0' || c == '1')
+                                    ? value.PadLeft(bitSize, '0')
+                                    : Convert.ToString(int.Parse(value ?? "0"), 2).PadLeft(bitSize, '0');
+                            }
+
+                            modifiedBinary.Append(binaryString);
+                        }
+                        else if (propertyType.IsEnum)
+                        {
+                            var value = propertyValue;
+                            int intValue = (int)value;
+                            string binaryString = Convert.ToString(intValue, 2).PadLeft(bitSize, '0');
+                            modifiedBinary.Append(binaryString);
+                        }
+                        else if (propertyType == typeof(LanguageStrings))
+                        {
+                            var langStrings = (LanguageStrings)propertyValue;
+                            //AppendLanguageStrings(langStrings, modifiedBinary, 1);
+                            modifiedBinary.Append(langStrings.oldbits);
+                        }
+                        else
+                        {
+                            throw new InvalidCastException($"Unsupported property type: {property.PropertyType}");
+                        }
+                    }
+                    else if (property.PropertyType.IsClass && property.PropertyType != typeof(string))
+                    {
+                        var nestedViewModel = property.GetValue(viewModel);
+                        if (nestedViewModel != null)
+                        {
+                            // Check if the nested view model has at least one non-null property
+                            var nestedProperties = nestedViewModel.GetType().GetProperties();
+
+                            ProcessViewModel(nestedViewModel, modifiedBinary);
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    // Log the exception or handle it as needed
+                    Debug.WriteLine($"Skipping property {property.Name} due to exception: {ex.Message}");
+                }
             }
         }
 
-        private void WriteSpawnSettings(object viewModel)
+        private bool IsHexString(string value)
         {
-            // Get properties of the ViewModel
-            var properties = viewModel.GetType().GetProperties();
+            return !string.IsNullOrEmpty(value) && value.All(c => "0123456789ABCDEFabcdef".Contains(c));
+        }
 
-            foreach (var prop in properties)
+        private string ConvertHexToBinary(string hex)
+        {
+            StringBuilder binary = new StringBuilder(hex.Length * 4);
+            foreach (char c in hex)
             {
-                // Check if the property is of type SharedProperties
-                if (prop.PropertyType == typeof(SharedProperties))
-                {
-                    var value = (SharedProperties)prop.GetValue(viewModel);
-                    if (value != null)
-                    {
-                        var val = Convert.ToInt32(value.Value);
-                        var bits = value.Bits;
-                        var binary = Convert.ToString(val, 2).PadLeft(bits, '0');
-                        modifiedBinary += binary;
-                    }
-                    
-                }
-                // Check if the property is a ViewModel that contains SharedProperties
-                else if (prop.PropertyType == typeof(SpawnReachSettingsViewModel) || prop.PropertyType == typeof(PlayerTraitsViewModel))
-                {
-                    var nestedViewModel = prop.GetValue(viewModel);
-                    if (nestedViewModel != null)
-                    {
-                        // Recursively call WriteSpawnSettings on the nested ViewModel
-                        WriteSpawnSettings(nestedViewModel);
-                    }
-                }
+                binary.Append(Convert.ToString(Convert.ToInt32(c.ToString(), 16), 2).PadLeft(4, '0'));
+            }
+            return binary.ToString();
+        }
+
+        private void AppendLanguageStrings(LanguageStrings langStrings, StringBuilder modifiedBinary, int chars)
+        {
+            
+            AppendString(langStrings.English, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.Japanese, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.German, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.French, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.Spanish, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.LatinAmericanSpanish, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.Italian, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.Korean, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.ChineseTraditional, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.ChineseSimplified, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.Portuguese, modifiedBinary, chars, langStrings);
+            AppendString(langStrings.Polish, modifiedBinary, chars, langStrings);
+
+            if (langStrings.H2AH4 != null)
+            {
+                AppendString(langStrings.H2AH4.Russian, modifiedBinary, chars, langStrings);
+                AppendString(langStrings.H2AH4.Danish, modifiedBinary, chars, langStrings);
+                AppendString(langStrings.H2AH4.Finnish, modifiedBinary, chars, langStrings);
+                AppendString(langStrings.H2AH4.Dutch, modifiedBinary, chars, langStrings);
+                AppendString(langStrings.H2AH4.Norwegian, modifiedBinary, chars, langStrings);
             }
         }
+
+        //        if (stringPresent > 0)
+        //            {
+
+        //                if (teamString && Settings.Default.DecompiledVersion == 0)
+        //                {
+        //                    ls.m3 = ConvertToInt(GetValue(bits+1));
+        //                }
+        //                else
+        //                {
+        //                    //GetValue(1);
+        //                    ls.m3 = ConvertToInt(GetValue(bits));
+        //}
+
+        //ls.d = ConvertToInt(GetValue(1));
+        //if (ls.d == 0)
+        //{
+        //    compressedChunk = GetValue(ls.m3 * 8);
+        //    compression = false;
+        //}
+        //else
+        //{
+        //    int m1 = ConvertToInt(GetValue(bits));
+        //    string b = ConvertToHex(GetValue(m1 * 8));
+
+
+        //    byte[] b2 = Convert.FromHexString(b);
+        //    var bytes = LowLevelDecompress(b2, ls.m3);
+        //    //convert to hex string
+        //    compressedChunk = BitConverter.ToString(bytes).Replace("-", "");
+        //    //Convert compressedChunk to binary
+        //    compressedChunk = ConvertToBinary(compressedChunk);
+        //}   
+        //            }
+
+        private string ConvertBinaryToHex(string binary)
+        {
+            // Ensure the binary string length is a multiple of 4
+            int remainder = binary.Length % 4;
+            if (remainder != 0)
+            {
+                binary = binary.PadLeft(binary.Length + (4 - remainder), '0');
+            }
+
+            // Convert binary to hex
+            StringBuilder hex = new StringBuilder(binary.Length / 4);
+            for (int i = 0; i < binary.Length; i += 4)
+            {
+                string fourBits = binary.Substring(i, 4);
+                hex.Append(Convert.ToInt32(fourBits, 2).ToString("X"));
+            }
+
+            return hex.ToString();
+        }
+
+
+        private string RestoreCompression(LanguageStrings ls, string value)
+        {
+
+            //Convert the ascii string to a binary string
+            string binary = ConvertToBinary(value);
+            //Convert to hex
+            string hex = ConvertBinaryToHex(binary);
+
+            return value;
+        }
+
+ 
+        private void AppendString(string value, StringBuilder modifiedBinary, int chars, LanguageStrings ls)
+        {
+            // Append the number of characters in binary form
+            modifiedBinary.Append(Convert.ToString(chars, 2).PadLeft(chars, '0'));
+            if (value == "-1")
+            {
+                // Append a single '0' if the value is "-1"
+                modifiedBinary.Append("0");
+            }
+            else
+            {
+                // Append a single '1' to indicate the presence of a valid string
+                modifiedBinary.Append("1");
+
+                // Convert the string to binary and append it
+                modifiedBinary.Append(ConvertToBinary(value));
+
+                //append ls.m3
+                modifiedBinary.Append(Convert.ToString(ls.m3, 2));
+                modifiedBinary.Append("0");
+
+            }
+
+            
+        }
+
+        private string ConvertToBinary(string value)
+        {
+            // Convert each character in the string to its binary representation
+            return string.Join("", value.Select(c => Convert.ToString(c, 2).PadLeft(8, '0')));
+        }
+
+
+
+
+
+
+
+
+
+
+
+
 
         private string ConvertASCIItoBinary(string input)
         {

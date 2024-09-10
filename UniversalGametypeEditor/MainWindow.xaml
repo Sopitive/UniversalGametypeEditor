@@ -719,7 +719,7 @@
                 </MenuItem>-->
                     <MenuItem x:Name="FileMenu" Height="30" Style="{DynamicResource MenuItemStyle1}" Header="File" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem x:Name="Watched" Style="{DynamicResource MenuItemStyle1}" Header="Set Watched Folder..." ToolTip="Set folder to watch for file changes" Click="HandleSetDirClick" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" Margin="0"/>
-                        <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Set Copy Folder..." ToolTip="Set Folder To Copy Files To" Click="HandleSetHotReload" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                        <!--<MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Set Copy Folder..." ToolTip="Set Folder To Copy Files To" Click="HandleSetHotReload" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>-->
                         <MenuItem x:Name="Game" Style="{DynamicResource MenuItemStyle1}" Header="Set Game Folder..." ToolTip="Set Folder Where MCC Game Files Are Stored" Click="SetGameFolder" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Check For Updates" ToolTip="Check for file updates" Click="CheckForUpdates" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
@@ -738,7 +738,10 @@
                     </MenuItem>
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="Tools"  Header="Tools" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="PlaylistEditor" Header="Edit CGB Playlist..." ToolTip="Edit The Playlist For The Cutom Games Browser" Click="EditPlaylist" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="OverlayToggle" Header="ToggleOverlay" ToolTip="Toggle Overlay" Click="ToggleOverlay" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="MegaloEditPatch" Header="Patch MegaloEdit" ToolTip="Allow All Actions In MegaloEdit Local Trigger" Click="PatchMegaloEdit" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
+                    
                 </Menu>
                 <Popup Name="Tutorial" Height="Auto" Width="200" IsOpen="True" PlacementTarget="{Binding ElementName=Menu}" Placement="Bottom">
                     <StackPanel Background="Transparent">

@@ -334,167 +334,196 @@ namespace UniversalGametypeEditor
             None = 255
         }
 
-        public static Dictionary<VariantTypeEnum, string> VariantTypeStrings = new Dictionary<VariantTypeEnum, string>
+        public static class VariantTypeStrings
         {
-            { VariantTypeEnum.Campaign, "Campaign" },
-            { VariantTypeEnum.Forge, "Forge" },
-            { VariantTypeEnum.Multiplayer, "Multiplayer" },
-            { VariantTypeEnum.Firefight, "Firefight" }
-        };
+            public static readonly Dictionary<VariantTypeEnum, string> Values = new Dictionary<VariantTypeEnum, string>
+            {
+                { VariantTypeEnum.Campaign, "Campaign" },
+                { VariantTypeEnum.Forge, "Forge" },
+                { VariantTypeEnum.Multiplayer, "Multiplayer" },
+                { VariantTypeEnum.Firefight, "Firefight" }
+            };
+        }
 
-        public static Dictionary<IconEnum, string> IconStrings = new Dictionary<IconEnum, string>
+        public static class IconStrings
         {
-            { IconEnum.Flag, "Flag" },
-            { IconEnum.Slayer, "Slayer" },
-            { IconEnum.Skull, "Skull" },
-            { IconEnum.KOTH, "KOTH" },
-            { IconEnum.Juggernaut, "Juggernaut" },
-            { IconEnum.Territories, "Territories" },
-            { IconEnum.Assault, "Assault" },
-            { IconEnum.Infection, "Infection" },
-            { IconEnum.VIP, "VIP" },
-            { IconEnum.Invasion, "Invasion" },
-            { IconEnum.EliteandSkull, "Elite and Skull" },
-            { IconEnum.Stockpile, "Stockpile" },
-            { IconEnum.ActionSack, "Action Sack" },
-            { IconEnum.Lightning, "Lightning" },
-            { IconEnum.Rocket, "Rocket" },
-            { IconEnum.Griffball, "Griffball" },
-            { IconEnum.Biohazard, "Biohazard" },
-            { IconEnum.Headhunter, "Headhunter" },
-            { IconEnum.SpikySwirl, "Spiky Swirl" },
-            { IconEnum.Wings, "Wings" },
-            { IconEnum.Swirl, "Swirl" },
-            { IconEnum.Castle, "Castle" },
-            { IconEnum.Plus, "Plus" },
-            { IconEnum.Shield, "Shield" },
-            { IconEnum.Arrow, "Arrow" },
-            { IconEnum.Infinity, "Infinity" },
-            { IconEnum.Forerunner, "Forerunner" },
-            { IconEnum.EightBall, "Eight Ball" },
-            { IconEnum.UNSC, "UNSC" },
-            { IconEnum.Unknown, "Unknown" },
-            { IconEnum.Diamond, "Diamond" }
-        };
+            public static readonly Dictionary<IconEnum, string> Values = new Dictionary<IconEnum, string>
+            {
+                { IconEnum.Flag, "Flag" },
+                { IconEnum.Slayer, "Slayer" },
+                { IconEnum.Skull, "Skull" },
+                { IconEnum.KOTH, "KOTH" },
+                { IconEnum.Juggernaut, "Juggernaut" },
+                { IconEnum.Territories, "Territories" },
+                { IconEnum.Assault, "Assault" },
+                { IconEnum.Infection, "Infection" },
+                { IconEnum.VIP, "VIP" },
+                { IconEnum.Invasion, "Invasion" },
+                { IconEnum.EliteandSkull, "Elite and Skull" },
+                { IconEnum.Stockpile, "Stockpile" },
+                { IconEnum.ActionSack, "Action Sack" },
+                { IconEnum.Lightning, "Lightning" },
+                { IconEnum.Rocket, "Rocket" },
+                { IconEnum.Griffball, "Griffball" },
+                { IconEnum.Biohazard, "Biohazard" },
+                { IconEnum.Headhunter, "Headhunter" },
+                { IconEnum.SpikySwirl, "Spiky Swirl" },
+                { IconEnum.Wings, "Wings" },
+                { IconEnum.Swirl, "Swirl" },
+                { IconEnum.Castle, "Castle" },
+                { IconEnum.Plus, "Plus" },
+                { IconEnum.Shield, "Shield" },
+                { IconEnum.Arrow, "Arrow" },
+                { IconEnum.Infinity, "Infinity" },
+                { IconEnum.Forerunner, "Forerunner" },
+                { IconEnum.EightBall, "Eight Ball" },
+                { IconEnum.UNSC, "UNSC" },
+                { IconEnum.Unknown, "Unknown" },
+                { IconEnum.Diamond, "Diamond" }
+            };
+        }
 
-        public static Dictionary<WeaponEnum, string> WeaponStrings = new Dictionary<WeaponEnum, string>
+        public static class WeaponStrings
         {
-            { WeaponEnum.DMR, "DMR" },
-            { WeaponEnum.AssaultRifle, "Assault Rifle" },
-            { WeaponEnum.PlasmaPistol, "Plasma Pistol" },
-            { WeaponEnum.Spiker, "Spiker" },
-            { WeaponEnum.EnergySword, "Energy Sword" },
-            { WeaponEnum.Magnum, "Magnum" },
-            { WeaponEnum.Needler, "Needler" },
-            { WeaponEnum.PlasmaRifle, "Plasma Rifle" },
-            { WeaponEnum.RocketLauncher, "Rocket Launcher" },
-            { WeaponEnum.Shotgun, "Shotgun" },
-            { WeaponEnum.SniperRifle, "Sniper Rifle" },
-            { WeaponEnum.SpartanLaser, "Spartan Laser" },
-            { WeaponEnum.GravityHammer, "Gravity Hammer" },
-            { WeaponEnum.PlasmaRepeater, "Plasma Repeater" },
-            { WeaponEnum.NeedleRifle, "Needle Rifle" },
-            { WeaponEnum.FocusRifle, "Focus Rifle" },
-            { WeaponEnum.PlasmaLauncher, "Plasma Launcher" },
-            { WeaponEnum.ConcussionRifle, "Concussion Rifle" },
-            { WeaponEnum.GrenadeLauncher, "Grenade Launcher" },
-            { WeaponEnum.GolfClub, "Golf Club" },
-            { WeaponEnum.FuelRodCannon, "Fuel Rod Cannon" },
-            { WeaponEnum.DetachedMachineGun, "Detached Machine Gun" },
-            { WeaponEnum.DetachedPlasmaTurret, "Detached Plasma Turret" },
-            { WeaponEnum.TargetLocator, "Target Locator" },
-            { WeaponEnum.Random, "Random"},
-            { WeaponEnum.Unchanged, "Unchanged" },
-            { WeaponEnum.MapDefault, "Map Default" },
-            { WeaponEnum.None, "None" }
-        };
+            public static readonly Dictionary<WeaponEnum, string> Values = new Dictionary<WeaponEnum, string>
+    {
+        { WeaponEnum.DMR, "DMR" },
+        { WeaponEnum.AssaultRifle, "Assault Rifle" },
+        { WeaponEnum.PlasmaPistol, "Plasma Pistol" },
+        { WeaponEnum.Spiker, "Spiker" },
+        { WeaponEnum.EnergySword, "Energy Sword" },
+        { WeaponEnum.Magnum, "Magnum" },
+        { WeaponEnum.Needler, "Needler" },
+        { WeaponEnum.PlasmaRifle, "Plasma Rifle" },
+        { WeaponEnum.RocketLauncher, "Rocket Launcher" },
+        { WeaponEnum.Shotgun, "Shotgun" },
+        { WeaponEnum.SniperRifle, "Sniper Rifle" },
+        { WeaponEnum.SpartanLaser, "Spartan Laser" },
+        { WeaponEnum.GravityHammer, "Gravity Hammer" },
+        { WeaponEnum.PlasmaRepeater, "Plasma Repeater" },
+        { WeaponEnum.NeedleRifle, "Needle Rifle" },
+        { WeaponEnum.FocusRifle, "Focus Rifle" },
+        { WeaponEnum.PlasmaLauncher, "Plasma Launcher" },
+        { WeaponEnum.ConcussionRifle, "Concussion Rifle" },
+        { WeaponEnum.GrenadeLauncher, "Grenade Launcher" },
+        { WeaponEnum.GolfClub, "Golf Club" },
+        { WeaponEnum.FuelRodCannon, "Fuel Rod Cannon" },
+        { WeaponEnum.DetachedMachineGun, "Detached Machine Gun" },
+        { WeaponEnum.DetachedPlasmaTurret, "Detached Plasma Turret" },
+        { WeaponEnum.TargetLocator, "Target Locator" },
+        { WeaponEnum.Random, "Random" },
+        { WeaponEnum.Unchanged, "Unchanged" },
+        { WeaponEnum.MapDefault, "Map Default" },
+        { WeaponEnum.None, "None" }
+    };
+        }
 
-        public static Dictionary<DamageEnum, string> DamageStrings = new Dictionary<DamageEnum, string>
+
+        public static class DamageStrings
         {
-            { DamageEnum.Unchanged, "Unchanged" },
-            { DamageEnum.ZeroPercent, "0%" },
-            { DamageEnum.TwentyFivePercent, "25%" },
-            { DamageEnum.FiftyPercent, "50%" },
-            { DamageEnum.SeventyFivePercent, "75%" },
-            { DamageEnum.NinetyPercent, "90%" },
-            { DamageEnum.OneHundredPercent, "100%" },
-            { DamageEnum.OneHundredTenPercent, "110%" },
-            { DamageEnum.OneHundredTwentyFivePercent, "125%" },
-            { DamageEnum.OneHundredFiftyPercent, "150%" },
-            { DamageEnum.TwoHundredPercent, "200%" },
-            { DamageEnum.ThreeHundredPercent, "300%" }
-        };
+            public static readonly Dictionary<DamageEnum, string> Values = new Dictionary<DamageEnum, string>
+            {
+                { DamageEnum.Unchanged, "Unchanged" },
+                { DamageEnum.ZeroPercent, "0%" },
+                { DamageEnum.TwentyFivePercent, "25%" },
+                { DamageEnum.FiftyPercent, "50%" },
+                { DamageEnum.SeventyFivePercent, "75%" },
+                { DamageEnum.NinetyPercent, "90%" },
+                { DamageEnum.OneHundredPercent, "100%" },
+                { DamageEnum.OneHundredTenPercent, "110%" },
+                { DamageEnum.OneHundredTwentyFivePercent, "125%" },
+                { DamageEnum.OneHundredFiftyPercent, "150%" },
+                { DamageEnum.TwoHundredPercent, "200%" },
+                { DamageEnum.ThreeHundredPercent, "300%" }
+            };
+        }
 
-        public static Dictionary<VampirismEnum, string> VamparismStrings = new Dictionary<VampirismEnum, string>
+        public static class VampirismStrings
         {
-            { VampirismEnum.Uncanged, "Unchanged" },
-            { VampirismEnum.None, "None" },
-            { VampirismEnum.TenPercent, "10%" },
-            { VampirismEnum.TwentyFivePercent, "25%" },
-            { VampirismEnum.FiftyPercent, "50%" },
-            { VampirismEnum.OneHundredPercent, "100%" }
-        };
+            public static readonly Dictionary<VampirismEnum, string> Values = new Dictionary<VampirismEnum, string>
+            {
+                { VampirismEnum.Uncanged, "Unchanged" },
+                { VampirismEnum.None, "None" },
+                { VampirismEnum.TenPercent, "10%" },
+                { VampirismEnum.TwentyFivePercent, "25%" },
+                { VampirismEnum.FiftyPercent, "50%" },
+                { VampirismEnum.OneHundredPercent, "100%" }
+            };
+        }
 
-        public static Dictionary<ToggleEnum, string> ToggleEnumStrings = new Dictionary<ToggleEnum, string>
+        public static class ToggleEnumStrings
         {
-            { ToggleEnum.Unchanged, "Unchanged" },
-            { ToggleEnum.Enabled, "Enabled" },
-            { ToggleEnum.Disabled, "Disabled" }
-        };
+            public static readonly Dictionary<ToggleEnum, string> Values = new Dictionary<ToggleEnum, string>
+            {
+                { ToggleEnum.Unchanged, "Unchanged" },
+                { ToggleEnum.Enabled, "Enabled" },
+                { ToggleEnum.Disabled, "Disabled" }
+            };
+        }
 
-
-        public static Dictionary<DamageResistanceEnum, string> DamageResistanceStrings = new Dictionary<DamageResistanceEnum, string>
+        public static class DamageResistanceStrings
         {
-            { DamageResistanceEnum.Unchanged, "Unchanged" },
-            { DamageResistanceEnum.TenPercent, "10%" },
-            { DamageResistanceEnum.FiftyPercent, "50%" },
-            { DamageResistanceEnum.NinetyPercent, "90%" },
-            { DamageResistanceEnum.OneHundredPercent, "100%" },
-            { DamageResistanceEnum.OneHundredTenPercent, "110%" },
-            { DamageResistanceEnum.OneHundredFiftyPercent, "150%" },
-            { DamageResistanceEnum.TwoHundredPercent, "200%" },
-            { DamageResistanceEnum.ThreeHundredPercent, "300%" },
-            { DamageResistanceEnum.FiveHundredPercent, "500%" },
-            { DamageResistanceEnum.OneThousandPercent, "1000%" },
-            { DamageResistanceEnum.TwoThousandPercent, "2000%" },
-            { DamageResistanceEnum.Invlulnerable, "Invulnerable" }
-        };
+            public static readonly Dictionary<DamageResistanceEnum, string> Values = new Dictionary<DamageResistanceEnum, string>
+            {
+                { DamageResistanceEnum.Unchanged, "Unchanged" },
+                { DamageResistanceEnum.TenPercent, "10%" },
+                { DamageResistanceEnum.FiftyPercent, "50%" },
+                { DamageResistanceEnum.NinetyPercent, "90%" },
+                { DamageResistanceEnum.OneHundredPercent, "100%" },
+                { DamageResistanceEnum.OneHundredTenPercent, "110%" },
+                { DamageResistanceEnum.OneHundredFiftyPercent, "150%" },
+                { DamageResistanceEnum.TwoHundredPercent, "200%" },
+                { DamageResistanceEnum.ThreeHundredPercent, "300%" },
+                { DamageResistanceEnum.FiveHundredPercent, "500%" },
+                { DamageResistanceEnum.OneThousandPercent, "1000%" },
+                { DamageResistanceEnum.TwoThousandPercent, "2000%" },
+                { DamageResistanceEnum.Invlulnerable, "Invulnerable" }
+            };
+        }
 
-        public static Dictionary<HealthMultiplierEnum, string> HealthMultiplierStrings = new Dictionary<HealthMultiplierEnum, string>
+        public static class HealthMultiplierStrings
         {
-            { HealthMultiplierEnum.Uncanged, "Unchanged" },
-            { HealthMultiplierEnum.ZeroPercent, "0%" },
-            { HealthMultiplierEnum.TenPercent, "10%" },
-            { HealthMultiplierEnum.OnehundredFiftyPercent, "150%" },
-            { HealthMultiplierEnum.TwoHundredPercent, "200%" },
-            { HealthMultiplierEnum.ThreeHundredPercent, "300%" },
-            { HealthMultiplierEnum.FourHundredPercent, "400%" }
-        };
+            public static readonly Dictionary<HealthMultiplierEnum, string> Values = new Dictionary<HealthMultiplierEnum, string>
+            {
+                { HealthMultiplierEnum.Uncanged, "Unchanged" },
+                { HealthMultiplierEnum.ZeroPercent, "0%" },
+                { HealthMultiplierEnum.TenPercent, "10%" },
+                { HealthMultiplierEnum.OnehundredFiftyPercent, "150%" },
+                { HealthMultiplierEnum.TwoHundredPercent, "200%" },
+                { HealthMultiplierEnum.ThreeHundredPercent, "300%" },
+                { HealthMultiplierEnum.FourHundredPercent, "400%" }
+            };
+        }
 
-        public static Dictionary<RegenEnum, string> RegenStrings = new Dictionary<RegenEnum, string>
+        public static class RegenStrings
         {
-            { RegenEnum.Unchanged, "Unchanged" },
-            { RegenEnum.NegativeTwentyFivePercent, "-25%" },
-            { RegenEnum.NegativeTenPercent, "-10%" },
-            { RegenEnum.NegativeFivePercent, "-5%" },
-            { RegenEnum.ZeroPercent, "0%" },
-            { RegenEnum.FiftyPercent, "50%" },
-            { RegenEnum.NinetyPercent, "90%" },
-            { RegenEnum.OneHunredPercent, "100%" },
-            { RegenEnum.OneHundredTenPercent, "110%" },
-            { RegenEnum.TwoHunredPercent, "200%" }
-        };
+            public static readonly Dictionary<RegenEnum, string> Values = new Dictionary<RegenEnum, string>
+            {
+                { RegenEnum.Unchanged, "Unchanged" },
+                { RegenEnum.NegativeTwentyFivePercent, "-25%" },
+                { RegenEnum.NegativeTenPercent, "-10%" },
+                { RegenEnum.NegativeFivePercent, "-5%" },
+                { RegenEnum.ZeroPercent, "0%" },
+                { RegenEnum.FiftyPercent, "50%" },
+                { RegenEnum.NinetyPercent, "90%" },
+                { RegenEnum.OneHunredPercent, "100%" },
+                { RegenEnum.OneHundredTenPercent, "110%" },
+                { RegenEnum.TwoHunredPercent, "200%" }
+            };
+        }
 
-
-        public static Dictionary<ShieldMultiplyerEnum, string> ShieldMultiplyerStrings = new Dictionary<ShieldMultiplyerEnum, string>
+        public static class ShieldMultiplyerStrings
         {
-            { ShieldMultiplyerEnum.Unchanged, "Unchanged" },
-            { ShieldMultiplyerEnum.ZeroPercent, "0%" },
-            { ShieldMultiplyerEnum.OneHundredPercent, "100%" },
-            { ShieldMultiplyerEnum.TwoHundredPercent, "200%" },
-            { ShieldMultiplyerEnum.ThreeHundredPercent, "300%" },
-            { ShieldMultiplyerEnum.FourHundredPercent, "400%" }
-        };
+            public static readonly Dictionary<ShieldMultiplyerEnum, string> Values = new Dictionary<ShieldMultiplyerEnum, string>
+            {
+                { ShieldMultiplyerEnum.Unchanged, "Unchanged" },
+                { ShieldMultiplyerEnum.ZeroPercent, "0%" },
+                { ShieldMultiplyerEnum.OneHundredPercent, "100%" },
+                { ShieldMultiplyerEnum.TwoHundredPercent, "200%" },
+                { ShieldMultiplyerEnum.ThreeHundredPercent, "300%" },
+                { ShieldMultiplyerEnum.FourHundredPercent, "400%" }
+            };
+        }
 
 
         public class ModeSettings
@@ -607,7 +636,7 @@ namespace UniversalGametypeEditor
             public int VehicleUse;
             public int Unknown;
             public int JumpHeight;
-            public int JumpOverride;
+            public int? JumpOverride;
             public int Camo;
             public int Visiblewaypoint;
             public int VisibleName;
@@ -715,9 +744,9 @@ namespace UniversalGametypeEditor
             public LanguageStrings Teamstring;
             public int InitialDesignator;
             public int Elitespecies;
-            public int PrimaryColor;
-            public int SecondaryColor;
-            public int TertiaryColor;
+            public string PrimaryColor;
+            public string SecondaryColor;
+            public string TertiaryColor;
             public int FireteamCount;
 
             public H2AH4Settings H2AH4 { get; set; } // Fields exclusively for H2A+H4
@@ -894,6 +923,16 @@ namespace UniversalGametypeEditor
             public string ChineseSimplified;
             public string Portuguese;
             public string Polish;
+
+            public int m3;
+
+            public int d;
+
+            public int m1;
+
+            public string oldbits;
+
+            public string compressedChunk;
 
             public H2AH4Settings H2AH4 { get; set; } // Fields exclusively for H2A+H4
             //H2A
@@ -3767,9 +3806,9 @@ namespace UniversalGametypeEditor
                 to.Teamstring = ReadLangStrings(5, 1, true);
                 to.InitialDesignator = ConvertToInt(GetValue(4));
                 to.Elitespecies = ConvertToInt(GetValue(1));
-                to.PrimaryColor = ConvertToInt(GetValue(32));
-                to.SecondaryColor = ConvertToInt(GetValue(32));
-                to.TertiaryColor = ConvertToInt(GetValue(32));
+                to.PrimaryColor = ConvertToHex(GetValue(32));
+                to.SecondaryColor = ConvertToHex(GetValue(32));
+                to.TertiaryColor = ConvertToHex(GetValue(32));
                 to.FireteamCount = ConvertToInt(GetValue(5));
             }
 
@@ -3786,8 +3825,8 @@ namespace UniversalGametypeEditor
                 to.Teamstring = ReadLangStrings(10, 1, false);
                 to.InitialDesignator = ConvertToInt(GetValue(4));
                 to.Elitespecies = ConvertToInt(GetValue(1));
-                to.PrimaryColor = ConvertToInt(GetValue(32));
-                to.SecondaryColor = ConvertToInt(GetValue(32));
+                to.PrimaryColor = ConvertToHex(GetValue(32));
+                to.SecondaryColor = ConvertToHex(GetValue(32));
                 to.H2AH4.TextColor = ConvertToInt(GetValue(32));
                 to.H2AH4.InterfaceColor = ConvertToInt(GetValue(32));
                 to.FireteamCount = ConvertToInt(GetValue(5));
@@ -3802,78 +3841,104 @@ namespace UniversalGametypeEditor
 
             return to;
         }
+        private string fullStringBits = "";
+        private string GetLanguageValue(int bits, string defaultValue = "-1")
+        {
+            //Super dirty, but will get us past the language strings for now
+            fullStringBits += binaryString.Substring(0, 1);
+            int present = ConvertToInt(GetValue(1));
+            if (present == 0)
+            {
+                fullStringBits += "0";
+                return defaultValue;
+            } else
+            {
+                fullStringBits += binaryString.Substring(0, bits);
+                return GetValue(bits);
+            }
+        }
 
         private LanguageStrings ReadLangStrings(int bits, int chars, bool teamString)
         {
+            fullStringBits += binaryString.Substring(0, chars);
             int stringPresent = ConvertToInt(GetValue(chars));
             List<LanguageStrings> indexes = new();
             LanguageStrings ls = new();
-            for (int i=0; i<stringPresent; i++) 
-            { 
-                ls.English = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.Japanese = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.German = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.French = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.Spanish = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.LatinAmericanSpanish = ConvertToInt(GetValue(1)) == 0 ? "1" : GetValue(bits);
-                ls.Italian = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.Korean = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.ChineseTraditional = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.ChineseSimplified = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.Portuguese = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                ls.Polish = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
+            for (int i = 0; i < stringPresent; i++)
+            {
+                ls.English = GetLanguageValue(bits);
+                ls.Japanese = GetLanguageValue(bits);
+                ls.German = GetLanguageValue(bits);
+                ls.French = GetLanguageValue(bits);
+                ls.Spanish = GetLanguageValue(bits);
+                ls.LatinAmericanSpanish = GetLanguageValue(bits);
+                ls.Italian = GetLanguageValue(bits);
+                ls.Korean = GetLanguageValue(bits);
+                ls.ChineseTraditional = GetLanguageValue(bits);
+                ls.ChineseSimplified = GetLanguageValue(bits);
+                ls.Portuguese = GetLanguageValue(bits);
+                ls.Polish = GetLanguageValue(bits);
+
                 if (Settings.Default.DecompiledVersion > 0)
                 {
                     ls.H2AH4 = new();
-                    ls.H2AH4.Russian = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                    ls.H2AH4.Danish = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                    ls.H2AH4.Finnish = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                    ls.H2AH4.Dutch = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
-                    ls.H2AH4.Norwegian = ConvertToInt(GetValue(1)) == 0 ? "-1" : GetValue(bits);
+                    ls.H2AH4.Russian = GetLanguageValue(bits);
+                    ls.H2AH4.Danish = GetLanguageValue(bits);
+                    ls.H2AH4.Finnish = GetLanguageValue(bits);
+                    ls.H2AH4.Dutch = GetLanguageValue(bits);
+                    ls.H2AH4.Norwegian = GetLanguageValue(bits);
                 }
+
                 indexes.Add(ls);
             }
-            
-            
-            
+
             string compressedChunk = "";
             bool compression = true;
 
             if (stringPresent > 0)
             {
-                int m3;
+                
                 if (teamString && Settings.Default.DecompiledVersion == 0)
                 {
-                    m3 = ConvertToInt(GetValue(bits+1));
+                    fullStringBits += binaryString.Substring(0, bits+1);
+                    ls.m3 = ConvertToInt(GetValue(bits+1));
                 }
                 else
                 {
                     //GetValue(1);
-                    m3 = ConvertToInt(GetValue(bits));
+                    fullStringBits += binaryString.Substring(0, bits);
+                    ls.m3 = ConvertToInt(GetValue(bits));
+
                 }
-                    
-                int d = ConvertToInt(GetValue(1));
-                if (d == 0)
+                
+
+                ls.d = ConvertToInt(GetValue(1));
+                fullStringBits += Convert.ToString(ls.d, 2).PadLeft(1, '0');
+                if (ls.d == 0)
                 {
-                    compressedChunk = GetValue(m3*8);
+                    fullStringBits += binaryString.Substring(0, ls.m3 * 8);
+                    compressedChunk = GetValue(ls.m3 *8);
                     compression = false;
                 }
                 else
                 {
+                    fullStringBits += binaryString.Substring(0, bits);
                     int m1 = ConvertToInt(GetValue(bits));
-                    string b = ConvertToHex(GetValue(m1 * 8));
+                    fullStringBits += binaryString.Substring(0, m1 * 8);
+                    string hexString = ConvertToHex(GetValue(m1 * 8));
 
-                    
-                    byte[] b2 = Convert.FromHexString(b);
-                    var bytes = LowLevelDecompress(b2, m3);
-                    //convert to hex string
-                    compressedChunk = BitConverter.ToString(bytes).Replace("-", "");
-                    //Convert compressedChunk to binary
-                    compressedChunk = ConvertToBinary(compressedChunk);
-                }   
+                    ls.m1 = m1;
+
+                    byte[] compressedBytes = Convert.FromHexString(hexString);
+                    byte[] decompressedBytes = LowLevelDecompress(compressedBytes, ls.m3);
+
+                    // Convert decompressed bytes to binary string
+                    compressedChunk = ConvertToBinary(BitConverter.ToString(decompressedBytes).Replace("-", ""));
+                }
             }
+            ls.oldbits = fullStringBits;
+            fullStringBits = "";
 
-                
             for (int i=0;i<indexes.Count; i++)
             {
                 LanguageStrings currentString = indexes[i];
@@ -3920,7 +3985,7 @@ namespace UniversalGametypeEditor
                 return currentString;
             }
 
-
+            
             return ls;
         }
 
@@ -3935,61 +4000,32 @@ namespace UniversalGametypeEditor
 
         private string FindLangString(string rawBits, string compressedChunk)
         {
-
             return ReadStringFromBits(compressedChunk, false);
-            
-            //bool searching = true;
-            //string hexString = "";
-            //int depth = ConvertToInt(rawBits);
-
-            //while (searching)
-            //{
-            //    string currentByte = compressedChunk.Substring(depth*2, 2);
-            //    depth++;
-            //    if (currentByte == "00")
-            //    {
-            //        searching = false;
-            //    }
-            //    else
-            //    {
-            //        hexString += currentByte;
-            //    }
-            //}
-            //var bytes = new byte[hexString.Length / 2];
-            //for (var i = 0; i < bytes.Length; i++)
-            //{
-            //    string s = hexString.Substring(i * 2, 2);
-            //    bytes[i] = Convert.ToByte(s, 16);
-            //}
-            //return Encoding.UTF8.GetString(bytes);
-
         }
 
 
         private string ConvertToBinary(string hex)
         {
-            //Convert hex to binary
-            string binary = string.Join(string.Empty,
-            hex.Select(
-                c => Convert.ToString(Convert.ToInt32(c.ToString(), 16), 2).PadLeft(4, '0')
-                )
-            );
-            return binary;
+            StringBuilder binary = new StringBuilder(hex.Length * 4);
+            foreach (char c in hex)
+            {
+                binary.Append(Convert.ToString(Convert.ToInt32(c.ToString(), 16), 2).PadLeft(4, '0'));
+            }
+            return binary.ToString();
         }
+
 
 
 
         public static byte[] LowLevelDecompress(byte[] bytes, int uncompressedSize, int skipHeaderLength = sizeof(uint))
         {
-
             byte[] result = new byte[uncompressedSize];
             var zip = new Inflater();
-            {
-                zip.SetInput(bytes, skipHeaderLength, bytes.Length - skipHeaderLength); // skip the decompressed size header
-                zip.Inflate(result);
-            }
+            zip.SetInput(bytes, skipHeaderLength, bytes.Length - skipHeaderLength); // skip the decompressed size header
+            zip.Inflate(result);
             return result;
         }
+
 
 
 
@@ -4032,6 +4068,10 @@ namespace UniversalGametypeEditor
                 {
                     pt.JumpOverride = ConvertToInt(GetValue(9));
                 }
+                if (pt.JumpHeight == 0)
+                {
+                    pt.JumpOverride = null;
+                }
                 pt.Camo = ConvertToInt(GetValue(3));
                 pt.Visiblewaypoint = ConvertToInt(GetValue(2));
                 pt.VisibleName = ConvertToInt(GetValue(2));
@@ -4040,7 +4080,6 @@ namespace UniversalGametypeEditor
                 pt.Motiontrackermode = ConvertToInt(GetValue(3));
                 pt.MotiontrackerRange = ConvertToInt(GetValue(3));
                 pt.DirectionalDamageindicator = ConvertToInt(GetValue(2));
-
             }
 
             if (Settings.Default.DecompiledVersion > 0)
@@ -4166,24 +4205,24 @@ namespace UniversalGametypeEditor
 
         private string ReadStringFromBits(string binary, bool countForward)
         {
-            //Read the string from the binary 8 characters at a time and return the string value for those 8 characters
-            //Stop reading and combine the strings when the binary value is 00000000
-            //Return the string value
+            StringBuilder value = new StringBuilder();
+            int index = 0;
 
-            string value = "";
-            string parse = binary;
-            while (parse.Length >= 8 && parse.Substring(0, 8) != "00000000")
+            while (index + 8 <= binary.Length && binary.Substring(index, 8) != "00000000")
             {
-                string binaryChar = parse.Substring(0, 8);
-                parse = parse.Substring(8);
-                value += ConvertToASCII(binaryChar);
+                string binaryChar = binary.Substring(index, 8);
+                value.Append(ConvertToASCII(binaryChar));
+                index += 8;
             }
-            if (countForward)
+
+            if (countForward && index + 8 <= binary.Length)
             {
-                binaryString = parse.Substring(8);
+                binaryString = binary.Substring(index + 8);
             }
-            return value;
+
+            return value.ToString();
         }
+
 
         private string ReadUStringFromBits(string binary)
         {
