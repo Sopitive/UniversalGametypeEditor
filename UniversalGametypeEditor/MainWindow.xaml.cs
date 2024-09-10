@@ -122,7 +122,7 @@ namespace UniversalGametypeEditor
 
             //rg.ReadBinary();
 
-            //MegaloEditPatcher.Patch();
+            MegaloEditPatcher.Patch();
 
             CreatePlaylist.GetUUID();
             
