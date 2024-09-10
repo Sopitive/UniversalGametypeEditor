@@ -159,11 +159,12 @@ class MemoryScanner
             // Read the 8-byte hexadecimal value at the current offset address
             long value = ReadInt64(processHandle, currentAddress);
 
-            if (i < offsets.Length - 1)
+            if (i < offsets.Length)
             {
-                currentAddress = (IntPtr)value;
+                //Add the offset to the current address
+                 currentAddress = (IntPtr)value;
             }
-            
+
 
             // Convert the value to a hexadecimal string
             string hexValue = "0x" + value.ToString("X16");
