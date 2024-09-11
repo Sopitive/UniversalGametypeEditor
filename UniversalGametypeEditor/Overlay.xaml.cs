@@ -235,9 +235,11 @@ namespace UniversalGametypeEditor
             return globalnum;
         }
 
+        
+
         private void GetMegaloObjects()
         {
-            int[] megalo_objects_address = new int[5] { 0x00C91C18, 0xf8, 0x18, 0x4C0, 0x4F0 };
+            int[] megalo_objects_address = new int[7] { 0x00C13088, 0x650, 0x590, 0x140, 0x1F8, 0xF30, 0x4F0 };
 
             // Scan the memory to get the address of megalo_objects
             MemoryScanner.ScanPointer(megalo_objects_address, out int megalo_objects, out IntPtr address);
@@ -246,6 +248,27 @@ namespace UniversalGametypeEditor
             {
                 // Handle invalid address
                 return;
+            }
+
+            
+            MemoryScanner.ScanPointer(new int[1] { 0x28799C4 },out int forge_count, out IntPtr forge_address);
+
+            if (forge_address != IntPtr.Zero)
+            {
+                //Get the last 2 bytes of forge_address
+                string forge_count_string = forge_address.ToString("X").Substring(12, 4);
+                forge_count = Convert.ToInt32(forge_count_string, 16);
+            }
+            if (forge_address == IntPtr.Zero && processes.Length > 0)
+            {
+                IntPtr forge_object_count = IntPtr.Subtract(address, 0x2FC);
+                forge_count = (int)MemoryScanner.ReadInt16(processes[0].Handle, forge_object_count);
+            }
+
+
+            if (forge_count > 0)
+            {
+                ForgeObjectCount.Text = $"Forge Objects: {forge_count}";
             }
 
             // Add 68 bytes to the address to get the count of objects
