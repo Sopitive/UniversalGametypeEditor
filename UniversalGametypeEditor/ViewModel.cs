@@ -34,23 +34,7 @@ namespace UniversalGametypeEditor
         }
     }
 
-    [AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
-    sealed class BitSizeAttribute : Attribute
-    {
-        public int Bits { get; }
-        public Type DictionaryType { get; }
-
-        public BitSizeAttribute(int bits)
-        {
-            Bits = bits;
-        }
-
-        public BitSizeAttribute(int bits, Type dictionaryType)
-        {
-            Bits = bits;
-            DictionaryType = dictionaryType;
-        }
-    }
+    
 
 
 
