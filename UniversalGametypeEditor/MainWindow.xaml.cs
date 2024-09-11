@@ -916,6 +916,14 @@ namespace UniversalGametypeEditor
                     {
                         property.SetValue(viewModel, false);
                     };
+                    gd.enabled.Unchecked += (sender, e) =>
+                    {
+                        var enumType = nestedproperty.GetType();
+                        var enumValues = Enum.GetValues(enumType);
+                        var enumList = new List<Enum>(enumValues.Cast<Enum>());
+                        var enumValue = enumList[gd.enum_dropdown.SelectedIndex];
+                        property.SetValue(viewModel, enumValue);
+                    };
                     gd.enum_dropdown.SelectionChanged += (sender, e) =>
                     {
                         var enumType = nestedproperty.GetType();

@@ -741,7 +741,6 @@
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="OverlayToggle" Header="ToggleOverlay" ToolTip="Toggle Overlay" Click="ToggleOverlay" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="MegaloEditPatch" Header="Patch MegaloEdit" ToolTip="Allow All Actions In MegaloEdit Local Trigger" Click="PatchMegaloEdit" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
-                    
                 </Menu>
                 <Popup Name="Tutorial" Height="Auto" Width="200" IsOpen="True" PlacementTarget="{Binding ElementName=Menu}" Placement="Bottom">
                     <StackPanel Background="Transparent">
