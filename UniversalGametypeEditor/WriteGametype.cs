@@ -21,7 +21,7 @@ namespace UniversalGametypeEditor
         private string rawBinary = "";
         private string modifiedBinary = "";
         
-        public void WriteBinaryFile(string filename, GametypeHeader gt, FileHeaderViewModel fh, GametypeHeaderViewModel gh, ModeSettingsViewModel ms, SpawnSettingsViewModel ss, GameSettingsViewModel gs, PowerupTraitsViewModel ps, TeamSettingsViewModel ts)
+        public void WriteBinaryFile(string filename, GametypeHeader gt, FileHeaderViewModel fh, GametypeHeaderViewModel gh, ModeSettingsViewModel ms, SpawnSettingsViewModel ss, GameSettingsViewModel gs, PowerupTraitsViewModel ps, TeamSettingsViewModel ts, LoadoutClusterViewModel lc)
         {
             //Write the bytes for the file, starting at file offset 2F0
             byte[] bytes = File.ReadAllBytes(filename);

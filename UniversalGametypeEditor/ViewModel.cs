@@ -14,29 +14,23 @@ namespace UniversalGametypeEditor
 
 
 
-    public class SharedProperties
+    
+
+    [AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
+    sealed class BitSizeAttribute : Attribute
     {
-        public dynamic Value { get; set; }
-        public int Bits { get; set; }
+        public int Bits { get; }
+        public Type DictionaryType { get; }
 
-        public dynamic EnumTranslations { get; set; }
-
-
-
-        public SharedProperties(int bits)
+        public BitSizeAttribute(int bits)
         {
             Bits = bits;
         }
 
-        public static implicit operator int(SharedProperties p)
+        public BitSizeAttribute(int bits, Type dictionaryType)
         {
-            return (int)p.Value;
-        }
-
-
-        public static implicit operator SharedProperties(int value)
-        {
-            return new SharedProperties(0) { Value = value };
+            Bits = bits;
+            DictionaryType = dictionaryType;
         }
     }
 
@@ -60,22 +54,11 @@ namespace UniversalGametypeEditor
 
 
 
+
     public class FileHeaderViewModel : INotifyPropertyChanged
     {
         private FileHeader data;
-        private SharedProperties _mpvr;
-        private SharedProperties _megaloVersion;
-        private SharedProperties _unknown0x2F8;
-        private SharedProperties _unknown0x2FA;
-        private SharedProperties _unknownHash0x2FC;
-        private SharedProperties _Blank0x310;
-        private SharedProperties _Fileusedsize;
-        private SharedProperties _Unknown0x318;
-        private SharedProperties _variantType;
-        private SharedProperties _Unknown0x319 = new(4);
-        private SharedProperties _Unknown0x31D = new(32);
-        private SharedProperties _Unknown0x31C = new(32);
-        private SharedProperties _FileLength = new(32);
+        
 
 
         public FileHeaderViewModel(object data)
@@ -934,15 +917,6 @@ namespace UniversalGametypeEditor
     public class PlayerTraitsViewModel
     {
         private PlayerTraits data;
-
-        private SharedProperties _healthMultiplyer;
-        private SharedProperties _healthRegenRate;
-        private SharedProperties _damageResistance;
-        private SharedProperties _shieldRegenRate;
-        private SharedProperties _shieldMultiplyer;
-        private SharedProperties _overshieldRegenRate;
-        private SharedProperties _headshotImmunity;
-        private SharedProperties _shieldVampirism;
 
 
         public PlayerTraitsViewModel(PlayerTraits data)
@@ -2571,10 +2545,6 @@ namespace UniversalGametypeEditor
             this.reachSettings = reachSettings;
         }
 
-        private SharedProperties _respawnOnKills;
-        private SharedProperties _respawnAtLocationUnused;
-        private SharedProperties _respawnWithTeammateUnused;
-        private SharedProperties _respawnSyncWithTeam;
         [BitSize(1)]
         public bool RespawnOnKills
         {
@@ -2859,8 +2829,6 @@ namespace UniversalGametypeEditor
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
-
-
 
     public class H2AH4GameSettingsViewModel
     {
@@ -3304,19 +3272,6 @@ namespace UniversalGametypeEditor
 
     }
 
-    //to.TertiarycolorOverride = ConvertToInt(GetValue(1));
-    //            to.SecondarycolorOverride = ConvertToInt(GetValue(1));
-    //            to.PrimarycolorOverride = ConvertToInt(GetValue(1));
-    //            to.TeamEnabled = ConvertToInt(GetValue(1));
-                
-    //            to.Teamstring = ReadLangStrings(5, 1, true);
-    //to.InitialDesignator = ConvertToInt(GetValue(4));
-    //            to.Elitespecies = ConvertToInt(GetValue(1));
-    //            to.PrimaryColor = ConvertToInt(GetValue(32));
-    //            to.SecondaryColor = ConvertToInt(GetValue(32));
-    //            to.TertiaryColor = ConvertToInt(GetValue(32));
-    //            to.FireteamCount = ConvertToInt(GetValue(5));
-
     public class TeamOptionsViewModel : INotifyPropertyChanged
     {
         public TeamOptions teamOptions;
@@ -3486,5 +3441,208 @@ namespace UniversalGametypeEditor
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
+
+    public class LoadoutClusterViewModel : INotifyPropertyChanged
+    {
+        private LoadoutCluster loadoutCluster;
+
+        public LoadoutClusterViewModel(LoadoutCluster loadoutCluster)
+        {
+            this.loadoutCluster = loadoutCluster;
+            SpartanLoadout1 = new LoadoutViewModel(loadoutCluster.Loadout1);
+            SpartanLoadout2 = new LoadoutViewModel(loadoutCluster.Loadout2);
+            SpartanLoadout3 = new LoadoutViewModel(loadoutCluster.Loadout3);
+            SpartanLoadout4 = new LoadoutViewModel(loadoutCluster.Loadout4);
+            SpartanLoadout5 = new LoadoutViewModel(loadoutCluster.Loadout5);
+            SpartanLoadout6 = new LoadoutViewModel(loadoutCluster.Loadout6);
+            SpartanLoadout7 = new LoadoutViewModel(loadoutCluster.Loadout7);
+            SpartanLoadout8 = new LoadoutViewModel(loadoutCluster.Loadout8);
+            SpartanLoadout9 = new LoadoutViewModel(loadoutCluster.Loadout9);
+            SpartanLoadout10 = new LoadoutViewModel(loadoutCluster.Loadout10);
+            SpartanLoadout11 = new LoadoutViewModel(loadoutCluster.Loadout11);
+            SpartanLoadout12 = new LoadoutViewModel(loadoutCluster.Loadout12);
+            SpartanLoadout13 = new LoadoutViewModel(loadoutCluster.Loadout13);
+            SpartanLoadout14 = new LoadoutViewModel(loadoutCluster.Loadout14);
+            SpartanLoadout15 = new LoadoutViewModel(loadoutCluster.Loadout15);
+            EliteLoadout1 = new LoadoutViewModel(loadoutCluster.Loadout16);
+            EliteLoadout2 = new LoadoutViewModel(loadoutCluster.Loadout17);
+            EliteLoadout3 = new LoadoutViewModel(loadoutCluster.Loadout18);
+            EliteLoadout4 = new LoadoutViewModel(loadoutCluster.Loadout19);
+            EliteLoadout5 = new LoadoutViewModel(loadoutCluster.Loadout20);
+            EliteLoadout6 = new LoadoutViewModel(loadoutCluster.Loadout21);
+            EliteLoadout7 = new LoadoutViewModel(loadoutCluster.Loadout22);
+            EliteLoadout8 = new LoadoutViewModel(loadoutCluster.Loadout23);
+            EliteLoadout9 = new LoadoutViewModel(loadoutCluster.Loadout24);
+            EliteLoadout10 = new LoadoutViewModel(loadoutCluster.Loadout25);
+            EliteLoadout11 = new LoadoutViewModel(loadoutCluster.Loadout26);
+            EliteLoadout12 = new LoadoutViewModel(loadoutCluster.Loadout27);
+            EliteLoadout13 = new LoadoutViewModel(loadoutCluster.Loadout28);
+            EliteLoadout14 = new LoadoutViewModel(loadoutCluster.Loadout29);
+            EliteLoadout15 = new LoadoutViewModel(loadoutCluster.Loadout30);
+
+        }
+        [BitSize(1)]
+        public bool EliteLoadoutsEnabled
+        {
+            get { return Convert.ToBoolean(loadoutCluster.EliteLoadoutsEnabled); }
+            set
+            {
+                if (Convert.ToBoolean(loadoutCluster.EliteLoadoutsEnabled) != value)
+                {
+                    loadoutCluster.EliteLoadoutsEnabled = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(EliteLoadoutsEnabled));
+                }
+            }
+        }
+        [BitSize(1)]
+        public bool SpartanLoadoutsEnabled
+        {
+            get { return Convert.ToBoolean(loadoutCluster.SpartanLoadoutsEnabled); }
+            set
+            {
+                if (Convert.ToBoolean(loadoutCluster.SpartanLoadoutsEnabled) != value)
+                {
+                    loadoutCluster.SpartanLoadoutsEnabled = Convert.ToInt32(value);
+                    OnPropertyChanged(nameof(SpartanLoadoutsEnabled));
+                }
+            }
+        }
+
+        public LoadoutViewModel SpartanLoadout1 { get; set; }
+        public LoadoutViewModel SpartanLoadout2 { get; set; }
+        public LoadoutViewModel SpartanLoadout3 { get; set; }
+        public LoadoutViewModel SpartanLoadout4 { get; set; }
+        public LoadoutViewModel SpartanLoadout5 { get; set; }
+        public LoadoutViewModel SpartanLoadout6 { get; set; }
+        public LoadoutViewModel SpartanLoadout7 { get; set; }
+        public LoadoutViewModel SpartanLoadout8 { get; set; }
+
+        public LoadoutViewModel SpartanLoadout9 { get; set; }
+        public LoadoutViewModel SpartanLoadout10 { get; set; }
+        public LoadoutViewModel SpartanLoadout11 { get; set; }
+        public LoadoutViewModel SpartanLoadout12 { get; set; }
+        public LoadoutViewModel SpartanLoadout13 { get; set; }
+        public LoadoutViewModel SpartanLoadout14 { get; set; }
+        public LoadoutViewModel SpartanLoadout15 { get; set; }
+        public LoadoutViewModel EliteLoadout1 { get; set; }
+        public LoadoutViewModel EliteLoadout2 { get; set; }
+        public LoadoutViewModel EliteLoadout3 { get; set; }
+        public LoadoutViewModel EliteLoadout4 { get; set; }
+        public LoadoutViewModel EliteLoadout5 { get; set; }
+        public LoadoutViewModel EliteLoadout6 { get; set; }
+        public LoadoutViewModel EliteLoadout7 { get; set; }
+        public LoadoutViewModel EliteLoadout8 { get; set; }
+        public LoadoutViewModel EliteLoadout9 { get; set; }
+        public LoadoutViewModel EliteLoadout10 { get; set; }
+        public LoadoutViewModel EliteLoadout11 { get; set; }
+        public LoadoutViewModel EliteLoadout12 { get; set; }
+        public LoadoutViewModel EliteLoadout13 { get; set; }
+        public LoadoutViewModel EliteLoadout14 { get; set; }
+        public LoadoutViewModel EliteLoadout15 { get; set; }
+
+
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class LoadoutViewModel : INotifyPropertyChanged
+    {
+        private LoadoutOptions loadout;
+
+        public LoadoutViewModel(LoadoutOptions loadout)
+        {
+            this.loadout = loadout;
+        }
+        [BitSize(1)]
+        public int LoadoutVisibleInGame
+        {
+            get { return loadout.LoadoutVisibleingame; }
+            set
+            {
+                if (loadout.LoadoutVisibleingame != value)
+                {
+                    loadout.LoadoutVisibleingame = value;
+                    OnPropertyChanged(nameof(LoadoutVisibleInGame));
+                }
+            }
+        }
+        [BitSize(1)]
+        public int LoadoutName
+        {
+            get { return loadout.LoadoutName; }
+            set
+            {
+                if (loadout.LoadoutName != value)
+                {
+                    loadout.LoadoutName = value;
+                    OnPropertyChanged(nameof(LoadoutName));
+                }
+            }
+        }
+        [BitSize(8)]
+        public WeaponEnum PrimaryWeapon
+        {
+            get { return (WeaponEnum)loadout.PrimaryWeapon; }
+            set
+            {
+                if ((WeaponEnum)loadout.PrimaryWeapon != value)
+                {
+                    loadout.PrimaryWeapon = (int)value;
+                    OnPropertyChanged(nameof(PrimaryWeapon));
+                }
+            }
+        }
+        [BitSize(8)]
+        public WeaponEnum SecondaryWeapon
+        {
+            get { return (WeaponEnum)loadout.SecondaryWeapon; }
+            set
+            {
+                if ((WeaponEnum)loadout.SecondaryWeapon != value)
+                {
+                    loadout.SecondaryWeapon = (int)value;
+                    OnPropertyChanged(nameof(SecondaryWeapon));
+                }
+            }
+        }
+        [BitSize(8)]
+        public int ArmorAbility
+        {
+            get { return loadout.Armorability; }
+            set
+            {
+                if (loadout.Armorability != value)
+                {
+                    loadout.Armorability = value;
+                    OnPropertyChanged(nameof(ArmorAbility));
+                }
+            }
+        }
+        [BitSize(4)]
+        public int Grenades
+        {
+            get { return loadout.Grenades; }
+            set
+            {
+                if (loadout.Grenades != value)
+                {
+                    loadout.Grenades = value;
+                    OnPropertyChanged(nameof(Grenades));
+                }
+            }
+        }
+
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
 
 }

@@ -36,6 +36,7 @@ using static System.Net.Mime.MediaTypeNames;
 using static UniversalGametypeEditor.MegaloEditPatcher;
 using System.Collections;
 using System.Runtime.Serialization;
+using Microsoft.Win32;
 
 
 
@@ -92,8 +93,26 @@ namespace UniversalGametypeEditor
             }
         }
 
-        
 
+        public static string? GetSteamPath()
+        {
+            const string steamRegistryKey = @"Software\Valve\Steam";
+            const string steamRegistryValue = "SteamPath";
+
+            using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(steamRegistryKey))
+            {
+                if (key != null)
+                {
+                    object? value = key.GetValue(steamRegistryValue);
+                    if (value != null)
+                    {
+                        return value.ToString();
+                    }
+                }
+            }
+
+            return null;
+        }
 
 
 
@@ -106,8 +125,7 @@ namespace UniversalGametypeEditor
         public MainWindow()
         {
             InitializeComponent();
-            UpdateSettingsFromFile();
-            UpdateDirHistoryComboBox();
+            
 
             //CheckForUpdates(null, null);
 
@@ -122,18 +140,66 @@ namespace UniversalGametypeEditor
 
             //rg.ReadBinary();
 
-            MegaloEditPatcher.Patch();
+            //MegaloEditPatcher.Patch();
 
             CreatePlaylist.GetUUID();
             
-
+            if (Settings.Default.GameDir == "Undefined")
+            {
+                //Attempt to autmoatically locate the game directory
+                string steamPath = GetSteamPath();
+                if (steamPath != null)
+                {
+                    string gameDir = $"{steamPath}\\steamapps\\common\\Halo The Master Chief Collection";
+                    if (Directory.Exists(gameDir))
+                    {
+                        Settings.Default.GameDir = gameDir;
+                        Settings.Default.Save();
+                    }
+                }   
+            }
 
             if (Settings.Default.GameDir != "Undefined")
             {
+
+                // Check if the haloreach\game_variants, groundhog\game_variants, and halo4\game_variants directories exist in the file paths that are watched
+                StringCollection watchedFolders = Settings.Default.FilePathList;
+
+                // Initialize the collection if it is null
+                if (watchedFolders == null)
+                {
+                    watchedFolders = new StringCollection();
+                    Settings.Default.FilePathList = watchedFolders;
+                }
+
+                // Add the game variants folders to the watched folders
+                if (!watchedFolders.Contains($"{Settings.Default.GameDir}\\haloreach\\game_variants"))
+                {
+                    watchedFolders.Add($"{Settings.Default.GameDir}\\haloreach\\game_variants");
+                }
+                if (!watchedFolders.Contains($"{Settings.Default.GameDir}\\groundhog\\game_variants"))
+                {
+                    watchedFolders.Add($"{Settings.Default.GameDir}\\groundhog\\game_variants");
+                }
+                if (!watchedFolders.Contains($"{Settings.Default.GameDir}\\halo4\\game_variants"))
+                {
+                    watchedFolders.Add($"{Settings.Default.GameDir}\\halo4\\game_variants");
+                }
+
+                Settings.Default.FilePath = $"{Settings.Default.GameDir}\\haloreach\\game_variants";
+                Settings.Default.GameIndex = 0;
+
+                // Save the updated settings
+                Settings.Default.Save();
+
+
                 DetectMenus($"{Settings.Default.GameDir}\\haloreach\\game_variants\\koth_054.bin", "Halo Reach");
                 DetectMenus($"{Settings.Default.GameDir}\\groundhog\\game_variants\\H2A_100_150_Slayer_Pro_137.bin", "Halo 2 Anniversary");
                 DetectMenus($"{Settings.Default.GameDir}\\halo4\\game_variants\\H4_CTF_132.bin", "Halo 4");
             }
+
+            UpdateSettingsFromFile();
+            UpdateDirHistoryComboBox();
 
             FilesListWatched.SelectionChanged += FilesListWatched_SelectionChanged;
             FilesListHR.SelectionChanged += FilesListHR_SelectionChanged;
@@ -587,6 +653,7 @@ namespace UniversalGametypeEditor
         private GameSettingsViewModel viewModel5;
         private PowerupTraitsViewModel viewModel6;
         private TeamSettingsViewModel viewModel7;
+        private LoadoutClusterViewModel viewModel8;
 
         private void CompileGametype(object sender, RoutedEventArgs e)
         {
@@ -607,7 +674,7 @@ namespace UniversalGametypeEditor
                 string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
                 if (File.Exists(filePath))
                 {
-                    wg.WriteBinaryFile(filePath, deserializedJSON2, viewModel, viewModel2, viewModel3, viewModel4, viewModel5, viewModel6, viewModel7);
+                    wg.WriteBinaryFile(filePath, deserializedJSON2, viewModel, viewModel2, viewModel3, viewModel4, viewModel5, viewModel6, viewModel7, viewModel8);
                 }
                 
                 //Reselect the selected item
@@ -642,7 +709,7 @@ namespace UniversalGametypeEditor
                 var property = properties[i];
                 var propertyValue = property.GetValue(viewModel);
                 PropertyInfo[] nestedProperties = property.PropertyType.GetProperties();
-                if (propertyValue != null && !(propertyValue is SharedProperties) && (!IsPrimitive(property.PropertyType) && nestedProperties.Length > 0) && property.PropertyType != typeof(int?))
+                if (propertyValue != null && (!IsPrimitive(property.PropertyType) && nestedProperties.Length > 0) && property.PropertyType != typeof(int?))
 
                 {
                     // If the property is an instance of a class, iterate through its properties
@@ -669,26 +736,7 @@ namespace UniversalGametypeEditor
                             GametypeData gd = new();
                             gd.value_name.Text = nestedProperty.Name;
                             var nestedproperty = nestedPropertyValue;
-                            if (nestedPropertyValue is SharedProperties)
-                            {
-                                
-                                property = propertyValue.GetType().GetProperty("Value");
-                                //Get the property named "Value" from the SharedProperties class
-                                var sharedPropertyValue = nestedPropertyValue.GetType().GetProperty("Value").GetValue(nestedPropertyValue);
-                                nestedPropertyValue = sharedPropertyValue;
-                                int maxLen = nestedproperty.GetType().GetProperty("Bits").GetValue(nestedproperty) as int? ?? 100;
-                                //Check if the property value is an int and if it is divide by 8
-                                if (nestedPropertyValue.GetType() == typeof(int))
-                                {
-                                    maxLen /= 8;
-                                }
-                                if (nestedPropertyValue.GetType() == typeof(string))
-                                {
-                                    maxLen /= 8;
-                                }
-                                gd.value.MaxLength = maxLen;
-
-                            }
+                            
                             if (nestedPropertyValue.GetType() == typeof(bool))
                             {
                                 gd.value.Visibility = Visibility.Collapsed;
@@ -746,51 +794,20 @@ namespace UniversalGametypeEditor
                             DropdownData.Children.Add(gd);
                             gd.value.TextChanged += (sender, e) =>
 {
-                            if (nestedProperty.PropertyType == typeof(SharedProperties))
-                            {
-                                // Convert the text to the type of the Value property of SharedProperties
-                                var val = Convert.ChangeType(gd.value.Text, typeof(int));
-                                // Create a new SharedProperties object
-                                var newSharedProperty = new SharedProperties(1) { Value = val };
-                                // Set the property to the new SharedProperties object
-                                nestedProperty.SetValue(propertyValue, newSharedProperty);
-                            }
-                            else
-                            {
-                                // Handle other types
+                            
                                 var val = Convert.ChangeType(gd.value.Text, nestedProperty.PropertyType);
                                 nestedProperty.SetValue(propertyValue, val);
-                            }
 
 };
 
 
                             gd.enabled.Checked += (sender, e) =>
                             {
-                                
-                                if (nestedproperty is SharedProperties)
-                                {
-                                    //Get the property named "Value" from the SharedProperties class
-                                    var sharedProperty = nestedproperty.GetType().GetProperty("Value");
-                                    sharedProperty.SetValue(nestedproperty, true);
-                                }
-                                else
-                                {
-                                    nestedProperty.SetValue(propertyValue, true);
-                                }
+                                nestedProperty.SetValue(propertyValue, true);
                             };
                             gd.enabled.Unchecked += (sender, e) =>
                             {
-                                if (nestedproperty is SharedProperties)
-                                {
-                                    //Get the property named "Value" from the SharedProperties class
-                                    var sharedProperty = nestedproperty.GetType().GetProperty("Value");
-                                    sharedProperty.SetValue(nestedproperty, false);
-                                }
-                                else
-                                {
-                                    nestedProperty.SetValue(propertyValue, false);
-                                }
+                                 nestedProperty.SetValue(propertyValue, false);
                             };
 
                             gd.enum_dropdown.SelectionChanged += (sender, e) =>
@@ -812,29 +829,7 @@ namespace UniversalGametypeEditor
                     GametypeData gd = new();
                     gd.value_name.Text = property.Name;
                     var nestedproperty = propertyValue;
-                    if (propertyValue is SharedProperties)
-                    {
-                        property = propertyValue.GetType().GetProperty("Value");
-                        //Get the property named "Value" from the SharedProperties class
-                        var sharedPropertyValue = propertyValue.GetType().GetProperty("Value").GetValue(propertyValue);
-                        propertyValue = sharedPropertyValue;
-                        if (propertyValue == null)
-                        {
-                            continue;
-                        }
-                        int maxLen = nestedproperty.GetType().GetProperty("Bits").GetValue(nestedproperty) as int? ?? 100;
-                        //Check if the property value is an int and if it is divide by 8
-                        if (propertyValue != null && propertyValue.GetType() == typeof(int))
-                        {
-                            maxLen /= 8;
-                        }
-                        if (propertyValue != null && propertyValue.GetType() == typeof(string))
-                        {
-                            maxLen /= 8;
-                        }
-                        gd.value.MaxLength = maxLen;
-
-                    }
+                    
                     //Check if the value is a boolean and if it is, hide the text box and show the checkbox
                     if (propertyValue != null && propertyValue.GetType() == typeof(bool)) {
                         gd.value.Visibility = Visibility.Collapsed;
@@ -915,25 +910,19 @@ namespace UniversalGametypeEditor
 
                     gd.enabled.Checked += (sender, e) =>
                     {
-                        if (nestedproperty is SharedProperties)
-                        {
-                            property.SetValue(nestedproperty, true);
-                        }
-                        else
-                        {
-                            property.SetValue(viewModel, true);
-                        }
+                        property.SetValue(viewModel, true);
                     };
                     gd.enabled.Unchecked += (sender, e) =>
                     {
-                        if (nestedproperty is SharedProperties)
-                        {
-                            property.SetValue(nestedproperty, false);
-                        }
-                        else
-                        {
-                            property.SetValue(viewModel, false);
-                        }
+                        property.SetValue(viewModel, false);
+                    };
+                    gd.enabled.Unchecked += (sender, e) =>
+                    {
+                        var enumType = nestedproperty.GetType();
+                        var enumValues = Enum.GetValues(enumType);
+                        var enumList = new List<Enum>(enumValues.Cast<Enum>());
+                        var enumValue = enumList[gd.enum_dropdown.SelectedIndex];
+                        property.SetValue(viewModel, enumValue);
                     };
                     gd.enum_dropdown.SelectionChanged += (sender, e) =>
                     {
@@ -1035,6 +1024,13 @@ namespace UniversalGametypeEditor
                     {
                         viewModel7 = new TeamSettingsViewModel(deserializedJSON7);
                         AddDataToUI<TeamSettingsViewModel>(viewModel7, "Team Settings", Gametype);
+                    }
+                    JSON = rg.gt.loadoutCluster;
+                    LoadoutCluster? deserializedJSON8 = JsonConvert.DeserializeObject<LoadoutCluster>(JSON);
+                    if (rg.gt.loadoutCluster != null)
+                    {
+                        viewModel8 = new(deserializedJSON8);
+                        AddDataToUI<LoadoutClusterViewModel>(viewModel8, "Loadout Cluster", Gametype);
                     }
 
                 } catch (Exception ex)
@@ -1678,7 +1674,7 @@ namespace UniversalGametypeEditor
         {
             var filePath = String.Empty;
             var fileContent = String.Empty;
-            OpenFileDialog openFile = new()
+            System.Windows.Forms.OpenFileDialog openFile = new()
             {
                 InitialDirectory = "C:\\",
                 Filter = "txt files (*.txt)|binary files (*.bin)|megalo files (*.mglo)|*.txt|All Files (*.*)|(*.*)"
@@ -2438,22 +2434,47 @@ namespace UniversalGametypeEditor
                                 sw.Stop();
                                 UpdateLastEvent("Download Complete");
                                 // any other code to process the file
-                                //Write the node id to the settings file
+                                // Write the node id to the settings file
                                 Settings.Default.Version = node_id;
                                 Settings.Default.Save();
-                                //Move the zip file and the bat file up one directory and overwrite the existing files
+                                // Move the zip file and the bat file up one directory and overwrite the existing files
                                 File.Copy("UniversalGametypeEditor.zip", "..\\UniversalGametypeEditor.zip", true);
                                 File.Copy("unzip.bat", "..\\unzip.bat", true);
                                 Thread.Sleep(1000);
-                                //Start the unzip.bat file
-                                ProcessStartInfo startInfo = new()
+
+                                // Check if the batch file exists
+                                string batchFilePath = Path.GetFullPath("..\\unzip.bat");
+                                if (File.Exists(batchFilePath))
                                 {
-                                    FileName = "..\\unzip.bat",
-                                    //Arguments = "UniversalGametypeEditor.zip"
-                                };
-                                Process.Start(startInfo);
-                                //Close the current process
-                                Environment.Exit(0);
+                                    UpdateLastEvent("unzip.bat file found. Starting the process...");
+
+                                    // Start the unzip.bat file
+                                    ProcessStartInfo startInfo = new()
+                                    {
+                                        FileName = batchFilePath,
+                                        WorkingDirectory = Path.GetFullPath("..") // Set the working directory to the parent directory
+                                                                                  // Arguments = "UniversalGametypeEditor.zip"
+                                    };
+
+                                    Process process = Process.Start(startInfo);
+
+                                    if (process != null)
+                                    {
+                                        UpdateLastEvent("unzip.bat started successfully. Exiting the application...");
+                                        // Close the current process
+                                        Environment.Exit(0);
+                                    }
+                                    else
+                                    {
+                                        UpdateLastEvent("Failed to start unzip.bat.");
+                                    }
+                                }
+                                else
+                                {
+                                    UpdateLastEvent("unzip.bat file not found.");
+                                }
+
+
                             };
                             //Download the file on a background thread
                             client.DownloadFileAsync(new Uri("https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip"), "UniversalGametypeEditor.zip");

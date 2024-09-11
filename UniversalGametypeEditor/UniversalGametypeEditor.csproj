@@ -54,6 +54,9 @@
     </ItemGroup>
 
     <ItemGroup>
+      <None Update="cleanup.bat">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
       <None Update="mpvr.xml">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
