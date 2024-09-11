@@ -76,11 +76,11 @@
 
 
 
-        <SolidColorBrush x:Key="AccentColor" Color="#3D3D3D"/>
+        <SolidColorBrush x:Key="AccentColor" Color="#2D2D2D"/>
         <SolidColorBrush x:Key="TextColor" Color="White" />
         <SolidColorBrush x:Key="Menu.Static.Background" Color="#FFF0F0F0"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#3D3D3D"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#3D3D3D"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2D2D2D"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#2D2D2D"/>
         <Style x:Key="MenuStyle1" TargetType="{x:Type Menu}">
             <Setter Property="Background" Value="{StaticResource Menu.Static.Background}"/>
             <Setter Property="FontFamily" Value="{DynamicResource {x:Static SystemFonts.MenuFontFamilyKey}}"/>
@@ -104,7 +104,7 @@
         <SolidColorBrush x:Key="Menu.Static.Foreground" Color="#FF212121"/>
         <SolidColorBrush x:Key="Menu.Static.Separator" Color="#FFD7D7D7"/>
         <SolidColorBrush x:Key="Menu.Disabled.Foreground" Color="#FF707070"/>
-        <SolidColorBrush x:Key="MenuItem.Selected.Background" Color="#3D3D3D"/>
+        <SolidColorBrush x:Key="MenuItem.Selected.Background" Color="#2D2D2D"/>
         <SolidColorBrush x:Key="MenuItem.Selected.Border" Color="#FF26A0DA"/>
         <SolidColorBrush x:Key="MenuItem.Highlight.Background" Color="#333333"/>
         <SolidColorBrush x:Key="MenuItem.Highlight.Border" Color="#FF26A0DA"/>
@@ -496,7 +496,7 @@
                                     <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="true"/>
                                     <Condition Binding="{Binding IsEditable, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}" Value="false"/>
                                 </MultiDataTrigger.Conditions>
-                                <Setter Property="Background" TargetName="templateRoot" Value="#3D3D3D"/>
+                                <Setter Property="Background" TargetName="templateRoot" Value="#2D2D2D"/>
                                 <Setter Property="BorderBrush" TargetName="templateRoot" Value="{StaticResource ComboBox.MouseOver.Border}"/>
                             </MultiDataTrigger>
                             <MultiDataTrigger>
@@ -805,7 +805,7 @@
                                         <Setter Property="Background" Value="#333333"></Setter>
                                     </Trigger>
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="#3D3D3D" />
+                                        <Setter Property="Background" Value="#2D2D2D" />
                                     </Trigger>
                                 </Style.Triggers>
                                 <Setter Property="BorderBrush" Value="#333333"/>
@@ -889,7 +889,7 @@
                                         <Setter Property="Background" Value="#333333"></Setter>
                                     </Trigger>
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="#3D3D3D" />
+                                        <Setter Property="Background" Value="#2D2D2D" />
                                     </Trigger>
                                 </Style.Triggers>
                                 <Setter Property="BorderBrush" Value="#333333"/>
@@ -966,7 +966,7 @@
                                         <Setter Property="Background" Value="#333333"></Setter>
                                     </Trigger>
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="#3D3D3D" />
+                                        <Setter Property="Background" Value="#2D2D2D" />
                                     </Trigger>
                                 </Style.Triggers>
                                 <Setter Property="Padding" Value="5"/>
