@@ -7,12 +7,36 @@
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
     <Grid>
-        <Expander x:Name="Expander" Header="DropDown" Foreground="White" FontSize="14" Expanded="Expander_Expanded" >
-            <ScrollViewer VerticalScrollBarVisibility="Hidden" MaxHeight="300" Padding="0 0 0 100" Margin="15 0 0 0">
-                <StackPanel x:Name="DropdownData" ScrollViewer.VerticalScrollBarVisibility="Hidden">
-                
+        <Expander x:Name="Expander" Header="DropDown" Foreground="White" FontSize="14" Expanded="Expander_Expanded">
+            <Grid>
+                <ScrollViewer x:Name="Scroller" MaxHeight="300" VerticalScrollBarVisibility="Hidden" Padding="0 0 0 50" Margin="15 0 0 0">
+                    <StackPanel x:Name="DropdownData" ScrollViewer.VerticalScrollBarVisibility="Hidden">
+                        <!-- Add your items here -->
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Top scroll indicator and border -->
+                <StackPanel VerticalAlignment="Top" Margin="0">
+                    <Border Background="Gray" Height="1" Margin="0,0,0,5"/>
+                    <Border Background="#252526" Opacity="0.8" Margin="0,5,0,0">
+                        <Border.Effect>
+                            <BlurEffect Radius="5"/>
+                        </Border.Effect>
+                        <TextBlock x:Name="TopIndicator" Text="▲" Foreground="White" FontSize="16" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                    </Border>
                 </StackPanel>
-            </ScrollViewer>
+
+                <!-- Bottom scroll indicator and border -->
+                <StackPanel VerticalAlignment="Bottom" Margin="0">
+                    <Border Background="#252526" Opacity="0.8" Margin="0,0,0,5">
+                        <Border.Effect>
+                            <BlurEffect Radius="5"/>
+                        </Border.Effect>
+                        <TextBlock x:Name="BottomIndicator" Text="▼" Foreground="White" FontSize="16" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                    </Border>
+                    <Border Background="Gray" Height="1" Margin="0,5,0,0"/>
+                </StackPanel>
+            </Grid>
         </Expander>
     </Grid>
 </UserControl>

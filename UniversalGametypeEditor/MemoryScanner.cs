@@ -75,7 +75,7 @@ class MemoryScanner
                 throw new Exception("Process not responding or has exited");
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             
         }
@@ -88,6 +88,14 @@ class MemoryScanner
 
     public static bool ScanPointer(int[] offsets, out int result, out IntPtr address)
     {
+        //Check if EasyAntiCheat is running
+        Process[] processes = Process.GetProcessesByName("EasyAntiCheat");
+        if (processes.Length > 0)
+        {
+            result = 0;
+            address = IntPtr.Zero;
+            return false;
+        }
         
         if (process == null)
         {
@@ -151,11 +159,12 @@ class MemoryScanner
             // Read the 8-byte hexadecimal value at the current offset address
             long value = ReadInt64(processHandle, currentAddress);
 
-            if (i < offsets.Length - 1)
+            if (i < offsets.Length)
             {
-                currentAddress = (IntPtr)value;
+                //Add the offset to the current address
+                 currentAddress = (IntPtr)value;
             }
-            
+
 
             // Convert the value to a hexadecimal string
             string hexValue = "0x" + value.ToString("X16");

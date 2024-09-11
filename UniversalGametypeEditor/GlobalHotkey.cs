@@ -34,7 +34,7 @@ namespace UniversalGametypeEditor
         {
             if (!RegisterHotKey(hWnd, id, MOD_CONTROL, VK_NUMPAD7))
             {
-                // MessageBox.Show("Hotkey registration failed");
+                 MessageBox.Show("Hotkey registration failed");
             }
         }
 

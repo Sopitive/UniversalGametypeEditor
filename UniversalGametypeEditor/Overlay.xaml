@@ -75,6 +75,12 @@
                 <TextBlock Name="CoordsZ" Foreground="DeepSkyBlue" FontSize="15" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
             </StackPanel>
 
+            <StackPanel Grid.Column="1" Margin="28">
+                <TextBlock Name="MegaloObjectCount" Foreground="DeepSkyBlue" FontSize="15" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
+                <TextBlock Name="StaticObjectCount" Foreground="DeepSkyBlue" FontSize="15" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
+                <TextBlock Name="ForgeObjectCount" Foreground="DeepSkyBlue" FontSize="15" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
+            </StackPanel>
+
 
         </Grid>
 

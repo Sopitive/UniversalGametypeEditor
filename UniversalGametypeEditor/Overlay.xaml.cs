@@ -64,16 +64,35 @@ namespace UniversalGametypeEditor
             PreviewMouseWheel += (sender, e) => e.Handled = true;
             Cursor = Cursors.None;
             globalHotkey = new GlobalHotkey();
-            globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
-            globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
+            RegisterHotkey();
+            //globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
+            //globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
         }
 
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-            HwndSource source = PresentationSource.FromVisual(Application.Current.MainWindow) as HwndSource;
-            source.AddHook(WndProc); 
+            var mainWindow = Application.Current.MainWindow;
+            if (mainWindow != null)
+            {
+                HwndSource source = PresentationSource.FromVisual(mainWindow) as HwndSource;
+                if (source != null)
+                {
+                    source.AddHook(WndProc);
+                }
+                else
+                {
+                    // Handle the case where source is null
+                    Debug.WriteLine("HwndSource is null.");
+                }
+            }
+            else
+            {
+                // Handle the case where mainWindow is null
+                Debug.WriteLine("MainWindow is null.");
+            }
         }
+
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
@@ -93,10 +112,23 @@ namespace UniversalGametypeEditor
             return IntPtr.Zero;
         }
 
+        // Remove the unregistration from OnClosed
         protected override void OnClosed(EventArgs e)
         {
             base.OnClosed(e);
+        }
+
+        // Add a method to unregister the global hotkey
+        public void UnregisterHotkey()
+        {
             globalHotkey.UnregisterGlobalHotKey(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
+            globalHotkey.UnregisterGlobalHotKey(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
+        }
+
+        public void RegisterHotkey()
+        {
+            globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
+            globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
         }
 
         Process[] processes = Array.Empty<Process>();
@@ -203,6 +235,73 @@ namespace UniversalGametypeEditor
             return globalnum;
         }
 
+        
+
+        private void GetMegaloObjects()
+        {
+            int[] megalo_objects_address = new int[7] { 0x00C13088, 0x650, 0x590, 0x140, 0x1F8, 0xF30, 0x4F0 };
+
+            // Scan the memory to get the address of megalo_objects
+            MemoryScanner.ScanPointer(megalo_objects_address, out int megalo_objects, out IntPtr address);
+
+            if (address == IntPtr.Zero)
+            {
+                // Handle invalid address
+                return;
+            }
+
+            
+            MemoryScanner.ScanPointer(new int[1] { 0x28799C4 },out int forge_count, out IntPtr forge_address);
+
+            if (forge_address != IntPtr.Zero)
+            {
+                //Get the last 2 bytes of forge_address
+                string forge_count_string = forge_address.ToString("X").Substring(12, 4);
+                forge_count = Convert.ToInt32(forge_count_string, 16);
+            }
+            if (forge_address == IntPtr.Zero && processes.Length > 0)
+            {
+                IntPtr forge_object_count = IntPtr.Subtract(address, 0x2FC);
+                forge_count = (int)MemoryScanner.ReadInt16(processes[0].Handle, forge_object_count);
+            }
+
+
+            if (forge_count > 0)
+            {
+                ForgeObjectCount.Text = $"Forge Objects: {forge_count}";
+            }
+
+            // Add 68 bytes to the address to get the count of objects
+            IntPtr countAddress = IntPtr.Add(address, 0x44);
+
+            try
+            {
+                // Read the integer value at the countAddress
+                int object_count = (int)MemoryScanner.ReadInt64(processes[0].Handle, countAddress);
+
+                // Update the UI or handle the object count as needed
+                if (object_count > 0)
+                {
+                    MegaloObjectCount.Text = $"Megalo Objects: {object_count}";
+                }
+
+                //Get Static Object Count (64 bytes after the megalo_objects address)
+                IntPtr staticCountAddress = IntPtr.Add(address, 0x40);
+                int static_object_count = (int)MemoryScanner.ReadInt64(processes[0].Handle, staticCountAddress);
+                if (static_object_count > 0)
+                {
+                    StaticObjectCount.Text = $"Static Objects: {static_object_count}";
+                }
+
+            }
+            catch (AccessViolationException)
+            {
+                // Handle access violation
+            }
+        }
+
+
+
         private void GetCoordinates()
         {
             //Pointer haloreach.dll+4872890
@@ -237,6 +336,7 @@ namespace UniversalGametypeEditor
 
         private void UpdateGlobalNumbers(object sender, EventArgs e)
         {
+            GetMegaloObjects();
             GetCoordinates();
             processes = Process.GetProcessesByName("EasyAntiCheat");
             if (processes.Length > 0)
