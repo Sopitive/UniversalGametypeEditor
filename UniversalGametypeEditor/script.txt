@@ -1,0 +1,4 @@
+
+void Player() {
+    Object mong = create_object("revenant", current_player.biped);
+}

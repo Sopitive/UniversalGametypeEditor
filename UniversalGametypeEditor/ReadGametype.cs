@@ -37,12 +37,15 @@ namespace UniversalGametypeEditor
             public string? PowerupTraits;
             public string? TeamSettings;
             public string? loadoutCluster;
-            public string? scriptedPlayerTraits;
-            public string? scriptOptions;
-            public string? Strings;
-            public string? Game;
-            public Map Map;
-            public PlayerRatings playerratings;
+            public List<ScriptedPlayerTraits>? scriptedPlayerTraits; // Change to List
+            public ScriptOptionsViewModel scriptOptions;
+            public StringsViewModel Strings;
+            public GameViewModel Game;
+            public MapViewModel Map;
+            public PlayerRatingsViewModel playerratings;
+            public string Empty;
+            public ObservableCollection<ConditionViewModel> conditions;
+            public int scriptOffset;
         }
 
        
@@ -89,6 +92,11 @@ namespace UniversalGametypeEditor
             public string Description;
             public int GameIcon;
         }
+
+        public StringsViewModel StringsViewModel { get; set; } = new StringsViewModel();
+        public GameViewModel GameViewModel { get; set; } = new GameViewModel();
+        public MapViewModel MapViewModel { get; set; } = new MapViewModel();
+        public PlayerRatingsViewModel PlayerRatingsViewModel { get; set; } = new PlayerRatingsViewModel();
 
         public enum VariantTypeEnum
         {
@@ -741,7 +749,7 @@ namespace UniversalGametypeEditor
             public int TeamEnabled;
             public int Unknown;
             public int Unknown2;
-            public LanguageStrings Teamstring;
+            public string Teamstring;
             public int InitialDesignator;
             public int Elitespecies;
             public string PrimaryColor;
@@ -807,16 +815,24 @@ namespace UniversalGametypeEditor
 
         public class PowerupTraits
         {
-            public PlayerTraits? RedPlayerTraits { get; set; }
-            public PlayerTraits? BluePlayerTraits { get; set; }
-            public PlayerTraits? YellowPlayerTraits { get; set; }
-            public int? RedPowerupDuration;
-            public int? BluePowerupDuration;
-            public int? YellowPowerupDuration;
+            
+            
 
 
-            public H2AH4Settings H2AH4 { get; set; } // Fields exclusively for H2A+H4
+        public H2AH4Settings H2AH4 { get; set; } // Fields exclusively for H2A+H4
 
+
+        public ReachSettings Reach { get; set; } // Fields for Reach
+
+        public class ReachSettings
+            {
+                public int? RedPowerupDuration;
+                public int? BluePowerupDuration;
+                public int? YellowPowerupDuration;
+                public PlayerTraits? RedPlayerTraits { get; set; }
+                public PlayerTraits? BluePlayerTraits { get; set; }
+                public PlayerTraits? YellowPlayerTraits { get; set; }
+            }
 
             public class H2AH4Settings
             {
@@ -1045,12 +1061,12 @@ namespace UniversalGametypeEditor
 
         public class Strings
         {
-            public LanguageStrings Stringtable;
+            public string Stringtable;
             public int StringNameIndex;
-            public LanguageStrings metanameStrings;
-            public LanguageStrings metadescStrings;
-            public LanguageStrings metagroupStrings;
-            public LanguageStrings metaintroStrings;
+            public string metanameStrings;
+            public string metadescStrings;
+            public string metagroupStrings;
+            public string metaintroStrings;
         }
 
 
@@ -1746,8 +1762,498 @@ namespace UniversalGametypeEditor
             public int mappermsflip;
         }
 
+        private ScriptOptionsViewModel ReadScriptOptions()
+        {
+            var scriptOptionsViewModel = new ScriptOptionsViewModel();
+            scriptOptionsViewModel.Count = ConvertToInt(GetValue(5));
 
-     
+            for (int i = 0; i < scriptOptionsViewModel.Count; i++)
+            {
+                var so = new ScriptOptionItemViewModel(new ScriptOptions());
+
+                if (Settings.Default.DecompiledVersion == 0)
+                {
+                    so.String1 = ConvertToInt(GetValue(7));
+                    so.String2 = ConvertToInt(GetValue(7));
+                }
+                if (Settings.Default.DecompiledVersion > 0)
+                {
+                    so.String1 = ConvertToInt(GetValue(8));
+                    so.String2 = ConvertToInt(GetValue(8));
+                }
+                so.ScriptOption = ConvertToInt(GetValue(1));
+                if (so.ScriptOption == 0)
+                {
+                    if (Settings.Default.DecompiledVersion == 0)
+                    {
+                        so.ChildIndex = ConvertToInt(GetValue(3));
+                        so.ScriptOptionChild = ConvertToInt(GetValue(4));
+                    }
+                    if (Settings.Default.DecompiledVersion > 0)
+                    {
+                        so.ChildIndex = ConvertToInt(GetValue(4));
+                        so.ScriptOptionChild = ConvertToInt(GetValue(5));
+                    }
+
+                    for (int j = 0; j < so.ScriptOptionChild; j++)
+                    {
+                        so.Value = ConvertToInt(GetValue(10));
+                        if (Settings.Default.DecompiledVersion == 0)
+                        {
+                            so.String1 = ConvertToInt(GetValue(7));
+                            so.String2 = ConvertToInt(GetValue(7));
+                        }
+                        if (Settings.Default.DecompiledVersion > 0)
+                        {
+                            so.String1 = ConvertToInt(GetValue(8));
+                            so.String2 = ConvertToInt(GetValue(8));
+                        }
+                    }
+                    if (Settings.Default.DecompiledVersion == 0)
+                    {
+                        so.Unknown = ConvertToInt(GetValue(3));
+                    }
+                    if (Settings.Default.DecompiledVersion > 0)
+                    {
+                        so.ActualChildIndex = ConvertToInt(GetValue(4));
+                    }
+                }
+                if (so.ScriptOption == 1)
+                {
+                    so.Range1 = ConvertToInt(GetValue(10));
+                    so.Range2 = ConvertToInt(GetValue(10));
+                    so.Range3 = ConvertToInt(GetValue(10));
+                    so.Range4 = ConvertToInt(GetValue(10));
+                }
+
+                scriptOptionsViewModel.ScriptOptionItems.Add(so);
+            }
+
+            return scriptOptionsViewModel;
+        }
+
+        public StringsViewModel ReadStrings()
+        {
+            if (Settings.Default.DecompiledVersion > 0)
+            {
+                StringsViewModel.StringTable = ReadLangStrings(16, 8, false);
+                StringsViewModel.StringNameIndex = ConvertToInt(GetValue(8));
+                StringsViewModel.MetaNameStrings = ReadLangStrings(11, 1, false);
+                StringsViewModel.MetaDescStrings = ReadLangStrings(13, 1, false);
+                StringsViewModel.MetaIntroStrings = ReadLangStrings(13, 1, false);
+                StringsViewModel.MetaGroupStrings = ReadLangStrings(10, 1, false);
+            }
+
+            if (Settings.Default.DecompiledVersion == 0)
+            {
+                StringsViewModel.StringTable = ReadLangStrings(15, 7, false);
+                StringsViewModel.StringNameIndex = ConvertToInt(GetValue(7));
+                StringsViewModel.MetaNameStrings = ReadLangStrings(9, 1, false);
+                StringsViewModel.MetaDescStrings = ReadLangStrings(12, 1, false);
+                StringsViewModel.MetaGroupStrings = ReadLangStrings(9, 1, false);
+            }
+            return StringsViewModel;
+        }
+
+        public GameViewModel ReadGame()
+        {
+            GameViewModel.ActualGameIcon = ConvertToInt(GetValue(5));
+            GameViewModel.ActualGameCategory = ConvertToInt(GetValue(5));
+            if (Settings.Default.ConvertToForge)
+            {
+                GameViewModel.ActualGameCategory = 1;
+            }
+            return GameViewModel;
+        }
+
+        public MapViewModel ReadMap()
+        {
+            MapViewModel.MapCount = ConvertToInt(GetValue(6));
+            for (int i = 0; i < MapViewModel.MapCount; i++)
+            {
+                MapViewModel.MapVariantID = ConvertToInt(GetValue(16)).ToString();
+            }
+            MapViewModel.MapperMsFlip = ConvertToInt(GetValue(1));
+            return MapViewModel;
+        }
+
+        public PlayerRatingsViewModel ReadPlayerRatings()
+        {
+            PlayerRatingsViewModel.RatingScale = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.KillWeight = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.AssistWeight = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.BetrayalWeight = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.DeathWeight = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.NormalizeByMaxKills = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.BaseRating = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.Range = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.LossScalar = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.CustomStat0 = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.CustomStat1 = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.CustomStat2 = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.CustomStat3 = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.Expansion0 = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.Expansion1 = ConvertToInt(GetValue(32));
+            PlayerRatingsViewModel.ShowPlayerRatings = ConvertToInt(GetValue(1));
+            return PlayerRatingsViewModel;
+        }
+
+        public ObservableCollection<ConditionViewModel> ReadConditions()
+        {
+            var conditions = new ObservableCollection<ConditionViewModel>();
+            var conditionCount = ConvertToInt(GetValue(10));
+
+            for (int i = 0; i < conditionCount; i++)
+            {
+                var conditionViewModel = new ConditionViewModel
+                {
+                    ConditionType = ConvertToInt(GetValue(5))
+                };
+
+                // Parse condition attributes based on condition type.
+                switch (conditionViewModel.ConditionType)
+                {
+                    case 1: // Megl.If
+                        conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
+                        conditionViewModel.VarType2 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType2 = GetVarSpecificType(conditionViewModel.VarType2, conditionViewModel);
+                        conditionViewModel.Oper = ConvertToInt(GetValue(3));
+                        break;
+
+                    case 17: // Game.IsForge
+                             // No additional properties.
+                        break;
+
+                    case 3: // Player.WasKilled
+                        conditionViewModel.PlayerRef = GetPlayerTypeRef(ConvertToInt(GetValue(3)));
+                        conditionViewModel.DeathFlags = GetDeathFlags(ConvertToInt(GetValue(3)));
+                        break;
+
+                    case 10: // Obj.IsInBoundary
+                        conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
+                        conditionViewModel.Boundary = GetObjectTypeRef(ConvertToInt(GetValue(3)));
+                        break;
+
+                    case 11: // Obj.HasLabel
+                        conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
+                        conditionViewModel.Label = GetLabelRef(ConvertToInt(GetValue(3)));
+                        break;
+
+                    case 4: // Team.Disposition
+                        conditionViewModel.TeamRef = GetTeamTypeRef(ConvertToInt(GetValue(3)));
+                        conditionViewModel.TeamNumberIndex = ConvertToInt(GetValue(3)); // 3-bit team index.
+                        conditionViewModel.Allegiance = GetTeamDisposition(ConvertToInt(GetValue(3)));
+                        break;
+
+                    case 5: // Timer.IsZero
+                        conditionViewModel.TimerRef = GetTimerTypeRef(ConvertToInt(GetValue(3)));
+                        break;
+
+                    case 6: // Obj.IsOfType
+                        conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
+                        conditionViewModel.Type1 = GetObjectType(ConvertToInt(GetValue(3)));
+                        break;
+
+                    case 7: // Team.HasPlayers
+                        conditionViewModel.TeamRef = GetTeamTypeRef(ConvertToInt(GetValue(3)));
+                        conditionViewModel.TeamNumberIndex = ConvertToInt(GetValue(3)); // 3-bit value.
+                        break;
+
+                    case 8: // Obj.IsOuttaBounds
+                        conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
+                        break;
+
+                    case 12: // Player.IsAlive
+                        conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
+                        break;
+
+                    case 13: // Obj.EquipInUse
+                        conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
+                        break;
+
+                    case 14: // Player.IsSpartan
+                        conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
+                        break;
+
+                    case 15: // Player.IsElite
+                        conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
+                        break;
+
+                    case 16: // Player.IsMonitor
+                        conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
+                        conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
+                        break;
+
+                    default:
+                        // Handle other cases or unknown types.
+                        break;
+                }
+
+                conditionViewModel.Not = ConvertToInt(GetValue(1)) == 1;
+                conditionViewModel.OrSequence = ConvertToInt(GetValue(9));
+
+                conditions.Add(conditionViewModel);
+            }
+
+            return conditions;
+        }
+
+
+
+
+
+
+
+
+        private string GetTeamDisposition(int disposition)
+        {
+            switch (disposition)
+            {
+                case 0: return "Neutral";
+                case 1: return "Ally";
+                case 2: return "Enemy";
+                default: return "UnknownDisposition";
+            }
+        }
+
+        private string GetObjectType(int type)
+        {
+            switch (type)
+            {
+                case 0: return "Vehicle";
+                case 1: return "Weapon";
+                case 2: return "Scenery";
+                // Add other types based on XML definition.
+                default: return "UnknownObjectType";
+            }
+        }
+
+        private string GetLabelRef(int label)
+        {
+            switch (label)
+            {
+                case 0: return "None";
+                case 1: return "LabelA";
+                case 2: return "LabelB";
+                default: return "UnknownLabel";
+            }
+        }
+
+
+        private string GetVarSpecificType(int varType, ConditionViewModel condition)
+        {
+            switch (varType)
+            {
+                case 0: // NumericVar
+                    int numericRefType = ConvertToInt(GetValue(6));
+                    if (numericRefType == 0) // Int16
+                    {
+                        condition.NumericValue = ConvertToInt(GetValue(16)); // Read the actual Int16 value
+                        return "Int16";
+                    }
+                    else if (numericRefType == 1) // Player.Number
+                    {
+                        condition.PlayerRef = GetPlayerTypeRef(ConvertToInt(GetValue(5))); // 5-bit Player reference
+                        condition.PlayerNumberIndex = ConvertToInt(GetValue(3)); // 3-bit value for Player.Number
+                        return "Player.Number";
+                    }
+                    else if (numericRefType == 2) // Object.Number
+                    {
+                        condition.ObjectRef = GetObjectTypeRef(ConvertToInt(GetValue(5))); // 5-bit Object reference
+                        condition.ObjectNumberIndex = ConvertToInt(GetValue(3)); // 3-bit value for Object.Number
+                        return "Object.Number";
+                    }
+                    else if (numericRefType == 3) // Team.Number
+                    {
+                        condition.TeamRef = GetTeamTypeRef(ConvertToInt(GetValue(5))); // 5-bit Team reference
+                        condition.TeamNumberIndex = ConvertToInt(GetValue(3)); // 3-bit value for Team.Number
+                        return "Team.Number";
+                    }
+                    else if (numericRefType == 4) // Global.Number
+                    {
+                        condition.GlobalNumberIndex = ConvertToInt(GetValue(4)); // 4-bit value for Global.Number
+                        return "Global.Number";
+                    }
+                    else
+                    {
+                        return GetNumericRefType(numericRefType); // Handle other numeric reference types
+                    }
+
+                case 1: // PlayerVar
+                    condition.PlayerRef = GetPlayerTypeRef(ConvertToInt(GetValue(5))); // 5-bit Player reference
+                    return condition.PlayerRef;
+
+                case 2: // ObjectVar
+                    condition.ObjectRef = GetObjectTypeRef(ConvertToInt(GetValue(5))); // 5-bit Object reference
+                    return condition.ObjectRef;
+
+                case 3: // TeamVar
+                    condition.TeamRef = GetTeamTypeRef(ConvertToInt(GetValue(5))); // 5-bit Team reference
+                    return condition.TeamRef;
+
+                case 4: // TimerVar
+                    condition.TimerRef = GetTimerTypeRef(ConvertToInt(GetValue(3))); // Timer reference (3 bits for type)
+                    return condition.TimerRef;
+
+                default:
+                    return "Unknown";
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+        private string GetNumericRefType(int numericRef)
+        {
+            switch (numericRef)
+            {
+                case 0: return "Int16";
+                case 1: return "Player.Number";
+                case 2: return "Object.Number";
+                case 3: return "Team.Number";
+                case 4: return "Global.Number";
+                // Add other cases based on the XML.
+                default: return "UnknownNumericType";
+            }
+        }
+
+        private string GetPlayerTypeRef(int playerType)
+        {
+            switch (playerType)
+            {
+                case 0: return "Player";
+                case 1: return "Player.Player";
+                case 2: return "Object.Player";
+                case 3: return "Team.Player";
+                default: return "UnknownPlayerType";
+            }
+        }
+
+        private string GetObjectTypeRef(int objectType)
+        {
+            switch (objectType)
+            {
+                case 0: return "ObjectRef";
+                case 1: return "Player.Object";
+                case 2: return "Object.Object";
+                case 3: return "Team.Object";
+                default: return "UnknownObjectType";
+            }
+        }
+
+        private string GetTeamTypeRef(int teamType)
+        {
+            switch (teamType)
+            {
+                case 0: return "Team";
+                case 1: return "Player.Team";
+                case 2: return "Object.Team";
+                case 3: return "Team.Team";
+                default: return "UnknownTeamType";
+            }
+        }
+
+        private string GetTimerTypeRef(int timerType)
+        {
+            switch (timerType)
+            {
+                case 0: return "GlobalTimer[0]";
+                case 1: return "GlobalTimer[1]";
+                case 2: return "GlobalTimer[2]";
+                case 3: return "GlobalTimer[3]";
+                default: return "UnknownTimerType";
+            }
+        }
+
+        private string GetDeathFlags(int deathFlags)
+        {
+            switch (deathFlags)
+            {
+                case 0: return "Environment";
+                case 1: return "Suicide";
+                case 2: return "Enemy";
+                case 3: return "Betrayal";
+                case 4: return "QuitGame";
+                default: return "UnknownDeathFlag";
+            }
+        }
+
+        private string GetOperatorString(int oper)
+        {
+            switch (oper)
+            {
+                case 0: return "<";
+                case 1: return ">";
+                case 2: return "==";
+                case 3: return "<=";
+                case 4: return ">=";
+                case 5: return "!=";
+                default: return "";
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+        public List<ScriptedPlayerTraits> ReadScriptedPlayerTraits(string binaryString)
+        {
+            List<ScriptedPlayerTraits> scriptedPlayerTraitsList = new();
+            int count = ConvertToInt(GetValue(5));
+
+            for (int i = 0; i < count; i++)
+            {
+                ScriptedPlayerTraits spt = new();
+                spt.count = count;
+
+                if (Settings.Default.DecompiledVersion == 0)
+                {
+                    spt.String1 = ConvertToInt(GetValue(7));
+                    spt.String2 = ConvertToInt(GetValue(7));
+                }
+                else if (Settings.Default.DecompiledVersion > 0)
+                {
+                    spt.H2AH4 = new();
+                    spt.String1 = ConvertToInt(GetValue(8));
+                    spt.String2 = ConvertToInt(GetValue(8));
+                }
+
+                spt.PlayerTraits = new();
+                spt.PlayerTraits = ReadTraits(binaryString, spt.PlayerTraits);
+
+                if (Settings.Default.DecompiledVersion > 0)
+                {
+                    spt.H2AH4.hidden = ConvertToInt(GetValue(1));
+                }
+
+                scriptedPlayerTraitsList.Add(spt);
+            }
+
+            return scriptedPlayerTraitsList;
+        }
 
 
 
@@ -2030,25 +2536,18 @@ namespace UniversalGametypeEditor
             PowerupTraits pt = new();
             if (Settings.Default.DecompiledVersion == 0)
             {
-                pt.RedPlayerTraits = new();
-                pt.BluePlayerTraits = new();
-                pt.YellowPlayerTraits = new();
-                pt.RedPlayerTraits = ReadTraits(binaryString, pt.RedPlayerTraits);
-                pt.BluePlayerTraits = ReadTraits(binaryString, pt.BluePlayerTraits);
-                pt.YellowPlayerTraits = ReadTraits(binaryString, pt.YellowPlayerTraits);
-                pt.RedPowerupDuration = ConvertToInt(GetValue(7));
-                pt.BluePowerupDuration = ConvertToInt(GetValue(7));
-                pt.YellowPowerupDuration = ConvertToInt(GetValue(7));
+                pt.Reach = new();
+                pt.Reach.RedPlayerTraits = new();
+                pt.Reach.BluePlayerTraits = new();
+                pt.Reach.YellowPlayerTraits = new();
+                pt.Reach.RedPlayerTraits = ReadTraits(binaryString, pt.Reach.RedPlayerTraits);
+                pt.Reach.BluePlayerTraits = ReadTraits(binaryString, pt.Reach.BluePlayerTraits);
+                pt.Reach.YellowPlayerTraits = ReadTraits(binaryString, pt.Reach.YellowPlayerTraits);
+                pt.Reach.RedPowerupDuration = ConvertToInt(GetValue(7));
+                pt.Reach.BluePowerupDuration = ConvertToInt(GetValue(7));
+                pt.Reach.YellowPowerupDuration = ConvertToInt(GetValue(7));
             }
-            else
-            {
-                pt.RedPlayerTraits = null;
-                pt.BluePlayerTraits = null;
-                pt.YellowPlayerTraits = null;
-                pt.RedPowerupDuration = null;
-                pt.BluePowerupDuration = null;
-                pt.YellowPowerupDuration = null;
-            }
+
 
             if (Settings.Default.DecompiledVersion > 0)
             {
@@ -2247,175 +2746,155 @@ namespace UniversalGametypeEditor
 
             }
 
-            //ConvertAndSaveToXml(lc, "gametype.xml");
-
             //Read ScriptedPlayerTraits
-            ScriptedPlayerTraits spt = new();
-            spt.count = ConvertToInt(GetValue(5));
-            for (int i = 0; i < spt.count; i++)
-            {
-                if (Settings.Default.DecompiledVersion == 0)
-                {
-                    spt.String1 = ConvertToInt(GetValue(7));
-                    spt.String2 = ConvertToInt(GetValue(7));
-                }
-                if (Settings.Default.DecompiledVersion > 0)
-                {
-                    spt.H2AH4 = new();
-                    spt.String1 = ConvertToInt(GetValue(8));
-                    spt.String2 = ConvertToInt(GetValue(8));
-                    
-                }
-                spt.PlayerTraits = new();
-                spt.PlayerTraits = ReadTraits(binaryString, spt.PlayerTraits);
-                if (Settings.Default.DecompiledVersion > 0 )
-                {
-                    spt.H2AH4.hidden = ConvertToInt(GetValue(1));
-                }
-            }
+            List<ScriptedPlayerTraits> scriptedPlayerTraits = ReadScriptedPlayerTraits(binaryString);
 
-            gt.scriptedPlayerTraits = Newtonsoft.Json.JsonConvert.SerializeObject(spt);
+            gt.scriptedPlayerTraits = scriptedPlayerTraits;
 
-            //ConvertAndSaveToXml(spt, "gametype.xml");
-
-            //Read ScriptOptions
-            ScriptOptions so = new();
-            so.count = ConvertToInt(GetValue(5));
-            for (int i = 0; i < so.count; i++)
-            {
-                if (Settings.Default.DecompiledVersion == 0)
-                {
-                    so.String1 = ConvertToInt(GetValue(7));
-                    so.String2 = ConvertToInt(GetValue(7));
-                }
-                if (Settings.Default.DecompiledVersion > 0)
-                {
-                    so.String1 = ConvertToInt(GetValue(8));
-                    so.String2 = ConvertToInt(GetValue(8));
-                }
-                so.ScriptOption = ConvertToInt(GetValue(1));
-                if (so.ScriptOption == 0)
-                {
-                    if (Settings.Default.DecompiledVersion == 0)
-                    {
-                        so.ChildIndex = ConvertToInt(GetValue(3));
-                        so.ScriptOptionChild = ConvertToInt(GetValue(4));
-                    }
-                    if (Settings.Default.DecompiledVersion > 0)
-                    {
-                        so.ChildIndex = ConvertToInt(GetValue(4));
-                        so.ScriptOptionChild = ConvertToInt(GetValue(5));
-                    }
+            ////Read ScriptOptions
+            //ScriptOptions so = new();
+            //so.count = ConvertToInt(GetValue(5));
+            //for (int i = 0; i < so.count; i++)
+            //{
+            //    if (Settings.Default.DecompiledVersion == 0)
+            //    {
+            //        so.String1 = ConvertToInt(GetValue(7));
+            //        so.String2 = ConvertToInt(GetValue(7));
+            //    }
+            //    if (Settings.Default.DecompiledVersion > 0)
+            //    {
+            //        so.String1 = ConvertToInt(GetValue(8));
+            //        so.String2 = ConvertToInt(GetValue(8));
+            //    }
+            //    so.ScriptOption = ConvertToInt(GetValue(1));
+            //    if (so.ScriptOption == 0)
+            //    {
+            //        if (Settings.Default.DecompiledVersion == 0)
+            //        {
+            //            so.ChildIndex = ConvertToInt(GetValue(3));
+            //            so.ScriptOptionChild = ConvertToInt(GetValue(4));
+            //        }
+            //        if (Settings.Default.DecompiledVersion > 0)
+            //        {
+            //            so.ChildIndex = ConvertToInt(GetValue(4));
+            //            so.ScriptOptionChild = ConvertToInt(GetValue(5));
+            //        }
 
 
-                    for (int j = 0; j < so.ScriptOptionChild; j++)
-                    {
-                        so.Value = ConvertToInt(GetValue(10));
-                        if (Settings.Default.DecompiledVersion == 0)
-                        {
-                            so.String1 = ConvertToInt(GetValue(7));
-                            so.String2 = ConvertToInt(GetValue(7));
-                        }
-                        if (Settings.Default.DecompiledVersion > 0)
-                        {
-                            so.String1 = ConvertToInt(GetValue(8));
-                            so.String2 = ConvertToInt(GetValue(8));
-                        }
+            //        for (int j = 0; j < so.ScriptOptionChild; j++)
+            //        {
+            //            so.Value = ConvertToInt(GetValue(10));
+            //            if (Settings.Default.DecompiledVersion == 0)
+            //            {
+            //                so.String1 = ConvertToInt(GetValue(7));
+            //                so.String2 = ConvertToInt(GetValue(7));
+            //            }
+            //            if (Settings.Default.DecompiledVersion > 0)
+            //            {
+            //                so.String1 = ConvertToInt(GetValue(8));
+            //                so.String2 = ConvertToInt(GetValue(8));
+            //            }
 
-                    }
-                    if (Settings.Default.DecompiledVersion == 0)
-                    {
-                        so.Unknown = ConvertToInt(GetValue(3));
-                    }
-                    if (Settings.Default.DecompiledVersion > 0)
-                    {
-                        so.ActualChildIndex = ConvertToInt(GetValue(4));
-                    }
-                }
-                if (so.ScriptOption == 1)
-                {
-                    so.range1 = ConvertToInt(GetValue(10));
-                    so.range2 = ConvertToInt(GetValue(10));
-                    so.range3 = ConvertToInt(GetValue(10));
-                    so.range4 = ConvertToInt(GetValue(10));
-                }
+            //        }
+            //        if (Settings.Default.DecompiledVersion == 0)
+            //        {
+            //            so.Unknown = ConvertToInt(GetValue(3));
+            //        }
+            //        if (Settings.Default.DecompiledVersion > 0)
+            //        {
+            //            so.ActualChildIndex = ConvertToInt(GetValue(4));
+            //        }
+            //    }
+            //    if (so.ScriptOption == 1)
+            //    {
+            //        so.range1 = ConvertToInt(GetValue(10));
+            //        so.range2 = ConvertToInt(GetValue(10));
+            //        so.range3 = ConvertToInt(GetValue(10));
+            //        so.range4 = ConvertToInt(GetValue(10));
+            //    }
 
-            }
-            gt.scriptOptions = Newtonsoft.Json.JsonConvert.SerializeObject(so);
+            //}
+            //gt.scriptOptions = Newtonsoft.Json.JsonConvert.SerializeObject(so);
 
-            //ConvertAndSaveToXml(so, "gametype.xml");
-            //return;
+             gt.scriptOptions =  ReadScriptOptions();
+            
+
+
+            gt.Strings = ReadStrings();
+            gt.Game = ReadGame();
+            gt.Map = ReadMap();
+            gt.playerratings = ReadPlayerRatings();
+
             //Read Strings
-            Strings st = new();
-            if (Settings.Default.DecompiledVersion > 0)
-            {
-                st.Stringtable = ReadLangStrings(16, 8, false);
-                st.StringNameIndex = ConvertToInt(GetValue(8));
-                st.metanameStrings = ReadLangStrings(11, 1, false);
-                st.metadescStrings = ReadLangStrings(13, 1, false);
-                st.metaintroStrings = ReadLangStrings(13, 1, false);
-                st.metagroupStrings = ReadLangStrings(10, 1, false);
-            }
+            //Strings st = new();
+            //    if (Settings.Default.DecompiledVersion > 0)
+            //    {
+            //        st.Stringtable = ReadLangStrings(16, 8, false);
+            //        st.StringNameIndex = ConvertToInt(GetValue(8));
+            //        st.metanameStrings = ReadLangStrings(11, 1, false);
+            //        st.metadescStrings = ReadLangStrings(13, 1, false);
+            //        st.metaintroStrings = ReadLangStrings(13, 1, false);
+            //        st.metagroupStrings = ReadLangStrings(10, 1, false);
+            //    }
 
-            if (Settings.Default.DecompiledVersion == 0)
-            {
-                st.Stringtable = ReadLangStrings(15, 7, false);
-                st.StringNameIndex = ConvertToInt(GetValue(7));
-                st.metanameStrings = ReadLangStrings(9, 1, false);
-                st.metadescStrings = ReadLangStrings(12, 1, false);
-                st.metagroupStrings = ReadLangStrings(9, 1, false);
-            }
+            //    if (Settings.Default.DecompiledVersion == 0)
+            //    {
+            //        st.Stringtable = ReadLangStrings(15, 7, false);
+            //        st.StringNameIndex = ConvertToInt(GetValue(7));
+            //        st.metanameStrings = ReadLangStrings(9, 1, false);
+            //        st.metadescStrings = ReadLangStrings(12, 1, false);
+            //        st.metagroupStrings = ReadLangStrings(9, 1, false);
+            //    }
 
-            gt.Strings = Newtonsoft.Json.JsonConvert.SerializeObject(st);
+            //    gt.Strings = Newtonsoft.Json.JsonConvert.SerializeObject(st);
 
-            //ConvertAndSaveToXml(st, "gametype.xml");
+            //    //ConvertAndSaveToXml(st, "gametype.xml");
 
-            //Read Game
-            Game g = new();
-            g.ActualGameicon = ConvertToInt(GetValue(5));
-            g.ActualGamecategory = ConvertToInt(GetValue(5));
-            if (Settings.Default.ConvertToForge)
-            {
-                g.ActualGamecategory = 1;
-            }
-            gt.Game = Newtonsoft.Json.JsonConvert.SerializeObject(g);
+            //    //Read Game
+            //    Game g = new();
+            //    g.ActualGameicon = ConvertToInt(GetValue(5));
+            //    g.ActualGamecategory = ConvertToInt(GetValue(5));
+            //    if (Settings.Default.ConvertToForge)
+            //    {
+            //        g.ActualGamecategory = 1;
+            //    }
+            //    gt.Game = Newtonsoft.Json.JsonConvert.SerializeObject(g);
 
-            //ConvertAndSaveToXml(g, "gametype.xml");
+            //    //ConvertAndSaveToXml(g, "gametype.xml");
 
-            //Read Map
-            Map map = new();
-            int mapcount = ConvertToInt(GetValue(6));
-            for (int i = 0; i < mapcount; i++)
-            {
-                map.MapID = ConvertToInt(GetValue(16));
-            }
-            map.mappermsflip = ConvertToInt(GetValue(1));
-            gt.Map = map;
+            //    //Read Map
+            //    Map map = new();
+            //    int mapcount = ConvertToInt(GetValue(6));
+            //    for (int i = 0; i < mapcount; i++)
+            //    {
+            //        map.MapID = ConvertToInt(GetValue(16));
+            //    }
+            //    map.mappermsflip = ConvertToInt(GetValue(1));
+            //    gt.Map = map;
 
-            //ConvertAndSaveToXml(map, "gametype.xml");
+            //    //ConvertAndSaveToXml(map, "gametype.xml");
 
 
-            //Read PlayerRatings
-            PlayerRatings pr = new();
-            pr.ratingscale = ConvertToInt(GetValue(32));
-            pr.kilweight = ConvertToInt(GetValue(32));
-            pr.assistweight = ConvertToInt(GetValue(32));
-            pr.betrayalweight = ConvertToInt(GetValue(32));
-            pr.deathweight = ConvertToInt(GetValue(32));
-            pr.normalizebymaxkills = ConvertToInt(GetValue(32));
-            pr.baserating = ConvertToInt(GetValue(32));
-            pr.range = ConvertToInt(GetValue(32));
-            pr.lossscalar = ConvertToInt(GetValue(32));
-            pr.customstat0 = ConvertToInt(GetValue(32));
-            pr.customstat1 = ConvertToInt(GetValue(32));
-            pr.customstat2 = ConvertToInt(GetValue(32));
-            pr.customstat3 = ConvertToInt(GetValue(32));
-            pr.expansion0 = ConvertToInt(GetValue(32));
-            pr.expansion1 = ConvertToInt(GetValue(32));
-            pr.showplayerratings = ConvertToInt(GetValue(1));
-            gt.playerratings = pr;
+            //    //Read PlayerRatings
+            //    PlayerRatings pr = new();
+            //    pr.ratingscale = ConvertToInt(GetValue(32));
+            //    pr.kilweight = ConvertToInt(GetValue(32));
+            //    pr.assistweight = ConvertToInt(GetValue(32));
+            //    pr.betrayalweight = ConvertToInt(GetValue(32));
+            //    pr.deathweight = ConvertToInt(GetValue(32));
+            //    pr.normalizebymaxkills = ConvertToInt(GetValue(32));
+            //    pr.baserating = ConvertToInt(GetValue(32));
+            //    pr.range = ConvertToInt(GetValue(32));
+            //    pr.lossscalar = ConvertToInt(GetValue(32));
+            //    pr.customstat0 = ConvertToInt(GetValue(32));
+            //    pr.customstat1 = ConvertToInt(GetValue(32));
+            //    pr.customstat2 = ConvertToInt(GetValue(32));
+            //    pr.customstat3 = ConvertToInt(GetValue(32));
+            //    pr.expansion0 = ConvertToInt(GetValue(32));
+            //    pr.expansion1 = ConvertToInt(GetValue(32));
+            //    pr.showplayerratings = ConvertToInt(GetValue(1));
+            //    gt.playerratings = pr;
 
-            //ConvertAndSaveToXml(pr, "gametype.xml");
             if (Settings.Default.DecompiledVersion > 0 && Settings.Default.IsGvar == false)
             {
 
@@ -2446,77 +2925,15 @@ namespace UniversalGametypeEditor
                 GetValue(2126);
             } else
             {
-                GetValue(2642);
+                gt.Empty = GetValue(2642);
             }
 
 
 
+            gt.scriptOffset = scriptOffset;
 
 
-            //We have now reached the gametype script!
-
-
-            //Read Conditions
-            List<string> ConditionsList = new();
-            List<long> ConditionOffsetList = new();
-            Conditions c = new();
-            c.ConditionCount = ConvertToInt(GetValue(10));
-
-            for (int i = 0; i < c.ConditionCount; i++)
-            {
-                c.ConditionType = ConvertToInt(GetValue(5));
-                
-                string subplayer = "";
-                string subplayer2 = "";
-                string subplayer3 = "";
-                string conditionType = "";
-                string oper = "";
-                switch (c.ConditionType) {
-                    case 1:
-                        c.NOT = ConvertToInt(GetValue(1)) == 1 ? "not" : "";
-                        c.ORSequence = ConvertToInt(GetValue(10));
-                        c.ConditionOffset = Convert.ToInt64(GetValue(11));
-                        conditionType = "if";
-                        c.Vartype1 = ConvertToInt(GetValue(3));
-                        (c.SpecificType, subplayer) = GetVarType(c.Vartype1);
-                        //c.RefType = ConvertToInt(GetValue(6));
-                        c.Vartype2 = ConvertToInt(GetValue(3));
-                        (c.SpecificType2, subplayer2) = GetVarType(c.Vartype2);
-
-                        //c.RefType2 = ConvertToInt(GetValue(6));
-                        c.Oper = ConvertToInt(GetValue(3));
-                        switch (c.Oper)
-                        {
-                            case 0:
-                                oper = "<";
-                                break;
-                            case 1:
-                                oper = ">";
-                                break;
-                            case 2:
-                                oper = "==";
-                                break;
-                            case 3:
-                                oper = "<=";
-                                break;
-                            case 4:
-                                oper = ">=";
-                                break;
-                            case 5:
-                                oper = "!=";
-                                break;
-                        }
-
-                        //Build condition string
-                        string condition = $"condition {c.NOT} {conditionType} {c.SpecificType}.{subplayer} {oper} {c.SpecificType2}.{subplayer2}";
-                        ConditionsList.Add(condition);
-                        ConditionOffsetList.Add(c.ConditionOffset);
-
-                        break;
-                    
-                }
-                
-            }
+            gt.conditions = ReadConditions();
 
             gametypeItems.Add(gt);
 
@@ -3263,477 +3680,477 @@ namespace UniversalGametypeEditor
         }
 
 
-        private (string, string) GetVarType(int value)
-        {
-            string SpecificType = "";
-            string subplayer = "";
-            switch (value)
-            {
-                case 0:
-                    SpecificType = GetNumericRefType(ConvertToInt(GetValue(7)));
-                    break;
-                case 1:
-                    int type = ConvertToInt(GetValue(2));
-                    switch (type)
-                    {
-                        case 0:
-                            SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                            break;
-                        case 1:
-                            SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 2:
-                            SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 3:
-                            SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                    }
-                    break;
-                case 2:
-                    type = ConvertToInt(GetValue(3));
-                    switch (type)
-                    {
-                        case 0:
-                            SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                            break;
-                        case 1:
-                            SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 2:
-                            SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 3:
-                            SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                            break;
-                        case 4:
-                            SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 5:
-                            SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 6:
-                            SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                    }
-                    break;
-                case 3:
-                    type = ConvertToInt(GetValue(2));
-                    switch (type)
-                    {
-                        case 0:
-                            SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
-                            break;
-                        case 1:
-                            SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 2:
-                            SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 3:
-                            SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 4:
-                            SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                            break;
-                        case 5:
-                            SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                            break;
-                    }
-                    break;
-                case 4:
-                    type = ConvertToInt(GetValue(2));
-                    switch (type)
-                    {
-                        case 0:
-                            SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
-                            break;
-                        case 1:
-                            SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 2:
-                            SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 3:
-                            SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 4:
-                            SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                            break;
-                        case 5:
-                            SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                            break;
-                    }
-                    break;
-                case 5:
-                    type = ConvertToInt(GetValue(2));
-                    switch (type)
-                    {
-                        case 0:
-                            SpecificType = $"GlobalTimer{ConvertToInt(GetValue(3))}";
-                            break;
-                        case 1:
-                            SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 2:
-                            SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                        case 3:
-                            SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                            subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
-                            break;
-                    }
-                    break;
+        //private (string, string) GetVarType(int value)
+        //{
+        //    string SpecificType = "";
+        //    string subplayer = "";
+        //    switch (value)
+        //    {
+        //        case 0:
+        //            SpecificType = GetNumericRefType(ConvertToInt(GetValue(7)));
+        //            break;
+        //        case 1:
+        //            int type = ConvertToInt(GetValue(2));
+        //            switch (type)
+        //            {
+        //                case 0:
+        //                    SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //                    break;
+        //                case 1:
+        //                    SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 2:
+        //                    SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 3:
+        //                    SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //            }
+        //            break;
+        //        case 2:
+        //            type = ConvertToInt(GetValue(3));
+        //            switch (type)
+        //            {
+        //                case 0:
+        //                    SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //                    break;
+        //                case 1:
+        //                    SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 2:
+        //                    SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 3:
+        //                    SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //                    break;
+        //                case 4:
+        //                    SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 5:
+        //                    SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 6:
+        //                    SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //            }
+        //            break;
+        //        case 3:
+        //            type = ConvertToInt(GetValue(2));
+        //            switch (type)
+        //            {
+        //                case 0:
+        //                    SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //                    break;
+        //                case 1:
+        //                    SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 2:
+        //                    SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 3:
+        //                    SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 4:
+        //                    SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //                    break;
+        //                case 5:
+        //                    SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //                    break;
+        //            }
+        //            break;
+        //        case 4:
+        //            type = ConvertToInt(GetValue(2));
+        //            switch (type)
+        //            {
+        //                case 0:
+        //                    SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //                    break;
+        //                case 1:
+        //                    SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 2:
+        //                    SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 3:
+        //                    SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 4:
+        //                    SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //                    break;
+        //                case 5:
+        //                    SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //                    break;
+        //            }
+        //            break;
+        //        case 5:
+        //            type = ConvertToInt(GetValue(2));
+        //            switch (type)
+        //            {
+        //                case 0:
+        //                    SpecificType = $"GlobalTimer{ConvertToInt(GetValue(3))}";
+        //                    break;
+        //                case 1:
+        //                    SpecificType = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 2:
+        //                    SpecificType = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //                case 3:
+        //                    SpecificType = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //                    subplayer = Convert.ToString(ConvertToInt(GetValue(2)));
+        //                    break;
+        //            }
+        //            break;
                     
-            }
-            return (SpecificType, subplayer);
-        }
+        //    }
+        //    return (SpecificType, subplayer);
+        //}
 
 
-        private string GetTriggerAttribute(int value)
-        {
-            switch (value)
-            {
-                case 0:
-                    return "";
-                case 1:
-                    return "call";
-                case 2:
-                    return "trigger initialization";
-                case 3:
-                    return "trigger local_initialization";
-                case 4:
-                    return "trigger host_migration";
-                case 5:
-                    return "trigger object_death";
-                case 6:
-                    return "trigger local";
-                case 7:
-                    return "trigger pregame";
-                case 8:
-                    return "trigger incident";
-                default:
-                    return "Unknown Trigger Attribute";
-            }
-        }
+        //private string GetTriggerAttribute(int value)
+        //{
+        //    switch (value)
+        //    {
+        //        case 0:
+        //            return "";
+        //        case 1:
+        //            return "call";
+        //        case 2:
+        //            return "trigger initialization";
+        //        case 3:
+        //            return "trigger local_initialization";
+        //        case 4:
+        //            return "trigger host_migration";
+        //        case 5:
+        //            return "trigger object_death";
+        //        case 6:
+        //            return "trigger local";
+        //        case 7:
+        //            return "trigger pregame";
+        //        case 8:
+        //            return "trigger incident";
+        //        default:
+        //            return "Unknown Trigger Attribute";
+        //    }
+        //}
 
-        private string GetTriggerType(int value)
-        {
-            switch (value)
-            {
-                case 0:
-                    return "trigger general";
-                case 1:
-                    return "trigger player";
-                case 2:
-                    return "trigger random_player";
-                case 3:
-                    return "trigger team";
-                case 4:
-                    return "trigger object";
-                case 5:
-                    return "trigger label";
-                case 6:
-                    return "trigger filter";
-                default:
-                    return "Unknown Trigger Type";
+        //private string GetTriggerType(int value)
+        //{
+        //    switch (value)
+        //    {
+        //        case 0:
+        //            return "trigger general";
+        //        case 1:
+        //            return "trigger player";
+        //        case 2:
+        //            return "trigger random_player";
+        //        case 3:
+        //            return "trigger team";
+        //        case 4:
+        //            return "trigger object";
+        //        case 5:
+        //            return "trigger label";
+        //        case 6:
+        //            return "trigger filter";
+        //        default:
+        //            return "Unknown Trigger Type";
                 
-            }
-        }
-        private string GetNumericRefType(int value)
-        {
-            switch(value)
-            {
-                case 0:
-                    return Convert.ToString(ConvertToInt(GetValue(16)));
-                case 1:
-                    string player = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    return  player + ".Num" + Convert.ToString(ConvertToInt(GetValue(4)));
-                case 2:
-                    string obj = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    return obj + ".Num" + Convert.ToString(ConvertToInt(GetValue(4)));
-                case 3:
-                    string team = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    return team + ".Num" + Convert.ToString(ConvertToInt(GetValue(4)));
-                case 4:
-                    return "Global.Num" + Convert.ToString(ConvertToInt(GetValue(5)));
-                case 5:
-                    return ScratchNumbers[ConvertToInt(GetValue(4))];
-                case 6:
-                    return "ScriptOption.Option" + Convert.ToString(ConvertToInt(GetValue(4)));
-                case 7:
-                    string obj2 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    return obj2 + ".SpawnSeq";
-                case 8:
-                    string obj3 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    return obj3 + ".UserData";
-                case 9:
-                    string obj4 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    return obj4 + ".Unk9";
-                case 10:
-                    string team2 = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    return team2 + ".Score";
-                case 11:
-                    string player2 = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    return player2 + ".Score";
-                case 12:
-                    string player3 = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    return player3 + ".Money";
-                case 13:
-                    string player4 = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    return player4 + ".Rating";
-                case 14:
-                    string obj5 = PlayerTypeRef[ConvertToInt(GetValue(5))];
-                    return obj5 + ".Stat" + Convert.ToString(ConvertToInt(GetValue(4)));
-                case 15:
-                    string team3 = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    return team3 + ".Stat" + Convert.ToString(ConvertToInt(GetValue(4)));
-                case 16:
-                    return "Unk16";
-                case 17:
-                    return "CurrentRound";
-                case 18:
-                    return "SymmetricMode";
-                case 19:
-                    return "SymmetricModeWritable";
-                case 20:
-                    return "Gamemode Controls Victory Enabled";
-                case 21:
-                    return "score_to_win_this_round";
-                case 22:
-                    string team4 = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    return team4 + ".remaining_lives";
-                case 23:
-                    string player5 = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    return player5 + ".remaining_lives";
-                case 24:
-                    string player6 = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    return player6 + ".spawn_delay";
-                case 25:
-                    string player7 = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    return player7 + ".UnkVal25";
-                case 26:
-                    string player8 = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    return player8 + ".UnkVal26";
-                case 27:
-                    string player9 = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    return player9 + ".UnkVal27";
-                case 28:
-                    string team5 = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    return team5 + ".UnkVal28";
-                case 29:
-                    string team6 = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    return team6 + ".UnkVal29";
-                case 30:
-                    string team7 = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    return team7 + ".UnkVal30";
-                case 31:
-                    string obj6 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    return obj6 + ".UnkVal31";
-                case 32:
-                    string obj7 = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    return obj7 + ".UnkVal32";
-                case 33:
-                    return "score_to_win";
-                case 34:
-                    return "Fireteams Enabled";
-                case 35:
-                    return "Teams Enabled";
-                case 36:
-                    return "Round Time Limit";
-                case 37:
-                    return "Round Limit";
-                case 38:
-                    return "Perfection Enabled";
-                case 39:
-                    return "Early Victory Win Count";
-                case 40:
-                    return "Player.Lives";
-                case 41:
-                    return "Team.Lives";
-                case 42:
-                    return "RespawnTime";
-                case 43:
-                    return "Suicide Respawn Penalty";
-                case 44:
-                    return "Betrayal Respawn Penalty";
-                case 45:
-                    return "Respawn Growth Time";
-                case 46:
-                    return "Initial Loadout Selection Time";
-                case 47:
-                    return "Respawn Traits Duration";
-                case 48:
-                    return "Friendly Fire Enabled";
-                case 49:
-                    return "Betrayal Booting Enabled";
-                case 50:
-                    return "Enemy Voice Enabled";
-                case 51:
-                    return "Open Channel Voice Enabled";
-                case 52:
-                    return "Dead Player Voice Enabled";
-                case 53:
-                    return "Grenades on Map";
-                case 54:
-                    return "Indestructible Vehicles Enabled";
-                case 55:
-                    return "Damage Boost Traits Duration";
-                case 56:
-                    return "Speed Boost Traits Duration";
-                case 57:
-                    return "Overshield Traits Duration";
-                case 58:
-                    return "Custom Traits Duration";
-                case 59:
-                    return "Damage Boost Traits DurationRuntime";
-                case 60:
-                    return "Speed Boost Traits DurationRuntime";
-                case 61:
-                    return "Overshield Traits DurationRuntime";
-                case 62:
-                    return "Custom Traits DurationRuntime";
-                case 63:
-                    return "Map Loadouts Enabled";
-                case 64:
-                    return "Initial Ordance Enabled";
-                case 65:
-                    return "Random Ordance Enabled";
-                case 66:
-                    return "Object Ordance Enabled";
-                case 67:
-                    return "Personal Ordance Enabled";
-                case 68:
-                    return "Ordance Enabled";
-                case 69:
-                    return "Killcam Enabled";
-                case 70:
-                    return "Final Killcam Enabled";
-                case 71:
-                    return "Sudden Death Time Limit";
-                case 72:
-                    return "Object Death Damage Type";
-                default:
-                    return "Unlabelled";
-            }
-        }
+        //    }
+        //}
+        //private string GetNumericRefType(int value)
+        //{
+        //    switch(value)
+        //    {
+        //        case 0:
+        //            return Convert.ToString(ConvertToInt(GetValue(16)));
+        //        case 1:
+        //            string player = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            return  player + ".Num" + Convert.ToString(ConvertToInt(GetValue(4)));
+        //        case 2:
+        //            string obj = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            return obj + ".Num" + Convert.ToString(ConvertToInt(GetValue(4)));
+        //        case 3:
+        //            string team = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            return team + ".Num" + Convert.ToString(ConvertToInt(GetValue(4)));
+        //        case 4:
+        //            return "Global.Num" + Convert.ToString(ConvertToInt(GetValue(5)));
+        //        case 5:
+        //            return ScratchNumbers[ConvertToInt(GetValue(4))];
+        //        case 6:
+        //            return "ScriptOption.Option" + Convert.ToString(ConvertToInt(GetValue(4)));
+        //        case 7:
+        //            string obj2 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            return obj2 + ".SpawnSeq";
+        //        case 8:
+        //            string obj3 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            return obj3 + ".UserData";
+        //        case 9:
+        //            string obj4 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            return obj4 + ".Unk9";
+        //        case 10:
+        //            string team2 = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            return team2 + ".Score";
+        //        case 11:
+        //            string player2 = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            return player2 + ".Score";
+        //        case 12:
+        //            string player3 = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            return player3 + ".Money";
+        //        case 13:
+        //            string player4 = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            return player4 + ".Rating";
+        //        case 14:
+        //            string obj5 = PlayerTypeRef[ConvertToInt(GetValue(5))];
+        //            return obj5 + ".Stat" + Convert.ToString(ConvertToInt(GetValue(4)));
+        //        case 15:
+        //            string team3 = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            return team3 + ".Stat" + Convert.ToString(ConvertToInt(GetValue(4)));
+        //        case 16:
+        //            return "Unk16";
+        //        case 17:
+        //            return "CurrentRound";
+        //        case 18:
+        //            return "SymmetricMode";
+        //        case 19:
+        //            return "SymmetricModeWritable";
+        //        case 20:
+        //            return "Gamemode Controls Victory Enabled";
+        //        case 21:
+        //            return "score_to_win_this_round";
+        //        case 22:
+        //            string team4 = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            return team4 + ".remaining_lives";
+        //        case 23:
+        //            string player5 = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            return player5 + ".remaining_lives";
+        //        case 24:
+        //            string player6 = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            return player6 + ".spawn_delay";
+        //        case 25:
+        //            string player7 = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            return player7 + ".UnkVal25";
+        //        case 26:
+        //            string player8 = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            return player8 + ".UnkVal26";
+        //        case 27:
+        //            string player9 = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            return player9 + ".UnkVal27";
+        //        case 28:
+        //            string team5 = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            return team5 + ".UnkVal28";
+        //        case 29:
+        //            string team6 = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            return team6 + ".UnkVal29";
+        //        case 30:
+        //            string team7 = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            return team7 + ".UnkVal30";
+        //        case 31:
+        //            string obj6 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            return obj6 + ".UnkVal31";
+        //        case 32:
+        //            string obj7 = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            return obj7 + ".UnkVal32";
+        //        case 33:
+        //            return "score_to_win";
+        //        case 34:
+        //            return "Fireteams Enabled";
+        //        case 35:
+        //            return "Teams Enabled";
+        //        case 36:
+        //            return "Round Time Limit";
+        //        case 37:
+        //            return "Round Limit";
+        //        case 38:
+        //            return "Perfection Enabled";
+        //        case 39:
+        //            return "Early Victory Win Count";
+        //        case 40:
+        //            return "Player.Lives";
+        //        case 41:
+        //            return "Team.Lives";
+        //        case 42:
+        //            return "RespawnTime";
+        //        case 43:
+        //            return "Suicide Respawn Penalty";
+        //        case 44:
+        //            return "Betrayal Respawn Penalty";
+        //        case 45:
+        //            return "Respawn Growth Time";
+        //        case 46:
+        //            return "Initial Loadout Selection Time";
+        //        case 47:
+        //            return "Respawn Traits Duration";
+        //        case 48:
+        //            return "Friendly Fire Enabled";
+        //        case 49:
+        //            return "Betrayal Booting Enabled";
+        //        case 50:
+        //            return "Enemy Voice Enabled";
+        //        case 51:
+        //            return "Open Channel Voice Enabled";
+        //        case 52:
+        //            return "Dead Player Voice Enabled";
+        //        case 53:
+        //            return "Grenades on Map";
+        //        case 54:
+        //            return "Indestructible Vehicles Enabled";
+        //        case 55:
+        //            return "Damage Boost Traits Duration";
+        //        case 56:
+        //            return "Speed Boost Traits Duration";
+        //        case 57:
+        //            return "Overshield Traits Duration";
+        //        case 58:
+        //            return "Custom Traits Duration";
+        //        case 59:
+        //            return "Damage Boost Traits DurationRuntime";
+        //        case 60:
+        //            return "Speed Boost Traits DurationRuntime";
+        //        case 61:
+        //            return "Overshield Traits DurationRuntime";
+        //        case 62:
+        //            return "Custom Traits DurationRuntime";
+        //        case 63:
+        //            return "Map Loadouts Enabled";
+        //        case 64:
+        //            return "Initial Ordance Enabled";
+        //        case 65:
+        //            return "Random Ordance Enabled";
+        //        case 66:
+        //            return "Object Ordance Enabled";
+        //        case 67:
+        //            return "Personal Ordance Enabled";
+        //        case 68:
+        //            return "Ordance Enabled";
+        //        case 69:
+        //            return "Killcam Enabled";
+        //        case 70:
+        //            return "Final Killcam Enabled";
+        //        case 71:
+        //            return "Sudden Death Time Limit";
+        //        case 72:
+        //            return "Object Death Damage Type";
+        //        default:
+        //            return "Unlabelled";
+        //    }
+        //}
 
  
-        private (string, string) GetRefType(int type)
-        {
-            string subvalue = "";
-            string value = "";
-            switch (type)
-            {
-                case 0:
-                    value = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    break;
-                case 1:
-                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-                case 2:
-                    value = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-                case 3:
-                    value = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-                case 4:
-                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    break;
-                case 5:
-                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-                case 6:
-                    value = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-                case 7:
-                    value = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
+        //private (string, string) GetRefType(int type)
+        //{
+        //    string subvalue = "";
+        //    string value = "";
+        //    switch (type)
+        //    {
+        //        case 0:
+        //            value = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            break;
+        //        case 1:
+        //            value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //        case 2:
+        //            value = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //        case 3:
+        //            value = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //        case 4:
+        //            value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            break;
+        //        case 5:
+        //            value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //        case 6:
+        //            value = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //        case 7:
+        //            value = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
 
-            }
-            return (value, subvalue);
-        }
+        //    }
+        //    return (value, subvalue);
+        //}
 
-        private (string, string) GetTeamRefType(int type)
-        {
-            string subvalue = "";
-            string value = "";
-            switch (type)
-            {
-                case 0:
-                    value = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    break;
-                case 1:
-                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-                case 2:
-                    value = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-                case 3:
-                    value = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-                case 4:
-                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    subvalue = ".team";
-                    break;
-                case 5:
-                    value = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    subvalue = ".team";
-                    break;
+        //private (string, string) GetTeamRefType(int type)
+        //{
+        //    string subvalue = "";
+        //    string value = "";
+        //    switch (type)
+        //    {
+        //        case 0:
+        //            value = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            break;
+        //        case 1:
+        //            value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //        case 2:
+        //            value = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //        case 3:
+        //            value = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //        case 4:
+        //            value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            subvalue = ".team";
+        //            break;
+        //        case 5:
+        //            value = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            subvalue = ".team";
+        //            break;
 
-            }
-            return (value, subvalue);
-        }
+        //    }
+        //    return (value, subvalue);
+        //}
 
-        private (string, string) GetPlayerRefType(int type)
-        {
-            string subvalue = "";
-            string value = "";
-            switch (type)
-            {
-                case 0:
-                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    break;
-                case 1:
-                    value = PlayerTypeRef[ConvertToInt(GetValue(6))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-                case 2:
-                    value = ObjectTypeRef[ConvertToInt(GetValue(5))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-                case 3:
-                    value = TeamTypeRef[ConvertToInt(GetValue(5))];
-                    subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
-                    break;
-            }
-            return (value, subvalue);
-        }
+        //private (string, string) GetPlayerRefType(int type)
+        //{
+        //    string subvalue = "";
+        //    string value = "";
+        //    switch (type)
+        //    {
+        //        case 0:
+        //            value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            break;
+        //        case 1:
+        //            value = PlayerTypeRef[ConvertToInt(GetValue(6))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //        case 2:
+        //            value = ObjectTypeRef[ConvertToInt(GetValue(5))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //        case 3:
+        //            value = TeamTypeRef[ConvertToInt(GetValue(5))];
+        //            subvalue = "." + Convert.ToString(ConvertToInt(GetValue(2)));
+        //            break;
+        //    }
+        //    return (value, subvalue);
+        //}
 
 
 
@@ -3858,66 +4275,88 @@ namespace UniversalGametypeEditor
             }
         }
 
-        private LanguageStrings ReadLangStrings(int bits, int chars, bool teamString)
+        private string ReadLangStrings(int bits, int chars, bool teamString)
         {
+            StringBuilder bitsRead = new StringBuilder();
             fullStringBits += binaryString.Substring(0, chars);
+            bitsRead.Append(binaryString.Substring(0, chars));
             int stringPresent = ConvertToInt(GetValue(chars));
             List<LanguageStrings> indexes = new();
-            LanguageStrings ls = new();
+
             for (int i = 0; i < stringPresent; i++)
             {
-                ls.English = GetLanguageValue(bits);
-                ls.Japanese = GetLanguageValue(bits);
-                ls.German = GetLanguageValue(bits);
-                ls.French = GetLanguageValue(bits);
-                ls.Spanish = GetLanguageValue(bits);
-                ls.LatinAmericanSpanish = GetLanguageValue(bits);
-                ls.Italian = GetLanguageValue(bits);
-                ls.Korean = GetLanguageValue(bits);
-                ls.ChineseTraditional = GetLanguageValue(bits);
-                ls.ChineseSimplified = GetLanguageValue(bits);
-                ls.Portuguese = GetLanguageValue(bits);
-                ls.Polish = GetLanguageValue(bits);
-
-                if (Settings.Default.DecompiledVersion > 0)
-                {
-                    ls.H2AH4 = new();
-                    ls.H2AH4.Russian = GetLanguageValue(bits);
-                    ls.H2AH4.Danish = GetLanguageValue(bits);
-                    ls.H2AH4.Finnish = GetLanguageValue(bits);
-                    ls.H2AH4.Dutch = GetLanguageValue(bits);
-                    ls.H2AH4.Norwegian = GetLanguageValue(bits);
-                }
-
+                var ls = ReadLanguageStrings(bits);
                 indexes.Add(ls);
             }
 
+            string compressedChunk = ReadCompressedChunk(bits, teamString, stringPresent, indexes.FirstOrDefault());
+            foreach (var currentString in indexes)
+            {
+                DecompressLanguageStrings(currentString, compressedChunk);
+            }
+
+            bitsRead.Append(fullStringBits);
+            return bitsRead.ToString();
+        }
+
+        private LanguageStrings ReadLanguageStrings(int bits)
+        {
+            var ls = new LanguageStrings
+            {
+                English = GetLanguageValue(bits),
+                Japanese = GetLanguageValue(bits),
+                German = GetLanguageValue(bits),
+                French = GetLanguageValue(bits),
+                Spanish = GetLanguageValue(bits),
+                LatinAmericanSpanish = GetLanguageValue(bits),
+                Italian = GetLanguageValue(bits),
+                Korean = GetLanguageValue(bits),
+                ChineseTraditional = GetLanguageValue(bits),
+                ChineseSimplified = GetLanguageValue(bits),
+                Portuguese = GetLanguageValue(bits),
+                Polish = GetLanguageValue(bits)
+            };
+
+            if (Settings.Default.DecompiledVersion > 0)
+            {
+                ls.H2AH4 = new LanguageStrings.H2AH4Settings
+                {
+                    Russian = GetLanguageValue(bits),
+                    Danish = GetLanguageValue(bits),
+                    Finnish = GetLanguageValue(bits),
+                    Dutch = GetLanguageValue(bits),
+                    Norwegian = GetLanguageValue(bits)
+                };
+            }
+
+            return ls;
+        }
+
+        private string ReadCompressedChunk(int bits, bool teamString, int stringPresent, LanguageStrings ls)
+        {
             string compressedChunk = "";
             bool compression = true;
 
             if (stringPresent > 0)
             {
-                
                 if (teamString && Settings.Default.DecompiledVersion == 0)
                 {
-                    fullStringBits += binaryString.Substring(0, bits+1);
-                    ls.m3 = ConvertToInt(GetValue(bits+1));
+                    fullStringBits += binaryString.Substring(0, bits + 1);
+                    ls.m3 = ConvertToInt(GetValue(bits + 1));
                 }
                 else
                 {
-                    //GetValue(1);
                     fullStringBits += binaryString.Substring(0, bits);
                     ls.m3 = ConvertToInt(GetValue(bits));
-
                 }
-                
 
                 ls.d = ConvertToInt(GetValue(1));
                 fullStringBits += Convert.ToString(ls.d, 2).PadLeft(1, '0');
+
                 if (ls.d == 0)
                 {
                     fullStringBits += binaryString.Substring(0, ls.m3 * 8);
-                    compressedChunk = GetValue(ls.m3 *8);
+                    compressedChunk = GetValue(ls.m3 * 8);
                     compression = false;
                 }
                 else
@@ -3932,62 +4371,45 @@ namespace UniversalGametypeEditor
                     byte[] compressedBytes = Convert.FromHexString(hexString);
                     byte[] decompressedBytes = LowLevelDecompress(compressedBytes, ls.m3);
 
-                    // Convert decompressed bytes to binary string
                     compressedChunk = ConvertToBinary(BitConverter.ToString(decompressedBytes).Replace("-", ""));
                 }
             }
-            ls.oldbits = fullStringBits;
-            fullStringBits = "";
 
-            for (int i=0;i<indexes.Count; i++)
-            {
-                LanguageStrings currentString = indexes[i];
-
-                string result = "";
-                result = currentString.English == "-1" ? currentString.English = "" : FindLangString(currentString.English, compressedChunk);
-                currentString.English = result;
-                result = currentString.French == "-1" ? currentString.French = "" : FindLangString(currentString.French, compressedChunk);
-                currentString.French = result;
-                result = currentString.Spanish == "-1" ? currentString.Spanish = "" : FindLangString(currentString.Spanish, compressedChunk);
-                currentString.Spanish = result;
-                result = currentString.LatinAmericanSpanish == "-1" ? currentString.LatinAmericanSpanish = "" : FindLangString(currentString.LatinAmericanSpanish, compressedChunk);
-                currentString.LatinAmericanSpanish = result;
-                result = currentString.German == "-1" ? currentString.German = "" : FindLangString(currentString.German, compressedChunk);
-                currentString.German = result;
-                result = currentString.Italian == "-1" ? currentString.Italian = "" : FindLangString(currentString.Italian, compressedChunk);
-                currentString.Italian = result;
-                result = currentString.Korean == "-1" ? currentString.Korean = "" : FindLangString(currentString.Korean, compressedChunk);
-                currentString.Korean = result;
-                result = currentString.Japanese == "-1" ? currentString.Japanese = "" : FindLangString(currentString.Japanese, compressedChunk);
-                currentString.Japanese = result;
-                result = currentString.ChineseTraditional == "-1" ? currentString.ChineseTraditional = "" : FindLangString(currentString.ChineseTraditional, compressedChunk);
-                currentString.ChineseTraditional = result;
-                result = currentString.ChineseSimplified == "-1" ? currentString.ChineseSimplified = "" : FindLangString(currentString.ChineseSimplified, compressedChunk);
-                currentString.ChineseSimplified = result;
-                result = currentString.Portuguese == "-1" ? currentString.Portuguese = "" : FindLangString(currentString.Portuguese, compressedChunk);
-                currentString.Portuguese = result;
-                result = currentString.Polish == "-1" ? currentString.Polish = "" : FindLangString(currentString.Polish, compressedChunk);
-                currentString.Polish = result;
-                if (Settings.Default.DecompiledVersion > 0)
-                {
-                    result = currentString.H2AH4.Russian == "-1" ? currentString.H2AH4.Russian = "" : FindLangString(currentString.H2AH4.Russian, compressedChunk);
-                    currentString.H2AH4.Russian = result;
-                    result = currentString.H2AH4.Danish == "-1" ? currentString.H2AH4.Danish = "" : FindLangString(currentString.H2AH4.Danish, compressedChunk);
-                    currentString.H2AH4.Danish = result;
-                    result = currentString.H2AH4.Finnish == "-1" ? currentString.H2AH4.Finnish = "" : FindLangString(currentString.H2AH4.Finnish, compressedChunk);
-                    currentString.H2AH4.Finnish = result;
-                    result = currentString.H2AH4.Dutch == "-1" ? currentString.H2AH4.Dutch = "" : FindLangString(currentString.H2AH4.Dutch, compressedChunk);
-                    currentString.H2AH4.Dutch = result;
-                    result = currentString.H2AH4.Norwegian == "-1" ? currentString.H2AH4.Norwegian = "" : FindLangString(currentString.H2AH4.Norwegian, compressedChunk);
-                    currentString.H2AH4.Norwegian = result;
-                }
-
-                return currentString;
-            }
-
-            
-            return ls;
+            return compressedChunk;
         }
+
+        private void DecompressLanguageStrings(LanguageStrings currentString, string compressedChunk)
+        {
+            currentString.English = DecompressString(currentString.English, compressedChunk);
+            currentString.French = DecompressString(currentString.French, compressedChunk);
+            currentString.Spanish = DecompressString(currentString.Spanish, compressedChunk);
+            currentString.LatinAmericanSpanish = DecompressString(currentString.LatinAmericanSpanish, compressedChunk);
+            currentString.German = DecompressString(currentString.German, compressedChunk);
+            currentString.Italian = DecompressString(currentString.Italian, compressedChunk);
+            currentString.Korean = DecompressString(currentString.Korean, compressedChunk);
+            currentString.Japanese = DecompressString(currentString.Japanese, compressedChunk);
+            currentString.ChineseTraditional = DecompressString(currentString.ChineseTraditional, compressedChunk);
+            currentString.ChineseSimplified = DecompressString(currentString.ChineseSimplified, compressedChunk);
+            currentString.Portuguese = DecompressString(currentString.Portuguese, compressedChunk);
+            currentString.Polish = DecompressString(currentString.Polish, compressedChunk);
+
+            if (Settings.Default.DecompiledVersion > 0)
+            {
+                currentString.H2AH4.Russian = DecompressString(currentString.H2AH4.Russian, compressedChunk);
+                currentString.H2AH4.Danish = DecompressString(currentString.H2AH4.Danish, compressedChunk);
+                currentString.H2AH4.Finnish = DecompressString(currentString.H2AH4.Finnish, compressedChunk);
+                currentString.H2AH4.Dutch = DecompressString(currentString.H2AH4.Dutch, compressedChunk);
+                currentString.H2AH4.Norwegian = DecompressString(currentString.H2AH4.Norwegian, compressedChunk);
+            }
+        }
+
+        private string DecompressString(string value, string compressedChunk)
+        {
+            return value == "-1" ? "" : FindLangString(value, compressedChunk);
+        }
+
+
+
 
         public string ConvertToHex(string bits)
         {
@@ -4195,9 +4617,10 @@ namespace UniversalGametypeEditor
 
             return pt;
         }
-
+        private int scriptOffset = 0;
         private string GetValue(int bits)
         {
+            scriptOffset += bits;
             string value = binaryString.Substring(0, bits);
             binaryString = binaryString.Substring(bits);
             return value;

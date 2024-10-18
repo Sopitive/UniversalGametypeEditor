@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
@@ -11,10 +12,6 @@ using static UniversalGametypeEditor.ReadGametype;
 
 namespace UniversalGametypeEditor
 {
-
-
-
-    
 
     [AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
     sealed class BitSizeAttribute : Attribute
@@ -3119,6 +3116,31 @@ namespace UniversalGametypeEditor
         public PowerupTraitsViewModel(PowerupTraits powerupTraits)
         {
             this.powerupTraits = powerupTraits;
+            Reach = new ReachPowerupSettings(powerupTraits);
+        }
+
+        public ReachPowerupSettings Reach { get; set; }
+
+
+
+        // Implement INotifyPropertyChanged
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+    }
+
+    public class ReachPowerupSettings : INotifyPropertyChanged
+    {
+        private PowerupTraits.ReachSettings powerupTraits;
+
+        public ReachPowerupSettings(PowerupTraits reachPowerupSettings)
+        {
+            this.powerupTraits = reachPowerupSettings.Reach;
             RedPlayerTraits = new PlayerTraitsViewModel(powerupTraits.RedPlayerTraits);
             BluePlayerTraits = new PlayerTraitsViewModel(powerupTraits.BluePlayerTraits);
             YellowPlayerTraits = new PlayerTraitsViewModel(powerupTraits.YellowPlayerTraits);
@@ -3166,8 +3188,6 @@ namespace UniversalGametypeEditor
                 }
             }
         }
-
-        // Implement INotifyPropertyChanged
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -3321,7 +3341,7 @@ namespace UniversalGametypeEditor
             }
         }
         [BitSize(1)]
-        public LanguageStrings Teamstring
+        public string Teamstring
         {
             get { return teamOptions.Teamstring; }
             set
@@ -3627,6 +3647,836 @@ namespace UniversalGametypeEditor
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
+
+    public class ScriptedPlayerTraitsViewModel : INotifyPropertyChanged
+    {
+        private int count;
+
+        [BitSize(5)]
+        public int Count
+        {
+            get => count;
+            set
+            {
+                count = value;
+                OnPropertyChanged(nameof(Count));
+            }
+        }
+
+        public ObservableCollection<ScriptedPlayerTraitItemViewModel> PlayerTraitsItems { get; set; } = new();
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class ScriptedPlayerTraitItemViewModel : INotifyPropertyChanged
+    {
+        private ScriptedPlayerTraits data;
+
+        public ScriptedPlayerTraitItemViewModel(ScriptedPlayerTraits data)
+        {
+            this.data = data;
+            PlayerTraits = new PlayerTraitsViewModel(data.PlayerTraits);
+        }
+
+        [BitSize(7)]
+        public int String1
+        {
+            get => data.String1;
+            set
+            {
+                data.String1 = value;
+                OnPropertyChanged(nameof(String1));
+            }
+        }
+
+        [BitSize(7)]
+        public int String2
+        {
+            get => data.String2;
+            set
+            {
+                data.String2 = value;
+                OnPropertyChanged(nameof(String2));
+            }
+        }
+
+        public PlayerTraitsViewModel PlayerTraits { get; set; }
+
+        [BitSize(1)]
+        public int? Hidden
+        {
+            get => data?.H2AH4?.hidden;
+            set
+            {
+                if (value.HasValue)
+                {
+                    data.H2AH4.hidden = value.Value;
+                    OnPropertyChanged(nameof(Hidden));
+                }
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+
+public class ScriptOptionsViewModel : INotifyPropertyChanged
+    {
+        private int count;
+
+        [BitSize(5)]
+        public int Count
+        {
+            get => count;
+            set
+            {
+                count = value;
+                OnPropertyChanged(nameof(Count));
+            }
+        }
+
+        public ObservableCollection<ScriptOptionItemViewModel> ScriptOptionItems { get; set; } = new();
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+
+public class ScriptOptionItemViewModel : INotifyPropertyChanged
+    {
+        private ScriptOptions data;
+
+        public ScriptOptionItemViewModel(ScriptOptions data)
+        {
+            this.data = data;
+        }
+
+        [BitSize(7)]
+        public int String1
+        {
+            get => data.String1;
+            set
+            {
+                data.String1 = value;
+                OnPropertyChanged(nameof(String1));
+            }
+        }
+
+        [BitSize(7)]
+        public int String2
+        {
+            get => data.String2;
+            set
+            {
+                data.String2 = value;
+                OnPropertyChanged(nameof(String2));
+            }
+        }
+
+        [BitSize(1)]
+        public int ScriptOption
+        {
+            get => data.ScriptOption;
+            set
+            {
+                data.ScriptOption = value;
+                OnPropertyChanged(nameof(ScriptOption));
+            }
+        }
+
+        [BitSize(3)]
+        public int ChildIndex
+        {
+            get => data.ChildIndex;
+            set
+            {
+                data.ChildIndex = value;
+                OnPropertyChanged(nameof(ChildIndex));
+            }
+        }
+
+        [BitSize(4)]
+        public int ScriptOptionChild
+        {
+            get => data.ScriptOptionChild;
+            set
+            {
+                data.ScriptOptionChild = value;
+                OnPropertyChanged(nameof(ScriptOptionChild));
+            }
+        }
+
+        [BitSize(10)]
+        public int Value
+        {
+            get => data.Value;
+            set
+            {
+                data.Value = value;
+                OnPropertyChanged(nameof(Value));
+            }
+        }
+
+        [BitSize(3)]
+        public int Unknown
+        {
+            get => data.Unknown;
+            set
+            {
+                data.Unknown = value;
+                OnPropertyChanged(nameof(Unknown));
+            }
+        }
+
+        [BitSize(4)]
+        public int ActualChildIndex
+        {
+            get => data.ActualChildIndex;
+            set
+            {
+                data.ActualChildIndex = value;
+                OnPropertyChanged(nameof(ActualChildIndex));
+            }
+        }
+
+        [BitSize(10)]
+        public int Range1
+        {
+            get => data.range1;
+            set
+            {
+                data.range1 = value;
+                OnPropertyChanged(nameof(Range1));
+            }
+        }
+
+        [BitSize(10)]
+        public int Range2
+        {
+            get => data.range2;
+            set
+            {
+                data.range2 = value;
+                OnPropertyChanged(nameof(Range2));
+            }
+        }
+
+        [BitSize(10)]
+        public int Range3
+        {
+            get => data.range3;
+            set
+            {
+                data.range3 = value;
+                OnPropertyChanged(nameof(Range3));
+            }
+        }
+
+        [BitSize(10)]
+        public int Range4
+        {
+            get => data.range4;
+            set
+            {
+                data.range4 = value;
+                OnPropertyChanged(nameof(Range4));
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class StringsViewModel : INotifyPropertyChanged
+    {
+        private string _stringTable;
+        private int _stringNameIndex;
+        private string _metaNameStrings;
+        private string _metaDescStrings;
+        private string _metaIntroStrings;
+        private string _metaGroupStrings;
+
+        [BitSize(16)]
+        public string StringTable
+        {
+            get => _stringTable;
+            set { _stringTable = value; OnPropertyChanged(nameof(StringTable)); }
+        }
+
+        [BitSize(8)]
+        public int StringNameIndex
+        {
+            get => _stringNameIndex;
+            set { _stringNameIndex = value; OnPropertyChanged(nameof(StringNameIndex)); }
+        }
+
+        [BitSize(11)]
+        public string MetaNameStrings
+        {
+            get => _metaNameStrings;
+            set { _metaNameStrings = value; OnPropertyChanged(nameof(MetaNameStrings)); }
+        }
+
+        [BitSize(13)]
+        public string MetaDescStrings
+        {
+            get => _metaDescStrings;
+            set { _metaDescStrings = value; OnPropertyChanged(nameof(MetaDescStrings)); }
+        }
+
+        [BitSize(13)]
+        public string MetaIntroStrings
+        {
+            get => _metaIntroStrings;
+            set { _metaIntroStrings = value; OnPropertyChanged(nameof(MetaIntroStrings)); }
+        }
+
+        [BitSize(10)]
+        public string MetaGroupStrings
+        {
+            get => _metaGroupStrings;
+            set { _metaGroupStrings = value; OnPropertyChanged(nameof(MetaGroupStrings)); }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class GameViewModel : INotifyPropertyChanged
+    {
+        private int _actualGameIcon;
+        private int _actualGameCategory;
+
+        [BitSize(5)]
+        public int ActualGameIcon
+        {
+            get => _actualGameIcon;
+            set { _actualGameIcon = value; OnPropertyChanged(nameof(ActualGameIcon)); }
+        }
+
+        [BitSize(5)]
+        public int ActualGameCategory
+        {
+            get => _actualGameCategory;
+            set { _actualGameCategory = value; OnPropertyChanged(nameof(ActualGameCategory)); }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class MapViewModel : INotifyPropertyChanged
+    {
+        private string _mapVariantID;
+        private int _mapCount;
+        private int _mapperMsFlip;
+
+        [BitSize(16)]
+        public string MapVariantID
+        {
+            get => _mapVariantID;
+            set { _mapVariantID = value; OnPropertyChanged(nameof(MapVariantID)); }
+        }
+
+        [BitSize(6)]
+        public int MapCount
+        {
+            get => _mapCount;
+            set { _mapCount = value; OnPropertyChanged(nameof(MapCount)); }
+        }
+
+        [BitSize(1)]
+        public int MapperMsFlip
+        {
+            get => _mapperMsFlip;
+            set { _mapperMsFlip = value; OnPropertyChanged(nameof(MapperMsFlip)); }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class PlayerRatingsViewModel : INotifyPropertyChanged
+    {
+        private int _ratingScale;
+        private int _killWeight;
+        private int _assistWeight;
+        private int _betrayalWeight;
+        private int _deathWeight;
+        private int _normalizeByMaxKills;
+        private int _baseRating;
+        private int _range;
+        private int _lossScalar;
+        private int _customStat0;
+        private int _customStat1;
+        private int _customStat2;
+        private int _customStat3;
+        private int _expansion0;
+        private int _expansion1;
+        private int _showPlayerRatings;
+
+        [BitSize(32)]
+        public int RatingScale
+        {
+            get => _ratingScale;
+            set { _ratingScale = value; OnPropertyChanged(nameof(RatingScale)); }
+        }
+
+        [BitSize(32)]
+        public int KillWeight
+        {
+            get => _killWeight;
+            set { _killWeight = value; OnPropertyChanged(nameof(KillWeight)); }
+        }
+
+        [BitSize(32)]
+        public int AssistWeight
+        {
+            get => _assistWeight;
+            set { _assistWeight = value; OnPropertyChanged(nameof(AssistWeight)); }
+        }
+
+        [BitSize(32)]
+        public int BetrayalWeight
+        {
+            get => _betrayalWeight;
+            set { _betrayalWeight = value; OnPropertyChanged(nameof(BetrayalWeight)); }
+        }
+
+        [BitSize(32)]
+        public int DeathWeight
+        {
+            get => _deathWeight;
+            set { _deathWeight = value; OnPropertyChanged(nameof(DeathWeight)); }
+        }
+
+        [BitSize(32)]
+        public int NormalizeByMaxKills
+        {
+            get => _normalizeByMaxKills;
+            set { _normalizeByMaxKills = value; OnPropertyChanged(nameof(NormalizeByMaxKills)); }
+        }
+
+        [BitSize(32)]
+        public int BaseRating
+        {
+            get => _baseRating;
+            set { _baseRating = value; OnPropertyChanged(nameof(BaseRating)); }
+        }
+
+        [BitSize(32)]
+        public int Range
+        {
+            get => _range;
+            set { _range = value; OnPropertyChanged(nameof(Range)); }
+        }
+
+        [BitSize(32)]
+        public int LossScalar
+        {
+            get => _lossScalar;
+            set { _lossScalar = value; OnPropertyChanged(nameof(LossScalar)); }
+        }
+
+        [BitSize(32)]
+        public int CustomStat0
+        {
+            get => _customStat0;
+            set { _customStat0 = value; OnPropertyChanged(nameof(CustomStat0)); }
+        }
+
+        [BitSize(32)]
+        public int CustomStat1
+        {
+            get => _customStat1;
+            set { _customStat1 = value; OnPropertyChanged(nameof(CustomStat1)); }
+        }
+
+        [BitSize(32)]
+        public int CustomStat2
+        {
+            get => _customStat2;
+            set { _customStat2 = value; OnPropertyChanged(nameof(CustomStat2)); }
+        }
+
+        [BitSize(32)]
+        public int CustomStat3
+        {
+            get => _customStat3;
+            set { _customStat3 = value; OnPropertyChanged(nameof(CustomStat3)); }
+        }
+
+        [BitSize(32)]
+        public int Expansion0
+        {
+            get => _expansion0;
+            set { _expansion0 = value; OnPropertyChanged(nameof(Expansion0)); }
+        }
+
+        [BitSize(32)]
+        public int Expansion1
+        {
+            get => _expansion1;
+            set { _expansion1 = value; OnPropertyChanged(nameof(Expansion1)); }
+        }
+
+        [BitSize(1)]
+        public int ShowPlayerRatings
+        {
+            get => _showPlayerRatings;
+            set { _showPlayerRatings = value; OnPropertyChanged(nameof(ShowPlayerRatings)); }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class ConditionViewModel : INotifyPropertyChanged
+    {
+        private int _conditionType;
+        private int _varType1;
+        private string _specificType;
+        private int _varType2;
+        private string _specificType2;
+        private int _oper;
+        private bool _not;
+        private int _orSequence;
+
+        // References
+        private string _playerRef;
+        private string _teamRef;
+        private string _objectRef;
+        private string _timerRef;
+        private string _boundary;
+        private string _label;
+        private string _allegiance;
+        private string _deathFlags;
+        private string _type1;
+
+        // Indices and Values
+        private int? _numericValue;          // Represents Int16 or other numeric values
+        private int? _playerRefIndex;        // Represents 5-bit Player reference index
+        private int? _playerNumberIndex;     // Represents 3-bit Player number index
+        private int? _objectRefIndex;        // Represents 5-bit Object reference index
+        private int? _objectNumberIndex;     // Represents 3-bit Object number index
+        private int? _teamRefIndex;          // Represents 5-bit Team reference index
+        private int? _teamNumberIndex;       // Represents 3-bit Team number index
+        private int? _globalNumberIndex;     // Represents 4-bit Global number index
+
+        // Properties with OnPropertyChanged
+        public int ConditionType
+        {
+            get => _conditionType;
+            set
+            {
+                _conditionType = value;
+                OnPropertyChanged(nameof(ConditionType));
+            }
+        }
+
+        public int VarType1
+        {
+            get => _varType1;
+            set
+            {
+                _varType1 = value;
+                OnPropertyChanged(nameof(VarType1));
+            }
+        }
+
+        public string SpecificType
+        {
+            get => _specificType;
+            set
+            {
+                _specificType = value;
+                OnPropertyChanged(nameof(SpecificType));
+            }
+        }
+
+        public int VarType2
+        {
+            get => _varType2;
+            set
+            {
+                _varType2 = value;
+                OnPropertyChanged(nameof(VarType2));
+            }
+        }
+
+        public string SpecificType2
+        {
+            get => _specificType2;
+            set
+            {
+                _specificType2 = value;
+                OnPropertyChanged(nameof(SpecificType2));
+            }
+        }
+
+        public int Oper
+        {
+            get => _oper;
+            set
+            {
+                _oper = value;
+                OnPropertyChanged(nameof(Oper));
+            }
+        }
+
+        public bool Not
+        {
+            get => _not;
+            set
+            {
+                _not = value;
+                OnPropertyChanged(nameof(Not));
+            }
+        }
+
+        public int OrSequence
+        {
+            get => _orSequence;
+            set
+            {
+                _orSequence = value;
+                OnPropertyChanged(nameof(OrSequence));
+            }
+        }
+
+        // Player Reference (5-bit) and Number Index (3-bit)
+        public int? PlayerRefIndex
+        {
+            get => _playerRefIndex;
+            set
+            {
+                _playerRefIndex = value;
+                OnPropertyChanged(nameof(PlayerRefIndex));
+            }
+        }
+
+        public int? PlayerNumberIndex
+        {
+            get => _playerNumberIndex;
+            set
+            {
+                _playerNumberIndex = value;
+                OnPropertyChanged(nameof(PlayerNumberIndex));
+            }
+        }
+
+        // Team Reference (5-bit) and Number Index (3-bit)
+        public int? TeamRefIndex
+        {
+            get => _teamRefIndex;
+            set
+            {
+                _teamRefIndex = value;
+                OnPropertyChanged(nameof(TeamRefIndex));
+            }
+        }
+
+        public int? TeamNumberIndex
+        {
+            get => _teamNumberIndex;
+            set
+            {
+                _teamNumberIndex = value;
+                OnPropertyChanged(nameof(TeamNumberIndex));
+            }
+        }
+
+        // Object Reference (5-bit) and Number Index (3-bit)
+        public int? ObjectRefIndex
+        {
+            get => _objectRefIndex;
+            set
+            {
+                _objectRefIndex = value;
+                OnPropertyChanged(nameof(ObjectRefIndex));
+            }
+        }
+
+        public int? ObjectNumberIndex
+        {
+            get => _objectNumberIndex;
+            set
+            {
+                _objectNumberIndex = value;
+                OnPropertyChanged(nameof(ObjectNumberIndex));
+            }
+        }
+
+        // Global Number Index (4-bit)
+        public int? GlobalNumberIndex
+        {
+            get => _globalNumberIndex;
+            set
+            {
+                _globalNumberIndex = value;
+                OnPropertyChanged(nameof(GlobalNumberIndex));
+            }
+        }
+
+        // Numeric Value (Int16 or other numeric types)
+        public int? NumericValue
+        {
+            get => _numericValue;
+            set
+            {
+                _numericValue = value;
+                OnPropertyChanged(nameof(NumericValue));
+            }
+        }
+
+        // Other References
+        public string PlayerRef
+        {
+            get => _playerRef;
+            set
+            {
+                _playerRef = value;
+                OnPropertyChanged(nameof(PlayerRef));
+            }
+        }
+
+        public string TeamRef
+        {
+            get => _teamRef;
+            set
+            {
+                _teamRef = value;
+                OnPropertyChanged(nameof(TeamRef));
+            }
+        }
+
+        public string ObjectRef
+        {
+            get => _objectRef;
+            set
+            {
+                _objectRef = value;
+                OnPropertyChanged(nameof(ObjectRef));
+            }
+        }
+
+        public string TimerRef
+        {
+            get => _timerRef;
+            set
+            {
+                _timerRef = value;
+                OnPropertyChanged(nameof(TimerRef));
+            }
+        }
+
+        public string Boundary
+        {
+            get => _boundary;
+            set
+            {
+                _boundary = value;
+                OnPropertyChanged(nameof(Boundary));
+            }
+        }
+
+        public string Label
+        {
+            get => _label;
+            set
+            {
+                _label = value;
+                OnPropertyChanged(nameof(Label));
+            }
+        }
+
+        public string Allegiance
+        {
+            get => _allegiance;
+            set
+            {
+                _allegiance = value;
+                OnPropertyChanged(nameof(Allegiance));
+            }
+        }
+
+        public string DeathFlags
+        {
+            get => _deathFlags;
+            set
+            {
+                _deathFlags = value;
+                OnPropertyChanged(nameof(DeathFlags));
+            }
+        }
+
+        public string Type1
+        {
+            get => _type1;
+            set
+            {
+                _type1 = value;
+                OnPropertyChanged(nameof(Type1));
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 }

@@ -50,6 +50,7 @@ namespace UniversalGametypeEditor
                 modifiedBinary += WriteGameSettings(gs);
                 modifiedBinary += WritePowerupSettings(ps);
                 modifiedBinary += WriteTeamSettings(ts);
+                modifiedBinary += WriteLoadoutPalettes(lc);
             }
             
             slice = modifiedBinary.Length;
@@ -209,6 +210,15 @@ namespace UniversalGametypeEditor
             ProcessViewModel(viewModel, modifiedBinary);
             return modifiedBinary.ToString();
         }
+
+        public string WriteLoadoutPalettes(LoadoutClusterViewModel lc)
+        {
+            StringBuilder modifiedBinary = new StringBuilder();
+            ProcessViewModel(lc, modifiedBinary);
+            return modifiedBinary.ToString();
+        }
+
+
 
         private void ProcessViewModel(object viewModel, StringBuilder modifiedBinary)
         {
