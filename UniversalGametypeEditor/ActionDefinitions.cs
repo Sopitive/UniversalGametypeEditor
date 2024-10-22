@@ -52,22 +52,23 @@ namespace UniversalGametypeEditor
                     new ActionParameter("z", typeof(int), 0, 8), // Default value
                     new ActionParameter("variant", typeof(string), "none", 8) // Default value
                 }),
-                new ActionDefinition(1, "attach", new List<ActionParameter>
+                new ActionDefinition(33, "Attach", new List<ActionParameter>
                 {
-                    new ActionParameter("reference_object", typeof(string)),
-                    new ActionParameter("target", typeof(string)),
-                    new ActionParameter("x", typeof(int)),
-                    new ActionParameter("y", typeof(int)),
-                    new ActionParameter("z", typeof(int)),
-                    new ActionParameter("reference", typeof(string))
+                    new ActionParameter("at", typeof(string)),
+                    new ActionParameter("at", typeof(string)),
+                    new ActionParameter("x", typeof(int), 0, 8), // Default value
+                    new ActionParameter("y", typeof(int), 0, 8), // Default value
+                    new ActionParameter("z", typeof(int), 0, 8), // Default value
+                    new ActionParameter("reference", typeof(bool), 0, 1)
                 }),
                 new ActionDefinition(2, "detach", new List<ActionParameter>
                 {
                     new ActionParameter("object", typeof(string))
                 }),
-                new ActionDefinition(3, "kill", new List<ActionParameter>
+                new ActionDefinition(23, "Kill", new List<ActionParameter>
                 {
-                    new ActionParameter("delete", typeof(bool))
+                    new ActionParameter("at", typeof(string), null, 5),
+                    new ActionParameter("delete", typeof(bool), 0, 1)
                 }),
                 new ActionDefinition(4, "get_speed", new List<ActionParameter>
                 {
@@ -76,7 +77,7 @@ namespace UniversalGametypeEditor
                 }),
                 new ActionDefinition(5, "get_distance", new List<ActionParameter>
                 {
-                    new ActionParameter("object1", typeof(string)),
+                    new ActionParameter("at", typeof(string)),
                     new ActionParameter("object2", typeof(string))
                 }),
                 new ActionDefinition(6, "set", new List<ActionParameter>
@@ -85,20 +86,20 @@ namespace UniversalGametypeEditor
                     new ActionParameter("operator", typeof(string)),
                     new ActionParameter("rightHandSide", typeof(string))
                 }),
-                new ActionDefinition(7, "remove_weapon", new List<ActionParameter>
+                new ActionDefinition(7, "DropWeapon", new List<ActionParameter>
                 {
-                    new ActionParameter("object", typeof(string)),
-                    new ActionParameter("slot", typeof(string)),
-                    new ActionParameter("delete", typeof(bool))
+                    new ActionParameter("at", typeof(string)),
+                    new ActionParameter("slot", typeof(bool), 0, 1),
+                    new ActionParameter("delete", typeof(bool), 0, 0)
                 }),
-                new ActionDefinition(8, "set_invincibility", new List<ActionParameter>
+                new ActionDefinition(8, "SetInvincible", new List<ActionParameter>
                 {
-                    new ActionParameter("object", typeof(string)),
-                    new ActionParameter("invincible", typeof(bool)),
+                    new ActionParameter("at", typeof(string)),
+                    new ActionParameter("invincible", typeof(bool), 0, 1),
                 }),
-                new ActionDefinition(9, "set_scale", new List<ActionParameter>
+                new ActionDefinition(9, "Scale", new List<ActionParameter>
                 {
-                    new ActionParameter("object", typeof(string)),
+                    new ActionParameter("at", typeof(string)),
                     new ActionParameter("scale", typeof(int))
                 }),
                 new ActionDefinition(10, "set_waypoint_visibility", new List<ActionParameter>

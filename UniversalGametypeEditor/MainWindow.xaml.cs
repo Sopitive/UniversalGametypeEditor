@@ -1026,10 +1026,53 @@ namespace UniversalGametypeEditor
 
 
 
+        private void CompileScript_Click(object sender, RoutedEventArgs e)
+        {
+            CompileScript(rg.gt.scriptOffset, File.ReadAllText("script.txt"));
+        }
+
+        private void CompileScript(int bitOffset, string script)
+        {
+
+           
+            ScriptCompiler sc = new();
+            string binaryOutput = sc.CompileScript(script);
+
+            // Read the file at offset 0x2F0
+            string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
+            byte[] fileBytes = File.ReadAllBytes(filePath);
+            int offset = 0x2F0;
+            byte[] scriptBytes = fileBytes.Skip(offset).ToArray();
+
+            // Convert the read bytes to a binary string
+            string fileBinaryString = string.Join("", scriptBytes.Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+
+            // Get the bit position from rg.gt.scriptOffset
+            int scriptBitOffset = rg.gt.scriptOffset;
+
+            // Set a breakpoint here to inspect the binary string at the scriptOffset
+            string binaryStringAtOffset = fileBinaryString.Substring(scriptBitOffset, binaryOutput.Length);
+            Debug.WriteLine($"Binary string at scriptOffset: {binaryStringAtOffset}");
+
+            // Insert the binary output at the specified bit position
+            string modifiedBinaryString = fileBinaryString.Substring(0, scriptBitOffset) +
+                                          binaryOutput +
+                                          fileBinaryString.Substring(scriptBitOffset + binaryOutput.Length);
+
+            // Convert the modified binary string back to bytes
+            byte[] modifiedBytes = Enumerable.Range(0, modifiedBinaryString.Length / 8)
+                                             .Select(i => Convert.ToByte(modifiedBinaryString.Substring(i * 8, 8), 2))
+                                             .ToArray();
+
+            // Write the modified bytes back to the file
+            byte[] newFileBytes = new byte[offset + modifiedBytes.Length];
+            Array.Copy(fileBytes, 0, newFileBytes, 0, offset);
+            Array.Copy(modifiedBytes, 0, newFileBytes, offset, modifiedBytes.Length);
+            File.WriteAllBytes(filePath, newFileBytes);
+        }
 
 
-
-
+        List<ReadGametype.Gametype> gametypeItems = new();
         private void Decompile(object name)
         {
             // Invoke dispatcher
@@ -1051,7 +1094,7 @@ namespace UniversalGametypeEditor
                 try
                 {
                     ReadGT = rg.gt;
-                    List<ReadGametype.Gametype> gametypeItems = new();
+                    
                     gametypeItems.AddRange(ReadGametype.gametypeItems);
                     ReadGametype.gametypeItems.Clear();
 

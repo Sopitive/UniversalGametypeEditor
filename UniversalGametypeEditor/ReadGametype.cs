@@ -20,6 +20,7 @@ using Newtonsoft.Json;
 using static UniversalGametypeEditor.ReadGametype;
 using System.Windows.Documents;
 using System.Windows.Markup.Localizer;
+using System.Drawing.Text;
 
 namespace UniversalGametypeEditor
 {
@@ -46,6 +47,7 @@ namespace UniversalGametypeEditor
             public string Empty;
             public ObservableCollection<ConditionViewModel> conditions;
             public int scriptOffset;
+            
         }
 
        
@@ -1909,6 +1911,9 @@ namespace UniversalGametypeEditor
                 {
                     ConditionType = ConvertToInt(GetValue(5))
                 };
+                int NOT = ConvertToInt(GetValue(1));
+                int ORSequence = ConvertToInt(GetValue(9));
+                int conditionOffset = ConvertToInt(GetValue(10));
 
                 // Parse condition attributes based on condition type.
                 switch (conditionViewModel.ConditionType)
@@ -1930,7 +1935,7 @@ namespace UniversalGametypeEditor
                         conditionViewModel.DeathFlags = GetDeathFlags(ConvertToInt(GetValue(3)));
                         break;
 
-                    case 10: // Obj.IsInBoundary
+                    case 2: // Obj.IsInBoundary
                         conditionViewModel.VarType1 = ConvertToInt(GetValue(3));
                         conditionViewModel.SpecificType = GetVarSpecificType(conditionViewModel.VarType1, conditionViewModel);
                         conditionViewModel.Boundary = GetObjectTypeRef(ConvertToInt(GetValue(3)));
@@ -2273,6 +2278,7 @@ namespace UniversalGametypeEditor
             binaryString = GetBinaryString(binaryData, 752, 32);
             //Check the next 32 bits to see if it is a gametype
             string gametype = GetValue(32);
+            scriptOffset -= 32;
             //convert gametype to a string
             string gametypeString = "";
             for (int i = 0; i < gametype.Length; i += 8)
@@ -2288,7 +2294,7 @@ namespace UniversalGametypeEditor
             {
                 binaryString = GetBinaryString(binaryData, 752, binaryData.Length * 7);
             }
-
+            int originalLength = binaryString.Length;
             //Read FileHeader
 
             fh.mpvr = GetValue(32);
@@ -2929,7 +2935,7 @@ namespace UniversalGametypeEditor
             }
 
 
-
+            scriptOffset = originalLength - binaryString.Length;
             gt.scriptOffset = scriptOffset;
 
 
@@ -4628,6 +4634,7 @@ namespace UniversalGametypeEditor
 
         private string ReadStringFromBits(string binary, bool countForward)
         {
+            
             StringBuilder value = new StringBuilder();
             int index = 0;
 
@@ -4640,6 +4647,7 @@ namespace UniversalGametypeEditor
 
             if (countForward && index + 8 <= binary.Length)
             {
+                scriptOffset += index + 8;
                 binaryString = binary.Substring(index + 8);
             }
 
@@ -4665,6 +4673,7 @@ namespace UniversalGametypeEditor
                     value += ConvertToASCII(binaryChar);
                 }
             }
+            scriptOffset += value.Length * 8;
             binaryString = parse.Substring(16);
             return value;
         }

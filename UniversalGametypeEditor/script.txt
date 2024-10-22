@@ -1,4 +1,14 @@
 
+Object mong2;
+
 void Player() {
-    Object mong = create_object("revenant", current_player.biped);
+    if (ObjectIsType(current_player.biped, "elite")) {
+        Object mong = create_object("elite", current_player.biped);
+        if (ObjectIsType(mong, "elite")) {
+            mong2 = create_object("elite", current_player.biped);
+            Kill(mong2);
+            Attach(mong2, mong);
+        }
+    })
 }
+

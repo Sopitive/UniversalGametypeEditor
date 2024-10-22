@@ -96,7 +96,7 @@ namespace UniversalGametypeEditor
         {
             if (index >= 0 && index < _players.Count)
             {
-                _players[index] = null;
+                _players[index] = null!;
                 _availablePlayerIndices.Push(index);
                 Console.WriteLine($"Recycled player index: {index}");
             }
@@ -106,7 +106,7 @@ namespace UniversalGametypeEditor
         {
             if (index >= 0 && index < _objects.Count)
             {
-                _objects[index] = null;
+                _objects[index] = null!;
                 _availableObjectIndices.Push(index);
                 Console.WriteLine($"Recycled object index: {index}");
             }
@@ -148,24 +148,25 @@ namespace UniversalGametypeEditor
         private Dictionary<string, int> _variableToIndexMap = new Dictionary<string, int>();
         private Stack<Dictionary<string, int>> _scopeStack = new Stack<Dictionary<string, int>>();
         private List<ActionObject> _actions = new List<ActionObject>();
+        private List<ConditionObject> _conditions = new List<ConditionObject>();
+        private List<TriggerObject> _triggers = new List<TriggerObject>();
 
         public ScriptCompiler() { }
 
-        public void CompileScript(string script)
+        public string CompileScript(string script)
         {
             Compile(script);
-            ListActions();
+            return GetBinaryString();
         }
 
         private int ConvertToObjectType(string typeName)
         {
-            if (Enum.TryParse(typeof(ObjectType), typeName, true, out var result))
+            if (Enum.TryParse(typeof(ObjectType), typeName, true, out var result) && result != null)
             {
                 return (int)result;
             }
             throw new ArgumentException($"Invalid object type: {typeName}");
         }
-
 
         public void Compile(string code)
         {
@@ -181,20 +182,7 @@ namespace UniversalGametypeEditor
 
         private void ProcessMember(MemberDeclarationSyntax member)
         {
-            if (member is MethodDeclarationSyntax method)
-            {
-                Console.WriteLine($"Method: {method.Identifier.Text}");
-                if (method.Body != null)
-                {
-                    _scopeStack.Push(new Dictionary<string, int>());
-                    foreach (var statement in method.Body.Statements)
-                    {
-                        ProcessStatement(statement);
-                    }
-                    EndScope();
-                }
-            }
-            else if (member is ClassDeclarationSyntax classDecl)
+            if (member is ClassDeclarationSyntax classDecl)
             {
                 Console.WriteLine($"Class: {classDecl.Identifier.Text}");
                 foreach (var classMember in classDecl.Members)
@@ -204,25 +192,45 @@ namespace UniversalGametypeEditor
             }
             else if (member is FieldDeclarationSyntax field)
             {
-                Console.WriteLine($"Field: {field.Declaration.Variables.First().Identifier.Text}");
-                // Handle field declarations if needed
+                foreach (var variable in field.Declaration.Variables)
+                {
+                    string varName = variable.Identifier.Text;
+                    string type = field.Declaration.Type.ToString();
+                    if (type == "Object")
+                    {
+                        var gameObject = _entityManager.CreateObject(varName);
+                        int index = _entityManager.GetObjectIndex(gameObject);
+                        _variableToIndexMap[varName] = index;
+                        Console.WriteLine($"Initialized global Object variable '{varName}' at global.object[{index}]");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Unhandled global variable type: {type}");
+                    }
+                }
             }
             else if (member is PropertyDeclarationSyntax property)
             {
                 Console.WriteLine($"Property: {property.Identifier.Text}");
                 _scopeStack.Push(new Dictionary<string, int>());
-                foreach (var accessor in property.AccessorList.Accessors)
+                int actionCount = 0;
+                if (property.AccessorList != null)
                 {
-                    if (accessor.Body != null)
+                    foreach (var accessor in property.AccessorList.Accessors)
                     {
-                        foreach (var statement in accessor.Body.Statements)
+                        if (accessor.Body != null)
                         {
-                            ProcessStatement(statement);
+                            foreach (var statement in accessor.Body.Statements)
+                            {
+                                int conditionCount = 0; // Initialize conditionCount
+                                int conditionOffset = 0; // Initialize conditionOffset
+                                ProcessStatement(statement, ref actionCount, ref conditionCount, conditionOffset);
+                            }
                         }
-                    }
-                    else if (accessor.ExpressionBody != null)
-                    {
-                        ProcessExpression(accessor.ExpressionBody.Expression);
+                        else if (accessor.ExpressionBody != null)
+                        {
+                            ProcessExpression(accessor.ExpressionBody.Expression, ref actionCount);
+                        }
                     }
                 }
                 EndScope();
@@ -233,9 +241,12 @@ namespace UniversalGametypeEditor
                 if (constructor.Body != null)
                 {
                     _scopeStack.Push(new Dictionary<string, int>());
+                    int actionCount = 0;
                     foreach (var statement in constructor.Body.Statements)
                     {
-                        ProcessStatement(statement);
+                        int conditionCount = 0; // Initialize conditionCount
+                        int conditionOffset = 0; // Initialize conditionOffset
+                        ProcessStatement(statement, ref actionCount, ref conditionCount, conditionOffset);
                     }
                     EndScope();
                 }
@@ -244,7 +255,41 @@ namespace UniversalGametypeEditor
             {
                 Console.WriteLine("Global Statement");
                 _scopeStack.Push(new Dictionary<string, int>()); // Ensure a new scope is pushed
-                ProcessStatement(globalStatement.Statement);
+                int actionCount = 0;
+                if (globalStatement.Statement is LocalFunctionStatementSyntax localFunction)
+                {
+                    Console.WriteLine($"Local Function: {localFunction.Identifier.Text}");
+                    if (localFunction.Body != null)
+                    {
+                        // Call ProcessTrigger for top-level local function declarations
+                        ProcessTrigger(localFunction);
+                    }
+                }
+                else if (globalStatement.Statement is LocalDeclarationStatementSyntax localDeclaration)
+                {
+                    foreach (var variable in localDeclaration.Declaration.Variables)
+                    {
+                        string varName = variable.Identifier.Text;
+                        string type = localDeclaration.Declaration.Type.ToString();
+                        if (type == "Object")
+                        {
+                            var gameObject = _entityManager.CreateObject(varName);
+                            int index = _entityManager.GetObjectIndex(gameObject);
+                            _variableToIndexMap[varName] = index;
+                            Console.WriteLine($"Initialized global Object variable '{varName}' at global.object[{index}]");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Unhandled global variable type: {type}");
+                        }
+                    }
+                }
+                else
+                {
+                    int conditionCount = 0; // Initialize conditionCount
+                    int conditionOffset = 0; // Initialize conditionOffset
+                    ProcessStatement(globalStatement.Statement, ref actionCount, ref conditionCount, conditionOffset);
+                }
                 EndScope();
             }
             else
@@ -253,7 +298,7 @@ namespace UniversalGametypeEditor
             }
         }
 
-        private void ProcessExpression(ExpressionSyntax expression)
+        private void ProcessExpression(ExpressionSyntax expression, ref int actionCount)
         {
             if (expression is AssignmentExpressionSyntax assignment)
             {
@@ -266,11 +311,18 @@ namespace UniversalGametypeEditor
                 // Handle method invocations
                 Console.WriteLine($"Invocation: {invocation}");
                 ProcessInvocation(invocation);
+                actionCount++;
+            }
+            else if (expression is BinaryExpressionSyntax binaryExpression)
+            {
+                // Handle binary expressions (conditions)
+                Console.WriteLine($"Binary Expression: {binaryExpression}");
+                ProcessCondition(binaryExpression, actionCount);
             }
             // Add more cases for other expression types if needed
         }
 
-        private void ProcessStatement(StatementSyntax statement)
+        private void ProcessStatement(StatementSyntax statement, ref int actionCount, ref int conditionCount, int conditionOffset)
         {
             if (_scopeStack.Count == 0)
             {
@@ -305,6 +357,7 @@ namespace UniversalGametypeEditor
 
                             // Process the invocation with the varOut parameter
                             ProcessInvocation(initializer, varName);
+                            actionCount++;
                         }
                         else
                         {
@@ -323,12 +376,15 @@ namespace UniversalGametypeEditor
             }
             else if (statement is ExpressionStatementSyntax expressionStatement)
             {
-                ProcessExpression(expressionStatement.Expression);
+                ProcessExpression(expressionStatement.Expression, ref actionCount);
             }
             else if (statement is IfStatementSyntax ifStatement)
             {
                 Console.WriteLine($"If Statement: {ifStatement.Condition}");
-                // Process the condition and the body of the if statement
+                ProcessCondition(ifStatement.Condition, conditionOffset + conditionCount);
+                conditionCount++;
+                // Process the body of the if statement
+                ProcessStatement(ifStatement.Statement, ref actionCount, ref conditionCount, conditionOffset);
             }
             else if (statement is LocalFunctionStatementSyntax localFunction)
             {
@@ -338,7 +394,7 @@ namespace UniversalGametypeEditor
                     _scopeStack.Push(new Dictionary<string, int>());
                     foreach (var localStatement in localFunction.Body.Statements)
                     {
-                        ProcessStatement(localStatement);
+                        ProcessStatement(localStatement, ref actionCount, ref conditionCount, conditionOffset);
                     }
                     EndScope();
                 }
@@ -352,7 +408,7 @@ namespace UniversalGametypeEditor
             {
                 foreach (var blockStatement in block.Statements)
                 {
-                    ProcessStatement(blockStatement);
+                    ProcessStatement(blockStatement, ref actionCount, ref conditionCount, conditionOffset);
                 }
             }
             else
@@ -360,8 +416,6 @@ namespace UniversalGametypeEditor
                 Console.WriteLine($"Unhandled statement type: {statement.GetType().Name}");
             }
         }
-
-
 
         private void ProcessAssignment(AssignmentExpressionSyntax assignment)
         {
@@ -376,7 +430,7 @@ namespace UniversalGametypeEditor
             }
         }
 
-        private void ProcessInvocation(InvocationExpressionSyntax invocation, string varOut = null)
+        private void ProcessInvocation(InvocationExpressionSyntax invocation, string? varOut = null)
         {
             var identifier = invocation.Expression as IdentifierNameSyntax;
             if (identifier != null)
@@ -400,8 +454,9 @@ namespace UniversalGametypeEditor
                             if (_variableToIndexMap.TryGetValue(varOut, out int index))
                             {
                                 // Translate the index to a global number and then to ObjectRef
-                                ObjectRef objectRef = (ObjectRef)Enum.Parse(typeof(ObjectRef), $"GlobalObject{index}");
-                                parameters.Add(ConvertToBinary(objectRef, bitSize));
+                                string varOutValue = $"GlobalObject{index}";
+                                string binaryRepresentation = ConvertObjectTypeRefToBinary(varOutValue, bitSize);
+                                parameters.Add(binaryRepresentation);
                             }
                             else
                             {
@@ -419,7 +474,11 @@ namespace UniversalGametypeEditor
                             else if (param.Name == "at")
                             {
                                 string atValue = arguments[i - hasVarOut].ToString().Trim('"');
-                                string binaryRepresentation = BitEncoder.EncodeObjectTypeRef(atValue);
+                                if (_variableToIndexMap.TryGetValue(atValue, out int index))
+                                {
+                                    atValue = $"GlobalObject{index}";
+                                }
+                                string binaryRepresentation = ConvertObjectTypeRefToBinary(atValue, bitSize);
                                 parameters.Add(binaryRepresentation);
                             }
                             else if (param.Name == "label")
@@ -444,6 +503,10 @@ namespace UniversalGametypeEditor
                             {
                                 // Convert other parameters to binary
                                 string paramValue = arguments[i - hasVarOut].ToString().Trim('"');
+                                if (_variableToIndexMap.TryGetValue(paramValue, out int index))
+                                {
+                                    paramValue = $"GlobalObject{index}";
+                                }
                                 parameters.Add(ConvertToBinary(paramValue, bitSize));
                             }
                         }
@@ -466,6 +529,315 @@ namespace UniversalGametypeEditor
                     Console.WriteLine($"Action definition not found for: {actionName}");
                 }
             }
+        }
+
+
+        private void ProcessTrigger(LocalFunctionStatementSyntax method)
+        {
+            // Default trigger type and attribute
+            string triggerType = "Player";
+            string triggerAttribute = "OnTick";
+
+            // Use the identifier to set the trigger type
+            triggerType = method.Identifier.Text;
+
+            // Check for specific trigger attribute
+            if (method.AttributeLists.Count > 0)
+            {
+                var attribute = method.AttributeLists[0].Attributes[0];
+                if (attribute.ArgumentList != null && attribute.ArgumentList.Arguments.Count > 0)
+                {
+                    triggerAttribute = attribute.ArgumentList.Arguments[0].ToString().Trim('"');
+                }
+            }
+
+            // Count the number of conditions and actions for this trigger
+            int conditionOffset = _conditions.Count;
+            int actionOffset = _actions.Count;
+            int conditionCount = 0;
+            int actionCount = 0;
+
+            // Push a new scope onto the stack
+            _scopeStack.Push(new Dictionary<string, int>());
+
+            // Process the statements in the method body
+            if (method.Body != null)
+            {
+                foreach (var statement in method.Body.Statements)
+                {
+                    ProcessStatement(statement, ref actionCount, ref conditionCount, conditionOffset);
+                }
+            }
+
+            // Pop the scope from the stack
+            EndScope();
+
+            // Convert the counts and offsets to binary strings
+            string conditionOffsetBinary = ConvertToBinary(conditionOffset, 9);
+            string conditionCountBinary = ConvertToBinary(conditionCount, 10);
+            string actionOffsetBinary = ConvertToBinary(actionOffset, 10);
+            string actionCountBinary = ConvertToBinary(actionCount, 11);
+            string triggerTypeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerTypeEnum), triggerType), 3);
+            string triggerAttributeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerAttributeEnum), triggerAttribute), 3);
+
+            // Concatenate the binary strings for the trigger
+            string binaryTrigger = triggerTypeBinary + triggerAttributeBinary + conditionOffsetBinary + conditionCountBinary + actionOffsetBinary + actionCountBinary;
+            _triggers.Add(new TriggerObject(triggerType, new List<string> { binaryTrigger }));
+        }
+
+        private string GetBinaryString()
+        {
+            // Count the number of conditions, actions, and triggers
+            int conditionCount = _conditions.Count;
+            int actionCount = _actions.Count;
+            int triggerCount = _triggers.Count;
+
+            // Convert the counts to binary strings
+            string conditionCountBinary = Convert.ToString(conditionCount, 2).PadLeft(10, '0');
+            string actionCountBinary = Convert.ToString(actionCount, 2).PadLeft(11, '0');
+            string triggerCountBinary = Convert.ToString(triggerCount, 2).PadLeft(9, '0');
+
+            // Concatenate the binary strings for the conditions, actions, and triggers
+            string conditionsBinary = string.Join("", _conditions.Select(c => c.Parameters.First()));
+            string actionsBinary = string.Join("", _actions.Select(a => a.Parameters.First()));
+            string triggersBinary = string.Join("", _triggers.Select(t => t.Parameters.First()));
+
+            // Process global variables
+            string globalVariablesBinary = ProcessGlobalVariables();
+
+            // Combine the counts and the binary strings for the conditions, actions, triggers, and global variables
+            string finalBinaryString = conditionCountBinary + conditionsBinary + actionCountBinary + actionsBinary + triggerCountBinary + triggersBinary + "000" + globalVariablesBinary;
+
+            return finalBinaryString;
+        }
+
+        private string ProcessGlobalVariables()
+        {
+            // Initialize binary string for global variables
+            string globalVariablesBinary = "";
+
+            // Process global numbers
+            int globalNumbersCount = 0; // Example count, replace with actual count
+            globalVariablesBinary += Convert.ToString(globalNumbersCount, 2).PadLeft(4, '0');
+            for (int i = 0; i < globalNumbersCount; i++)
+            {
+                globalVariablesBinary += ConvertToBinary(0, 0); // Number
+                globalVariablesBinary += ConvertToBinary(1, 2); // Locality
+            }
+
+            // Process global timers
+            int globalTimersCount = 0; // Example count, replace with actual count
+            globalVariablesBinary += Convert.ToString(globalTimersCount, 2).PadLeft(4, '0');
+            for (int i = 0; i < globalTimersCount; i++)
+            {
+                globalVariablesBinary += ConvertToBinary(0, 0); // Number
+            }
+
+            // Process global teams
+            int globalTeamsCount = 0; // Example count, replace with actual count
+            globalVariablesBinary += Convert.ToString(globalTeamsCount, 2).PadLeft(4, '0');
+            for (int i = 0; i < globalTeamsCount; i++)
+            {
+                globalVariablesBinary += ConvertToBinary(0, 4); // Team
+                globalVariablesBinary += ConvertToBinary(1, 2); // Locality
+            }
+
+            // Process global players
+            int globalPlayersCount = 0; // Example count, replace with actual count
+            globalVariablesBinary += Convert.ToString(globalPlayersCount, 2).PadLeft(4, '0');
+            for (int i = 0; i < globalPlayersCount; i++)
+            {
+                globalVariablesBinary += ConvertToBinary(1, 2); // Locality
+            }
+
+            // Process global objects
+            int globalObjectsCount = 3; // Example count, replace with actual count
+            globalVariablesBinary += Convert.ToString(globalObjectsCount, 2).PadLeft(5, '0');
+            for (int i = 0; i < globalObjectsCount; i++)
+            {
+                globalVariablesBinary += ConvertToBinary(1, 2); // Locality
+            }
+
+            return globalVariablesBinary;
+        }
+
+        private void ProcessCondition(ExpressionSyntax condition, int conditionOffset, int orSequence = 0, bool isNot = false)
+        {
+            if (condition is InvocationExpressionSyntax invocation)
+            {
+                var identifier = invocation.Expression as IdentifierNameSyntax;
+                if (identifier != null)
+                {
+                    string conditionName = identifier.Identifier.Text;
+                    Console.WriteLine($"Processing condition: {conditionName}");
+                    var conditionDefinition = ConditionDefinitions.ValidConditions.FirstOrDefault(c => c.Name == conditionName);
+                    if (conditionDefinition != null)
+                    {
+                        var arguments = invocation.ArgumentList.Arguments;
+                        List<string> parameters = new List<string>();
+                        for (int i = 0; i < conditionDefinition.Parameters.Count; i++)
+                        {
+                            var param = conditionDefinition.Parameters[i];
+                            int bitSize = param.Bits; // Use the Bits property from ConditionParameter
+
+                            if (i < arguments.Count)
+                            {
+                                // Convert parameters to binary
+                                string paramValue = arguments[i].ToString().Trim('"');
+                                if (param.ParameterType == typeof(ObjectTypeRef))
+                                {
+                                    // Handle ObjectTypeRef conversion
+                                    if (_variableToIndexMap.TryGetValue(paramValue, out int index))
+                                    {
+                                        paramValue = $"GlobalObject{index}";
+                                    }
+                                    parameters.Add(ConvertObjectTypeRefToBinary(paramValue, bitSize));
+                                }
+                                else if (param.ParameterType == typeof(ObjectType))
+                                {
+                                    ObjectType objectType = (ObjectType)Enum.Parse(typeof(ObjectType), paramValue, true);
+                                    parameters.Add(ConvertToBinary(objectType, bitSize));
+                                }
+                                else
+                                {
+                                    parameters.Add(ConvertToBinary(paramValue, bitSize));
+                                }
+                            }
+                            else
+                            {
+                                parameters.Add(ConvertToBinary(param.DefaultValue, bitSize));
+                            }
+                        }
+
+                        // Convert the condition number to a 5-bit binary string
+                        string conditionNumberBinary = ConvertToBinary(conditionDefinition.Id, 5);
+
+                        // Convert the NOT, ORSequence, and ConditionOffset to binary strings
+                        string notBinary = ConvertToBinary(isNot ? 1 : 0, 1);
+                        string orSequenceBinary = ConvertToBinary(orSequence, 9);
+                        string conditionOffsetBinary = ConvertToBinary(conditionOffset, 10);
+
+                        // Concatenate all binary parts into a single binary string
+                        string binaryCondition = conditionNumberBinary + notBinary + orSequenceBinary + conditionOffsetBinary + string.Join("", parameters);
+                        _conditions.Add(new ConditionObject(conditionName, new List<string> { binaryCondition }));
+                        Console.WriteLine($"Added condition: {conditionName}({binaryCondition})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Condition definition not found for: {conditionName}");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Unhandled condition type: {condition.GetType().Name}");
+            }
+        }
+
+        private string ConvertObjectTypeRefToBinary(string value, int bitSize)
+        {
+            // Define a dictionary to map input strings to their corresponding ObjectTypeRefEnum values
+            var objectTypeRefMap = new Dictionary<string, ObjectTypeRefEnum>
+            {
+                { "current_player.biped", ObjectTypeRefEnum.PlayerBiped }
+                // Add more mappings as needed
+            };
+
+            // Check if the input value is a GlobalObject
+            if (value.StartsWith("GlobalObject"))
+            {
+                int globalObjectIndex = int.Parse(value.Replace("GlobalObject", ""));
+                globalObjectIndex += 1; // Increment the index by 1 to account for the NoObject case
+                if (globalObjectIndex < 0 || globalObjectIndex > 15)
+                {
+                    throw new ArgumentException($"Invalid GlobalObject index: {globalObjectIndex}");
+                }
+
+                // Convert the ObjectTypeRef to its binary representation
+                string objectTypeRefBinary = Convert.ToString((int)ObjectTypeRefEnum.ObjectRef, 2).PadLeft(3, '0');
+
+                // Convert the global object index to its binary representation
+                string globalObjectIndexBinary = Convert.ToString(globalObjectIndex, 2).PadLeft(5, '0');
+
+                // Concatenate the binary representations to form the final binary string
+                string finalBinaryString = objectTypeRefBinary + globalObjectIndexBinary;
+                return finalBinaryString;
+            }
+            else if (objectTypeRefMap.TryGetValue(value, out var objectTypeRefEnum))
+            {
+                // Convert the ObjectTypeRef to its binary representation
+                string objectTypeRefBinary = Convert.ToString((int)objectTypeRefEnum, 2).PadLeft(3, '0');
+
+                // Handle specific cases for parameters
+                List<string> parameterBinaries = new List<string>();
+                if (value == "current_player.biped")
+                {
+                    parameterBinaries.Add(Convert.ToString((int)PlayerRefEnum.CurrentPlayer, 2).PadLeft(5, '0'));
+                }
+
+                // Concatenate the binary representations to form the final binary string
+                string finalBinaryString = objectTypeRefBinary + string.Join("", parameterBinaries);
+                return finalBinaryString;
+            }
+            else
+            {
+                throw new ArgumentException($"Unsupported ObjectTypeRef: {value}");
+            }
+        }
+
+
+        private string ConvertToBinary(object value, int bitSize)
+        {
+            if (value is int intValue)
+            {
+                return Convert.ToString(intValue, 2).PadLeft(bitSize, '0');
+            }
+            else if (value is bool boolValue)
+            {
+                return boolValue ? "1".PadLeft(bitSize, '0') : "0".PadLeft(bitSize, '0');
+            }
+            else if (value is string strValue)
+            {
+                // Assuming string values are converted to their corresponding enum values
+                if (Enum.TryParse(typeof(NameIndex), strValue, true, out var enumValue) && enumValue != null)
+                {
+                    return Convert.ToString((int)enumValue, 2).PadLeft(bitSize, '0');
+                }
+                return string.Join("", strValue.Select(c => Convert.ToString(c, 2).PadLeft(8, '0')));
+            }
+            else if (value is ObjectRef objectRefValue)
+            {
+                return Convert.ToString((int)objectRefValue, 2).PadLeft(bitSize, '0');
+            }
+            else if (value is ObjectType objectTypeValue)
+            {
+                return Convert.ToString((int)objectTypeValue, 2).PadLeft(bitSize, '0');
+            }
+            throw new InvalidOperationException("Unsupported type for binary conversion.");
+        }
+
+        public enum TriggerTypeEnum
+        {
+            Do = 0b000,
+            Player = 0b001,
+            RandomPlayer = 0b010,
+            Team = 0b011,
+            Object = 0b100,
+            Labeled = 0b101,
+            Unlabelled1 = 0b110,
+            Unlabelled2 = 0b111
+        }
+
+        public enum TriggerAttributeEnum
+        {
+            OnTick = 0b000,
+            OnCall = 0b001,
+            OnInit = 0b010,
+            OnLocalInit = 0b011,
+            OnHostMigration = 0b100,
+            OnObjectDeath = 0b101,
+            OnLocal = 0b110,
+            OnPregame = 0b111
         }
 
 
@@ -544,33 +916,7 @@ namespace UniversalGametypeEditor
             }
         }
 
-
-
-        private string ConvertToBinary(object value, int bitSize)
-        {
-            if (value is int intValue)
-            {
-                return Convert.ToString(intValue, 2).PadLeft(bitSize, '0');
-            }
-            else if (value is bool boolValue)
-            {
-                return boolValue ? "1".PadLeft(bitSize, '0') : "0".PadLeft(bitSize, '0');
-            }
-            else if (value is string strValue)
-            {
-                // Assuming string values are converted to their corresponding enum values
-                if (Enum.TryParse(typeof(NameIndex), strValue, true, out var enumValue))
-                {
-                    return Convert.ToString((int)enumValue, 2).PadLeft(bitSize, '0');
-                }
-                return string.Join("", strValue.Select(c => Convert.ToString(c, 2).PadLeft(8, '0')));
-            }
-            else if (value is ObjectRef objectRefValue)
-            {
-                return Convert.ToString((int)objectRefValue, 2).PadLeft(bitSize, '0');
-            }
-            throw new InvalidOperationException("Unsupported type for binary conversion.");
-        }
+        
     }
 
 
@@ -695,6 +1041,35 @@ namespace UniversalGametypeEditor
         Unlabelled9 = 0b11111
     }
 
+    public class ObjectTypeRef
+    {
+        public string Name { get; set; }
+        public int Bits { get; set; }
+        public List<ObjectTypeRefParameter> Parameters { get; set; }
+
+        public ObjectTypeRef(string name, int bits, List<ObjectTypeRefParameter> parameters)
+        {
+            Name = name;
+            Bits = bits;
+            Parameters = parameters;
+        }
+    }
+
+    public class ObjectTypeRefParameter
+    {
+        public string Name { get; set; }
+        public Type ParameterType { get; set; }
+        public int Bits { get; set; }
+
+        public ObjectTypeRefParameter(string name, Type parameterType, int bits)
+        {
+            Name = name;
+            ParameterType = parameterType;
+            Bits = bits;
+        }
+    }
+
+
     public class BitEncoder
     {
         // Function to get binary representation for "current_player.biped"
@@ -748,6 +1123,24 @@ namespace UniversalGametypeEditor
         }
     }
 
+    public class ConditionObject
+    {
+        public string ConditionType { get; set; }
+        public List<string> Parameters { get; set; }
+
+        public ConditionObject(string conditionType, List<string> parameters)
+        {
+            ConditionType = conditionType;
+            Parameters = parameters;
+        }
+
+        public override string ToString()
+        {
+            return $"{ConditionType}({string.Join(", ", Parameters)})";
+        }
+    }
+
+
     public class GameObject
     {
         public string Name { get; set; }
@@ -755,6 +1148,22 @@ namespace UniversalGametypeEditor
         public GameObject(string name)
         {
             Name = name;
+        }
+    }
+    public class TriggerObject
+    {
+        public string TriggerType { get; set; }
+        public List<string> Parameters { get; set; }
+
+        public TriggerObject(string triggerType, List<string> parameters)
+        {
+            TriggerType = triggerType;
+            Parameters = parameters;
+        }
+
+        public override string ToString()
+        {
+            return $"{TriggerType}({string.Join(", ", Parameters)})";
         }
     }
 

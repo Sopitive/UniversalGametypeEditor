@@ -1,7 +1,7 @@
 ﻿<Window x:Class="UniversalGametypeEditor.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MainWindow" Height="600" Width="1100" Background="#333333" WindowStyle="None" ResizeMode="CanResizeWithGrip" AllowsTransparency="True"
+        Title="MainWindow" Height="600" Width="1200" Background="#333333" WindowStyle="None" ResizeMode="CanResizeWithGrip" AllowsTransparency="True"
     xmlns:theme="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2"  xmlns:local="clr-namespace:UniversalGametypeEditor" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" Deactivated="WindowDeactivated" Closed="MainWindow_Closed">
     <Window.Resources>
 
@@ -1049,6 +1049,7 @@
 
             <Button Click="HandleLoadClick" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Collapsed" Margin="0,0,50,0" Width="200" HorizontalAlignment="Right"></Button>
             <Button Click="CompileGametype" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="Compile" Content="Compile" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0"/>
+            <Button Click="CompileScript_Click" Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" x:Name="CompileScriptBtn" Content="Compile Script" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0"/>
         </Grid>
 
     </Grid>
