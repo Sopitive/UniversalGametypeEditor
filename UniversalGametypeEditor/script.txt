@@ -1,14 +1,21 @@
 
-Object mong2;
 
 void Player() {
-    if (ObjectIsType(current_player.biped, "elite")) {
-        Object mong = create_object("elite", current_player.biped);
-        if (ObjectIsType(mong, "elite")) {
-            mong2 = create_object("elite", current_player.biped);
-            Kill(mong2);
-            Attach(mong2, mong);
-        }
-    })
+    if (ObjectIsType(current_player.biped, "spartan")) {
+        //DropWeapon(current_player.biped, 1, 1);
+        [Priority("local")]
+        Object mong;
+        Delete(mong);
+        mong = CreateObject(fusioncoil, current_player.biped);
+        Attach(mong, current_player.biped, 20, 0, 0);
+        Detach(mong);
+        DropWeapon(mong, 1, 1)
+        Kill(mong);
+    }
 }
 
+void Object() {
+    if (ObjectIsType(current_object, "FragGrenade")) {
+        Delete(current_object);
+    }
+}

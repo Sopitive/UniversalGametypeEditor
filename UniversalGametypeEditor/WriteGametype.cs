@@ -48,9 +48,9 @@ namespace UniversalGametypeEditor
             {
                 modifiedBinary += WriteSpawnSettings(ss);
                 modifiedBinary += WriteGameSettings(gs);
-                modifiedBinary += WritePowerupSettings(ps);
-                modifiedBinary += WriteTeamSettings(ts);
-                modifiedBinary += WriteLoadoutPalettes(lc);
+                //modifiedBinary += WritePowerupSettings(ps);
+                //modifiedBinary += WriteTeamSettings(ts);
+                //modifiedBinary += WriteLoadoutPalettes(lc);
             }
             
             slice = modifiedBinary.Length;

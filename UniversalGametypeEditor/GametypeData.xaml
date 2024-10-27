@@ -297,14 +297,14 @@
     <Grid Margin="5,5,0,0" Height="Auto" Background="Transparent">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200" />
-            <ColumnDefinition Width="400" />
+            <ColumnDefinition Width="100" />
         </Grid.ColumnDefinitions>
         
-        <TextBox x:Name="value" Grid.Column="1" BorderThickness="1" BorderBrush="#505050" Background="#3D3D3D" Foreground="White" FontSize="14" TextWrapping="Wrap" Padding="0"/>
+        <TextBox x:Name="value" Grid.Column="1" BorderThickness="1" BorderBrush="#505050" Background="#3D3D3D" Foreground="White" FontSize="14" TextWrapping="Wrap" Padding="0" Width="Auto"/>
 
         <CheckBox x:Name="enabled" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,0,5,0" Foreground="#fff" Background="LightGray" FontSize="14" Padding="5" Visibility="Hidden"  />
 
-        <ComboBox x:Name="enum_dropdown" Width="300" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,0,5,0" Foreground="#fff" Background="#3D3D3D" FontSize="14" Padding="5" Visibility="Hidden">
+        <ComboBox x:Name="enum_dropdown" Width="200" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,0,5,0" Foreground="#fff" Background="#3D3D3D" FontSize="14" Padding="5" Visibility="Hidden">
             <ComboBox.ItemContainerStyle>
                 <Style TargetType="{x:Type ComboBoxItem}">
 

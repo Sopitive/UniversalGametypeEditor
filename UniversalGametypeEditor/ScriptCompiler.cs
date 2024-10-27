@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Numerics;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using static UniversalGametypeEditor.ReadGametype;
+using static UniversalGametypeEditor.ScriptCompiler;
 
 
 namespace UniversalGametypeEditor
@@ -13,12 +16,15 @@ namespace UniversalGametypeEditor
 
     public class Player
     {
+        
         public string Name { get; set; }
 
         public Player(string name)
         {
             Name = name;
         }
+        
+        
     }
 
 
@@ -145,11 +151,13 @@ namespace UniversalGametypeEditor
     internal class ScriptCompiler
     {
         private EntityManager _entityManager = new EntityManager();
-        private Dictionary<string, int> _variableToIndexMap = new Dictionary<string, int>();
-        private Stack<Dictionary<string, int>> _scopeStack = new Stack<Dictionary<string, int>>();
+        private Dictionary<string, VariableInfo> _variableToIndexMap = new Dictionary<string, VariableInfo>();
+        private Stack<Dictionary<string, VariableInfo>> _scopeStack = new Stack<Dictionary<string, VariableInfo>>();
         private List<ActionObject> _actions = new List<ActionObject>();
         private List<ConditionObject> _conditions = new List<ConditionObject>();
         private List<TriggerObject> _triggers = new List<TriggerObject>();
+        private Dictionary<string, VariableInfo> _allDeclaredVariables = new Dictionary<string, VariableInfo>();
+        private HashSet<StatementSyntax> _processedStatements = new HashSet<StatementSyntax>();
 
         public ScriptCompiler() { }
 
@@ -173,12 +181,30 @@ namespace UniversalGametypeEditor
             SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
             CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
 
+            // Run the analyzer to process triggers
+            RunAnalyzer(tree);
+
             // Traverse the syntax tree
             foreach (var member in root.Members)
             {
                 ProcessMember(member);
             }
         }
+
+        private void RunAnalyzer(SyntaxTree tree)
+        {
+            var compilation = CSharpCompilation.Create("TriggerAnalysis", new[] { tree });
+            var analyzer = new TriggerAnalyzer();
+            var analyzers = ImmutableArray.Create<DiagnosticAnalyzer>(analyzer);
+            var compilationWithAnalyzers = compilation.WithAnalyzers(analyzers);
+            var diagnostics = compilationWithAnalyzers.GetAnalyzerDiagnosticsAsync().Result;
+
+            foreach (var diagnostic in diagnostics)
+            {
+                Console.WriteLine(diagnostic);
+            }
+        }
+
 
         private void ProcessMember(MemberDeclarationSyntax member)
         {
@@ -196,12 +222,40 @@ namespace UniversalGametypeEditor
                 {
                     string varName = variable.Identifier.Text;
                     string type = field.Declaration.Type.ToString();
-                    if (type == "Object")
+                    int networkingPriority = 1; // Default to low priority
+
+                    // Check for access modifiers to set networking priority
+                    var modifiers = field.Modifiers;
+                    if (modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
+                    {
+                        networkingPriority = 2; // High priority
+                    }
+                    else if (modifiers.Any(m => m.IsKind(SyntaxKind.ProtectedKeyword)))
+                    {
+                        networkingPriority = 0; // Local priority
+                    }
+                    else if (modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword)))
+                    {
+                        networkingPriority = 1; // Low priority
+                    }
+
+                    if (type == "Player")
+                    {
+                        var player = _entityManager.CreatePlayer(varName);
+                        int index = _entityManager.GetPlayerIndex(player);
+                        var variableInfo = new VariableInfo(type, index, networkingPriority);
+                        _variableToIndexMap[varName] = variableInfo;
+                        _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
+                        Console.WriteLine($"Initialized Player variable '{varName}' at global.player[{index}] with networking priority {networkingPriority}");
+                    }
+                    else if (type == "Object")
                     {
                         var gameObject = _entityManager.CreateObject(varName);
                         int index = _entityManager.GetObjectIndex(gameObject);
-                        _variableToIndexMap[varName] = index;
-                        Console.WriteLine($"Initialized global Object variable '{varName}' at global.object[{index}]");
+                        var variableInfo = new VariableInfo(type, index, networkingPriority);
+                        _variableToIndexMap[varName] = variableInfo;
+                        _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
+                        Console.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {networkingPriority}");
                     }
                     else
                     {
@@ -209,10 +263,27 @@ namespace UniversalGametypeEditor
                     }
                 }
             }
+            else if (member is MethodDeclarationSyntax method)
+            {
+                Console.WriteLine($"Method: {method.Identifier.Text}");
+                _scopeStack.Push(new Dictionary<string, VariableInfo>());
+                int actionCount = 0;
+                if (method.Body != null)
+                {
+                    foreach (var statement in method.Body.Statements)
+                    {
+                        int conditionCount = 0; // Initialize conditionCount
+                        int conditionOffset = 0; // Initialize conditionOffset
+                        int actionOffset = 0; // Initialize actionOffset
+                        ProcessStatement(statement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset);
+                    }
+                }
+                EndScope();
+            }
             else if (member is PropertyDeclarationSyntax property)
             {
                 Console.WriteLine($"Property: {property.Identifier.Text}");
-                _scopeStack.Push(new Dictionary<string, int>());
+                _scopeStack.Push(new Dictionary<string, VariableInfo>());
                 int actionCount = 0;
                 if (property.AccessorList != null)
                 {
@@ -224,12 +295,13 @@ namespace UniversalGametypeEditor
                             {
                                 int conditionCount = 0; // Initialize conditionCount
                                 int conditionOffset = 0; // Initialize conditionOffset
-                                ProcessStatement(statement, ref actionCount, ref conditionCount, conditionOffset);
+                                int actionOffset = 0;
+                                ProcessStatement(statement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset);
                             }
                         }
                         else if (accessor.ExpressionBody != null)
                         {
-                            ProcessExpression(accessor.ExpressionBody.Expression, ref actionCount);
+                            ProcessExpression(accessor.ExpressionBody.Expression, ref actionCount, actionCount);
                         }
                     }
                 }
@@ -240,13 +312,14 @@ namespace UniversalGametypeEditor
                 Console.WriteLine($"Constructor: {constructor.Identifier.Text}");
                 if (constructor.Body != null)
                 {
-                    _scopeStack.Push(new Dictionary<string, int>());
+                    _scopeStack.Push(new Dictionary<string, VariableInfo>());
                     int actionCount = 0;
                     foreach (var statement in constructor.Body.Statements)
                     {
                         int conditionCount = 0; // Initialize conditionCount
                         int conditionOffset = 0; // Initialize conditionOffset
-                        ProcessStatement(statement, ref actionCount, ref conditionCount, conditionOffset);
+                        int actionOffset = 0; // Initialize actionOffset
+                        ProcessStatement(statement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset);
                     }
                     EndScope();
                 }
@@ -254,7 +327,7 @@ namespace UniversalGametypeEditor
             else if (member is GlobalStatementSyntax globalStatement)
             {
                 Console.WriteLine("Global Statement");
-                _scopeStack.Push(new Dictionary<string, int>()); // Ensure a new scope is pushed
+                _scopeStack.Push(new Dictionary<string, VariableInfo>()); // Ensure a new scope is pushed
                 int actionCount = 0;
                 if (globalStatement.Statement is LocalFunctionStatementSyntax localFunction)
                 {
@@ -275,7 +348,9 @@ namespace UniversalGametypeEditor
                         {
                             var gameObject = _entityManager.CreateObject(varName);
                             int index = _entityManager.GetObjectIndex(gameObject);
-                            _variableToIndexMap[varName] = index;
+                            var variableInfo = new VariableInfo(type, index, 1); // Default to low priority
+                            _variableToIndexMap[varName] = variableInfo;
+                            _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
                             Console.WriteLine($"Initialized global Object variable '{varName}' at global.object[{index}]");
                         }
                         else
@@ -288,7 +363,8 @@ namespace UniversalGametypeEditor
                 {
                     int conditionCount = 0; // Initialize conditionCount
                     int conditionOffset = 0; // Initialize conditionOffset
-                    ProcessStatement(globalStatement.Statement, ref actionCount, ref conditionCount, conditionOffset);
+                    int actionOffset = 0; // Initialize actionOffset
+                    ProcessStatement(globalStatement.Statement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset);
                 }
                 EndScope();
             }
@@ -298,52 +374,358 @@ namespace UniversalGametypeEditor
             }
         }
 
-        private void ProcessExpression(ExpressionSyntax expression, ref int actionCount)
+        private void ProcessExpression(ExpressionSyntax expression, ref int actionCount, int actionOffset)
         {
             if (expression is AssignmentExpressionSyntax assignment)
             {
                 // Handle assignment expressions
                 Console.WriteLine($"Assignment: {assignment}");
-                ProcessAssignment(assignment);
+                ProcessAssignment(assignment, ref actionOffset);
+                actionCount++;
             }
             else if (expression is InvocationExpressionSyntax invocation)
             {
                 // Handle method invocations
                 Console.WriteLine($"Invocation: {invocation}");
-                ProcessInvocation(invocation);
+                ProcessInvocation(invocation, ref actionOffset);
                 actionCount++;
             }
             else if (expression is BinaryExpressionSyntax binaryExpression)
             {
                 // Handle binary expressions (conditions)
                 Console.WriteLine($"Binary Expression: {binaryExpression}");
-                ProcessCondition(binaryExpression, actionCount);
+                int conditionCount = 0; // Initialize conditionCount
+                ProcessCondition(binaryExpression, ref conditionCount, ref actionOffset, ref actionCount);
             }
             // Add more cases for other expression types if needed
         }
-
-        private void ProcessStatement(StatementSyntax statement, ref int actionCount, ref int conditionCount, int conditionOffset)
+        private int triggerActionOffset = 0;
+        private (int, int) CompileInlineAction(int conditionOffset, int conditionCount, int actionOffset, int actionCount)
         {
+            // Create the inline action referencing the processed condition and actions
+            string conditionOffsetBinary = ConvertToBinary(conditionOffset, 9);
+            string conditionCountBinary = ConvertToBinary(conditionCount, 10);
+            string actionOffsetBinary = ConvertToBinary(actionOffset, 10);
+            string actionCountBinary = ConvertToBinary(actionCount, 11);
+
+            string binaryInlineAction = "1100011" + conditionOffsetBinary + conditionCountBinary + actionOffsetBinary + actionCountBinary;
+            _actions.Insert(triggerActionOffset, new ActionObject("Inline", new List<string> { binaryInlineAction }));
+            Console.WriteLine($"Added inline action: Inline({binaryInlineAction})");
+            int finalConditionCount = conditionCount;
+            // Return the number of actions added (1 in this case)
+            return (1 - actionCount, finalConditionCount);
+        }
+
+
+
+
+
+        private int actionsAdded = 0;
+        private int inlineActionOffset = 1;
+        private int inlineActionsOffsetDiff = 0;
+        private void ProcessStatement(StatementSyntax statement, ref int actionCount, ref int conditionCount, ref int actionOffset, ref int conditionOffset, bool isTopLevel = true)
+        {
+            
             if (_scopeStack.Count == 0)
             {
                 throw new InvalidOperationException("Scope stack is empty.");
             }
 
-            if (statement is LocalDeclarationStatementSyntax localDeclaration)
+            // Early check for already processed statements
+            if (_processedStatements.Contains(statement))
             {
-                foreach (var variable in localDeclaration.Declaration.Variables)
-                {
-                    string varName = variable.Identifier.Text;
-                    string type = localDeclaration.Declaration.Type.ToString();
-                    if (type == "Player")
+                return;
+            }
+
+            // Mark the statement as processed
+            _processedStatements.Add(statement);
+
+            // Refactored to use a switch statement with pattern matching
+            switch (statement)
+            {
+                case LocalDeclarationStatementSyntax localDeclaration:
+                    // Process local variable declarations
+                    ProcessLocalDeclaration(localDeclaration, ref actionCount, ref actionOffset);
+                    break;
+
+                case ExpressionStatementSyntax expressionStatement:
+                    // Process expressions
+                    ProcessExpression(expressionStatement.Expression, ref actionCount, actionOffset);
+                    Console.WriteLine($"Action Count after Expression: {actionCount}");
+                    //inlineActionOffset++; // Update action offset after processing the expression
+                    break;
+
+                case IfStatementSyntax ifStatement:
+                    Console.WriteLine($"If Statement: {ifStatement.Condition}");
+
+                    // Record current condition and action offsets before processing
+                    int conditionStartOffset = _conditions.Count;
+                    int actionStartOffset = inlineActionOffset;
+
+                    // Track conditions in the current block
+                    List<int> conditionIndices = new List<int>();
+                    int conditionActionOffset = _actions.Count;
+
+                    // Process the condition and update condition count
+                    ProcessCondition(ifStatement.Condition, ref conditionCount, ref conditionActionOffset, ref conditionOffset);
+                    conditionIndices.Add(_conditions.Count - 1); // Track the index of the added condition
+                    Console.WriteLine($"Condition Count after If Condition: {conditionCount}");
+
+                    // Process the body of the if statement
+                    if (ifStatement.Statement is BlockSyntax block)
                     {
-                        var player = _entityManager.CreatePlayer(varName);
-                        int index = _entityManager.GetPlayerIndex(player);
-                        _variableToIndexMap[varName] = index;
-                        _scopeStack.Peek()[varName] = index;
-                        Console.WriteLine($"Initialized Player variable '{varName}' at global.player[{index}]");
+                        foreach (var blockStatement in block.Statements)
+                        {
+                            ProcessStatement(blockStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
+                        }
                     }
-                    else if (type == "Object")
+                    else
+                    {
+                        ProcessStatement(ifStatement.Statement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
+                    }
+
+                    //// Track inline actions without compiling them
+                    if (!IsBottomLevelBlock(ifStatement))
+                    {
+                        //inlineActionOffset++;
+                        //inlineActionOffset = inlineActionOffset == 0 ? 1 : inlineActionOffset;
+                        int inlineConditionCount = _conditions.Count - conditionStartOffset;
+                        int inlineActionCount = inlineActionOffset - actionStartOffset;
+                        //inlineActionOffset += inlineActionCount;
+                        int firstConditionOffset = -1;
+
+                        // Cache the parameters for inline actions
+                        _inlineActionCaches.Add(new InlineActionCache
+                        {
+                            ConditionStartOffset = conditionStartOffset,
+                            InlineConditionCount = inlineConditionCount,
+                            ActionStartOffset = actionStartOffset,
+                            InlineActionCount = inlineActionCount
+                        });
+
+                        // Update the actionOffset for each condition in the inline action
+                        //for (int i = 0; i < inlineConditionCount; i++)
+                        //{
+                        //    int conditionIndex = conditionStartOffset + i;
+                        //    var condition = _conditions[conditionIndex];
+                        //    string binaryCondition = condition.Parameters.First();
+
+                        //    // Get the current action offset
+                        //    if (firstConditionOffset < 0)
+                        //    {
+                        //        firstConditionOffset = Convert.ToInt32(binaryCondition.Substring(15, 10), 2);
+                        //    }
+
+                        //    string updatedBinaryCondition = UpdateConditionActionOffset(binaryCondition, firstConditionOffset, false);
+                        //    _conditions[conditionIndex] = new ConditionObject(condition.ConditionType, new List<string> { updatedBinaryCondition });
+                        //}
+                    }
+
+                    // Check for else or else-if statements and compile inline actions
+                    if (ifStatement.Else != null)
+                    {
+                        ProcessStatement(ifStatement.Else.Statement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
+                    }
+                    break;
+
+                case LocalFunctionStatementSyntax localFunction:
+                    Console.WriteLine($"Local Function: {localFunction.Identifier.Text}");
+                    if (localFunction.Body != null)
+                    {
+                        _scopeStack.Push(new Dictionary<string, VariableInfo>());
+                        foreach (var localStatement in localFunction.Body.Statements)
+                        {
+                            ProcessStatement(localStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
+                        }
+                        EndScope();
+                    }
+                    break;
+
+                case ReturnStatementSyntax returnStatement:
+                    Console.WriteLine($"Return Statement: {returnStatement.Expression}");
+                    break;
+
+                case BlockSyntax block1:
+                    foreach (var blockStatement in block1.Statements)
+                    {
+                        ProcessStatement(blockStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
+                    }
+                    break;
+
+                default:
+                    Console.WriteLine($"Unhandled statement type: {statement.GetType().Name}");
+                    break;
+            }
+        }
+
+        public class InlineActionCache
+        {
+            public int ConditionStartOffset { get; set; }
+            public int InlineConditionCount { get; set; }
+            public int ActionStartOffset { get; set; }
+            public int InlineActionCount { get; set; }
+        }
+        private List<InlineActionCache> _inlineActionCaches = new List<InlineActionCache>();
+
+
+
+        private void ProcessInlineActions()
+        {
+            // Iterate through all triggers to handle inline actions
+            foreach (var trigger in _triggers)
+            {
+                int conditionOffset = Convert.ToInt32(trigger.Parameters[0].Substring(6, 9), 2);
+                int conditionCount = Convert.ToInt32(trigger.Parameters[0].Substring(15, 10), 2);
+                int actionOffset = Convert.ToInt32(trigger.Parameters[0].Substring(25, 10), 2);
+                int actionCount = Convert.ToInt32(trigger.Parameters[0].Substring(35, 11), 2);
+
+                int totalActionsAdded = 0;
+
+                // Process conditions and actions within the trigger
+                for (int i = conditionOffset; i < conditionOffset + conditionCount; i++)
+                {
+                    var condition = _conditions[i];
+                    string binaryCondition = condition.Parameters.First();
+                    string updatedBinaryCondition = UpdateConditionActionOffset(binaryCondition, actionOffset, true);
+                    _conditions[i] = new ConditionObject(condition.ConditionType, new List<string> { updatedBinaryCondition });
+                }
+
+
+                // Insert inline actions into the action list above any actions that reside in the trigger
+                for (int i = 0; i < totalActionsAdded; i++)
+                {
+                    _actions.Insert(actionOffset + i, new ActionObject("Inline", new List<string> { "InlineActionBinaryData" }));
+                }
+
+                // Update the total action count for the trigger
+                actionCount += totalActionsAdded;
+
+                // Update the trigger parameters with the new action count
+                string updatedTriggerParameters = trigger.Parameters[0].Substring(0, 35) + ConvertToBinary(actionCount, 11);
+                trigger.Parameters[0] = updatedTriggerParameters;
+            }
+        }
+
+        
+
+
+
+        private string UpdateConditionActionOffset(string binaryCondition, int actionOffset, bool isSetter)
+        {
+            // Extract the parts of the binary condition
+            string conditionNumberBinary = binaryCondition.Substring(0, 5);
+            string notBinary = binaryCondition.Substring(5, 1);
+            string orSequenceBinary = binaryCondition.Substring(6, 9);
+            string currentActionOffsetBinary = binaryCondition.Substring(15, 10);
+            string parametersBinary = binaryCondition.Substring(25);
+
+            // Convert the current action offset from binary to integer
+            int currentActionOffset = Convert.ToInt32(currentActionOffsetBinary, 2);
+            int newActionOffset;
+            if (isSetter)
+            {
+                newActionOffset = actionOffset;
+            }
+            else
+            {
+                // Increment the current action offset by the number of actions added
+                newActionOffset = actionOffset + currentActionOffset;
+            }
+
+            // Convert the new action offset to a binary string
+            string newActionOffsetBinary = ConvertToBinary(newActionOffset, 10);
+
+            // Concatenate the parts to form the updated binary condition
+            string updatedBinaryCondition = conditionNumberBinary + notBinary + orSequenceBinary + newActionOffsetBinary + parametersBinary;
+
+            return updatedBinaryCondition;
+        }
+
+
+
+
+
+
+
+        private bool IsBottomLevelBlock(IfStatementSyntax ifStatement)
+        {
+            // Get the parent block of the current if statement
+            var parentBlock = ifStatement.Parent as BlockSyntax;
+
+            if (parentBlock != null)
+            {
+                // Get the index of the current if statement within the parent block
+                var index = parentBlock.Statements.IndexOf(ifStatement);
+
+                // Check if there is a next statement in the parent block
+                if (index >= 0 && index < parentBlock.Statements.Count - 1)
+                {
+                    // Get the next statement in the parent block
+                    var nextStatement = parentBlock.Statements[index + 1];
+
+                    // If the next statement is an if statement, return false
+                    if (nextStatement is IfStatementSyntax)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            // If no non-nested if statements were found, it is a bottom level block
+            return true;
+        }
+
+
+
+
+
+        private void ProcessLocalDeclaration(LocalDeclarationStatementSyntax localDeclaration, ref int actionCount, ref int actionOffset)
+        {
+            string networkingPriority = "low"; // Default networking priority
+
+            // Check for priority attribute
+            foreach (var attributeList in localDeclaration.AttributeLists)
+            {
+                foreach (var attribute in attributeList.Attributes)
+                {
+                    if (attribute.Name.ToString().Equals("Priority", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (attribute.ArgumentList != null && attribute.ArgumentList.Arguments.Count > 0)
+                        {
+                            var argument = attribute.ArgumentList.Arguments[0];
+                            networkingPriority = argument.ToString().Trim('"').ToLower(); // Extracts the priority level
+                        }
+                    }
+                }
+            }
+
+            // Process the variable declarations
+            string actualType = localDeclaration.Declaration.Type.ToString();
+
+            foreach (var variable in localDeclaration.Declaration.Variables)
+            {
+                string varName = variable.Identifier.Text;
+
+                // Determine the priority value
+                int priorityValue = networkingPriority switch
+                {
+                    "high" => 2,
+                    "local" => 0,
+                    _ => 1, // Default to "low"
+                };
+
+                Console.WriteLine($"Variable '{varName}' of type '{actualType}' with priority '{networkingPriority}'");
+
+                if (_variableToIndexMap.TryGetValue(varName, out var existingVariable))
+                {
+                    if (existingVariable.Type == actualType && existingVariable.Priority != priorityValue)
+                    {
+                        throw new InvalidOperationException($"Variable '{varName}' of type '{actualType}' already exists with a different priority.");
+                    }
+                }
+                else
+                {
+                    if (actualType == "Object")
                     {
                         var initializer = variable.Initializer?.Value as InvocationExpressionSyntax;
                         if (initializer != null)
@@ -351,73 +733,40 @@ namespace UniversalGametypeEditor
                             // Add the variable to the map before processing the invocation
                             var gameObject = _entityManager.CreateObject(varName);
                             int index = _entityManager.GetObjectIndex(gameObject);
-                            _variableToIndexMap[varName] = index;
-                            _scopeStack.Peek()[varName] = index;
-                            Console.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}]");
+                            var variableInfo = new VariableInfo(actualType, index, priorityValue);
+                            _variableToIndexMap[varName] = variableInfo;
+                            _scopeStack.Peek()[varName] = variableInfo;
+                            _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
+                            Console.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {priorityValue}");
 
                             // Process the invocation with the varOut parameter
-                            ProcessInvocation(initializer, varName);
+                            ProcessInvocation(initializer, ref actionOffset, varName);
                             actionCount++;
                         }
                         else
                         {
                             var gameObject = _entityManager.CreateObject(varName);
                             int index = _entityManager.GetObjectIndex(gameObject);
-                            _variableToIndexMap[varName] = index;
-                            _scopeStack.Peek()[varName] = index;
-                            Console.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}]");
+                            var variableInfo = new VariableInfo(actualType, index, priorityValue);
+                            _variableToIndexMap[varName] = variableInfo;
+                            _scopeStack.Peek()[varName] = variableInfo;
+                            _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
+                            Console.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {priorityValue}");
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"Unhandled local variable type: {type}");
+                        Console.WriteLine($"Unhandled local variable type: {actualType}");
                     }
                 }
-            }
-            else if (statement is ExpressionStatementSyntax expressionStatement)
-            {
-                ProcessExpression(expressionStatement.Expression, ref actionCount);
-            }
-            else if (statement is IfStatementSyntax ifStatement)
-            {
-                Console.WriteLine($"If Statement: {ifStatement.Condition}");
-                ProcessCondition(ifStatement.Condition, conditionOffset + conditionCount);
-                conditionCount++;
-                // Process the body of the if statement
-                ProcessStatement(ifStatement.Statement, ref actionCount, ref conditionCount, conditionOffset);
-            }
-            else if (statement is LocalFunctionStatementSyntax localFunction)
-            {
-                Console.WriteLine($"Local Function: {localFunction.Identifier.Text}");
-                if (localFunction.Body != null)
-                {
-                    _scopeStack.Push(new Dictionary<string, int>());
-                    foreach (var localStatement in localFunction.Body.Statements)
-                    {
-                        ProcessStatement(localStatement, ref actionCount, ref conditionCount, conditionOffset);
-                    }
-                    EndScope();
-                }
-            }
-            else if (statement is ReturnStatementSyntax returnStatement)
-            {
-                Console.WriteLine($"Return Statement: {returnStatement.Expression}");
-                // Process the return statement if needed
-            }
-            else if (statement is BlockSyntax block)
-            {
-                foreach (var blockStatement in block.Statements)
-                {
-                    ProcessStatement(blockStatement, ref actionCount, ref conditionCount, conditionOffset);
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Unhandled statement type: {statement.GetType().Name}");
             }
         }
 
-        private void ProcessAssignment(AssignmentExpressionSyntax assignment)
+
+        
+
+
+        private void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffset)
         {
             var left = assignment.Left as IdentifierNameSyntax;
             var right = assignment.Right as InvocationExpressionSyntax;
@@ -426,11 +775,11 @@ namespace UniversalGametypeEditor
             {
                 string varName = left.Identifier.Text;
                 Console.WriteLine($"Processing assignment: {varName} = {right}");
-                ProcessInvocation(right, varName);
+                ProcessInvocation(right, ref actionOffset, varName);
             }
         }
 
-        private void ProcessInvocation(InvocationExpressionSyntax invocation, string? varOut = null)
+        private void ProcessInvocation(InvocationExpressionSyntax invocation, ref int actionOffset, string? varOut = "NoObject", int inlineActionOffset2 = -1)
         {
             var identifier = invocation.Expression as IdentifierNameSyntax;
             if (identifier != null)
@@ -448,43 +797,49 @@ namespace UniversalGametypeEditor
                         var param = actionDefinition.Parameters[i];
                         int bitSize = param.Bits; // Use the Bits property from ActionParameter
 
-                        if (param.Name == "var_out" && varOut != null)
+                        if (param.Name == "var_out")
                         {
                             hasVarOut = 1;
-                            if (_variableToIndexMap.TryGetValue(varOut, out int index))
+                            if (varOut != null && _variableToIndexMap.TryGetValue(varOut, out VariableInfo varInfo))
                             {
                                 // Translate the index to a global number and then to ObjectRef
-                                string varOutValue = $"GlobalObject{index}";
-                                string binaryRepresentation = ConvertObjectTypeRefToBinary(varOutValue, bitSize);
+                                string varOutValue = $"GlobalObject{varInfo.Index}";
+                                string binaryRepresentation = ConvertObjectTypeRefToBinary(varOutValue, bitSize, varInfo.Priority);
                                 parameters.Add(binaryRepresentation);
                             }
                             else
                             {
-                                throw new Exception($"Variable '{varOut}' not found in the variable map.");
+                                //use the default
+                                parameters.Add(ConvertObjectTypeRefToBinary(param.DefaultValue?.ToString() ?? string.Empty, bitSize, 1));
                             }
                         }
                         else if (i < arguments.Count + hasVarOut)
                         {
-                            if (param.Name == "type")
+                            string? argumentValue = arguments[i - hasVarOut].ToString().Trim('"');
+                            if (argumentValue != null && _variableToIndexMap.TryGetValue(argumentValue, out VariableInfo varInfo))
                             {
-                                string typeName = arguments[i].ToString().Trim('"');
-                                int typeValue = ConvertToObjectType(typeName);
-                                parameters.Add(ConvertToBinary(typeValue, bitSize));
+                                // Translate the variable to its corresponding ObjectTypeRef
+                                argumentValue = $"GlobalObject{varInfo.Index}";
                             }
-                            else if (param.Name == "at")
+
+                            if (param.ParameterType == typeof(ObjectTypeRef))
                             {
-                                string atValue = arguments[i - hasVarOut].ToString().Trim('"');
-                                if (_variableToIndexMap.TryGetValue(atValue, out int index))
-                                {
-                                    atValue = $"GlobalObject{index}";
-                                }
-                                string binaryRepresentation = ConvertObjectTypeRefToBinary(atValue, bitSize);
+                                string binaryRepresentation = ConvertObjectTypeRefToBinary(argumentValue ?? string.Empty, bitSize, 1);
                                 parameters.Add(binaryRepresentation);
+                            }
+                            else if (param.ParameterType == typeof(PlayerTypeRef))
+                            {
+                                string binaryRepresentation = ConvertPlayerTypeRefToBinary(argumentValue ?? string.Empty, bitSize);
+                                parameters.Add(binaryRepresentation);
+                            }
+                            else if (param.Name == "type")
+                            {
+                                int typeValue = ConvertToObjectType(argumentValue ?? string.Empty);
+                                parameters.Add(ConvertToBinary(typeValue, bitSize));
                             }
                             else if (param.Name == "label")
                             {
-                                string labelValue = arguments[i - hasVarOut].ToString().Trim('"');
-                                if (string.IsNullOrEmpty(labelValue) || labelValue.Equals("none", StringComparison.OrdinalIgnoreCase))
+                                if (string.IsNullOrEmpty(argumentValue) || argumentValue.Equals("none", StringComparison.OrdinalIgnoreCase))
                                 {
                                     parameters.Add(ConvertToBinary(1, 1)); // Default to 1
                                 }
@@ -496,18 +851,12 @@ namespace UniversalGametypeEditor
                             }
                             else if (param.ParameterType == typeof(bool))
                             {
-                                bool boolValue = bool.Parse(arguments[i - hasVarOut].ToString());
+                                bool boolValue = argumentValue == "1" ? true : argumentValue == "0" ? false : bool.Parse(argumentValue ?? "false");
                                 parameters.Add(ConvertToBinary(boolValue, bitSize));
                             }
                             else
                             {
-                                // Convert other parameters to binary
-                                string paramValue = arguments[i - hasVarOut].ToString().Trim('"');
-                                if (_variableToIndexMap.TryGetValue(paramValue, out int index))
-                                {
-                                    paramValue = $"GlobalObject{index}";
-                                }
-                                parameters.Add(ConvertToBinary(paramValue, bitSize));
+                                parameters.Add(ConvertToBinary(argumentValue ?? string.Empty, bitSize));
                             }
                         }
                         else
@@ -521,8 +870,29 @@ namespace UniversalGametypeEditor
 
                     // Concatenate the action number and all binary parameters into a single binary string
                     string binaryAction = actionNumberBinary + string.Join("", parameters);
-                    _actions.Add(new ActionObject(actionName, new List<string> { binaryAction }));
-                    Console.WriteLine($"Added action: {actionName}({binaryAction})");
+
+                    // Check if the action already exists in the actions list
+                    if (!_actions.Any(a => a.Parameters.Contains(binaryAction)))
+                    {
+                        //if (inlineActionOffset >= 0)
+                        //{
+                        //    _actions.Insert(inlineActionOffset, new ActionObject(actionName, new List<string> { binaryAction }));
+                        //    Console.WriteLine($"Added inline action: {actionName}({binaryAction})");
+                        //    actionOffset++;
+                        //}
+                        //else if (actionOffset >= 0)
+                        //{
+                        //    _actions.Insert(actionOffset, new ActionObject(actionName, new List<string> { binaryAction }));
+                        //    Console.WriteLine($"Added action at offset: {actionName}({binaryAction})");
+                        //    actionOffset++; // Increment the action offset
+                        //}
+                        //else
+                        //{
+                            _actions.Add(new ActionObject(actionName, new List<string> { binaryAction }));
+                            Console.WriteLine($"Added action: {actionName}({binaryAction})");
+                            inlineActionOffset++;
+                        //}
+                    }
                 }
                 else
                 {
@@ -535,7 +905,7 @@ namespace UniversalGametypeEditor
         private void ProcessTrigger(LocalFunctionStatementSyntax method)
         {
             // Default trigger type and attribute
-            string triggerType = "Player";
+            string triggerType = "Do";
             string triggerAttribute = "OnTick";
 
             // Use the identifier to set the trigger type
@@ -556,34 +926,98 @@ namespace UniversalGametypeEditor
             int actionOffset = _actions.Count;
             int conditionCount = 0;
             int actionCount = 0;
-
+            int inlineActionCount = 0; // Track the number of inline actions created
+            triggerActionOffset = actionOffset;
             // Push a new scope onto the stack
-            _scopeStack.Push(new Dictionary<string, int>());
+            _scopeStack.Push(new Dictionary<string, VariableInfo>());
 
-            // Process the statements in the method body
             if (method.Body != null)
             {
                 foreach (var statement in method.Body.Statements)
                 {
-                    ProcessStatement(statement, ref actionCount, ref conditionCount, conditionOffset);
+                    ProcessStatement(statement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset);
+                }
+            }
+            int actionDifference = 0;
+            // Compile the cached inline actions
+            int totalInlineActions = _inlineActionCaches.Count;
+            int lastOffset = 0;
+            foreach (var cache in _inlineActionCaches)
+            {
+                int actionsAdded = 0;
+                int conditionsAdded = 0;
+                (actionsAdded, conditionsAdded) = CompileInlineAction(cache.ConditionStartOffset, cache.InlineConditionCount, cache.ActionStartOffset + _inlineActionCaches.Count, cache.InlineActionCount);
+                inlineActionCount += actionsAdded;
+                conditionCount -= conditionsAdded;
+                conditionOffset += conditionsAdded;
+                int processedCount = 0;
+                actionDifference += actionsAdded;
+                // Update the actionOffset for each condition in the inline action
+                for (int i = 0; i < cache.InlineConditionCount; i++)
+                {
+                    int conditionIndex = cache.ConditionStartOffset + i;
+                    var condition = _conditions[conditionIndex];
+                    string binaryCondition = condition.Parameters.First();
+
+                    // Get the current action offset
+                    int currentActionOffset = Convert.ToInt32(binaryCondition.Substring(15, 10), 2);
+                    processedCount = currentActionOffset - lastOffset;
+                    processedCount = i == 0 ? 0 : processedCount;
+                    // Subtract the number of conditions already processed
+                    int updatedActionOffset = processedCount;
+                    lastOffset = currentActionOffset;
+
+                    // Convert the updated action offset back to binary
+                    string updatedBinaryCondition = binaryCondition.Substring(0, 15) + ConvertToBinary(updatedActionOffset, 10) + binaryCondition.Substring(25);
+                    _conditions[conditionIndex] = new ConditionObject(condition.ConditionType, new List<string> { updatedBinaryCondition });
                 }
             }
 
-            // Pop the scope from the stack
+            // Adjust actionOffset for conditions not part of inline actions
+            foreach (var condition in _conditions.Skip(conditionOffset))
+            {
+                string binaryCondition = condition.Parameters.First();
+                int currentActionOffset = Convert.ToInt32(binaryCondition.Substring(15, 10), 2);
+                int updatedActionOffset = Math.Max(currentActionOffset + actionDifference, 0);
+                string updatedBinaryCondition = binaryCondition.Substring(0, 15) + ConvertToBinary(updatedActionOffset, 10) + binaryCondition.Substring(25);
+                condition.Parameters[0] = updatedBinaryCondition;
+            }
+            int inlineActionCount2 = _inlineActionCaches.Count;
+            // Clear the cache after processing
+            _inlineActionCaches.Clear();
+
             EndScope();
 
-            // Convert the counts and offsets to binary strings
+            int totalActionCount = actionCount + inlineActionCount;
+            actionCount += inlineActionCount;
+
+            // Calculate the number of actions to move
+            int actionsToMoveCount = actionCount - inlineActionCount2;
+
+            // Extract the actions to move from the bottom of the list
+            var actionsToMove = _actions.Skip(_actions.Count - actionsToMoveCount).ToList();
+
+            // Remove the extracted actions from the bottom of the list
+            _actions.RemoveRange(_actions.Count - actionsToMoveCount, actionsToMoveCount);
+
+            // Insert the extracted actions just underneath the inline actions
+            _actions.InsertRange(triggerActionOffset + inlineActionCount2, actionsToMove);
+
             string conditionOffsetBinary = ConvertToBinary(conditionOffset, 9);
             string conditionCountBinary = ConvertToBinary(conditionCount, 10);
-            string actionOffsetBinary = ConvertToBinary(actionOffset, 10);
-            string actionCountBinary = ConvertToBinary(actionCount, 11);
+            string actionOffsetBinary = ConvertToBinary(Math.Max(actionOffset - 1, 0), 10);
+            string actionCountBinary = ConvertToBinary(totalActionCount, 11); // Use the total action count
+
             string triggerTypeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerTypeEnum), triggerType), 3);
             string triggerAttributeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerAttributeEnum), triggerAttribute), 3);
 
-            // Concatenate the binary strings for the trigger
             string binaryTrigger = triggerTypeBinary + triggerAttributeBinary + conditionOffsetBinary + conditionCountBinary + actionOffsetBinary + actionCountBinary;
             _triggers.Add(new TriggerObject(triggerType, new List<string> { binaryTrigger }));
         }
+
+
+
+
 
         private string GetBinaryString()
         {
@@ -608,7 +1042,61 @@ namespace UniversalGametypeEditor
             // Combine the counts and the binary strings for the conditions, actions, triggers, and global variables
             string finalBinaryString = conditionCountBinary + conditionsBinary + actionCountBinary + actionsBinary + triggerCountBinary + triggersBinary + "000" + globalVariablesBinary;
 
+            // Calculate the total number of bits up to WeaponTunings
+            int totalBitsUpToWeaponTunings = 3 + 4 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 224 + 1824 + 5 + 7 + 1 + 16 + 1 + 4 + 1 + 12 + 7 + 35;
+
+            // Append that many zeros to the final binary string
+            finalBinaryString += new string('0', totalBitsUpToWeaponTunings);
+
+            // Set all WeaponTunings bits to 225 in binary
+            string weaponTuningsBinary = Convert.ToString(255, 2).PadLeft(1, '0') + // FullAutomagnum
+                                         Convert.ToString(225, 2).PadLeft(1, '0') + // MustHaveEnergySwordToBlock
+                                         Convert.ToString(225, 2).PadLeft(1, '0') + // EnableActiveCamoModifiers
+                                         Convert.ToString(225, 2).PadLeft(1, '0') + // ArmorLockCanBeStuck
+                                         Convert.ToString(225, 2).PadLeft(1, '0') + // Armorlockdoesntshednades
+                                         Convert.ToString(225, 2).PadLeft(1, '0') + // ShieldBleedthrough
+                                         Convert.ToString(225, 2).PadLeft(8, '0') + // PrecisionWeaponBloom
+                                         Convert.ToString(225, 2).PadLeft(8, '0') + // ArmorLockDamageDrain
+                                         Convert.ToString(225, 2).PadLeft(8, '0') + // ArmorLockDamageDrainLimit
+                                         Convert.ToString(225, 2).PadLeft(8, '0') + // ActivecamoEnergyDraincurveMax
+                                         Convert.ToString(225, 2).PadLeft(8, '0') + // ActivecamoEnergyDraincurveMin
+                                         Convert.ToString(225, 2).PadLeft(8, '0') + // MagnumDamage
+                                         Convert.ToString(225, 2).PadLeft(8, '0');  // MagnumFireDelayModifier
+
+            // Append the WeaponTunings binary string to the final binary string
+            finalBinaryString += weaponTuningsBinary;
+
+            finalBinaryString += new string('0', totalBitsUpToWeaponTunings);
+
             return finalBinaryString;
+        }
+
+        private string TranslateVariableName(string type, int index)
+        {
+            if (type == "Object")
+            {
+                return $"GlobalObject{index}";
+            }
+            else if (type == "Player")
+            {
+                return $"GlobalPlayer{index}";
+            }
+            else if (type == "Team")
+            {
+                return $"GlobalTeam{index}";
+            }
+            else if (type == "Timer")
+            {
+                return $"GlobalTimer{index}";
+            }
+            else if (type == "Number")
+            {
+                return $"GlobalNumber{index}";
+            }
+            else
+            {
+                throw new ArgumentException($"Unsupported variable type: {type}");
+            }
         }
 
         private string ProcessGlobalVariables()
@@ -617,52 +1105,104 @@ namespace UniversalGametypeEditor
             string globalVariablesBinary = "";
 
             // Process global numbers
-            int globalNumbersCount = 0; // Example count, replace with actual count
-            globalVariablesBinary += Convert.ToString(globalNumbersCount, 2).PadLeft(4, '0');
-            for (int i = 0; i < globalNumbersCount; i++)
+            var globalNumbers = _allDeclaredVariables.Where(kvp => kvp.Value.Type == "Number").ToList();
+            globalVariablesBinary += Convert.ToString(globalNumbers.Count, 2).PadLeft(4, '0');
+            foreach (var kvp in globalNumbers)
             {
+                string translatedName = TranslateVariableName(kvp.Value.Type, kvp.Value.Index);
                 globalVariablesBinary += ConvertToBinary(0, 0); // Number
-                globalVariablesBinary += ConvertToBinary(1, 2); // Locality
+                globalVariablesBinary += ConvertToBinary(kvp.Value.Priority, 2); // Locality
             }
 
             // Process global timers
-            int globalTimersCount = 0; // Example count, replace with actual count
-            globalVariablesBinary += Convert.ToString(globalTimersCount, 2).PadLeft(4, '0');
-            for (int i = 0; i < globalTimersCount; i++)
+            var globalTimers = _allDeclaredVariables.Where(kvp => kvp.Value.Type == "Timer").ToList();
+            globalVariablesBinary += Convert.ToString(globalTimers.Count, 2).PadLeft(4, '0');
+            foreach (var kvp in globalTimers)
             {
+                string translatedName = TranslateVariableName(kvp.Value.Type, kvp.Value.Index);
                 globalVariablesBinary += ConvertToBinary(0, 0); // Number
             }
 
             // Process global teams
-            int globalTeamsCount = 0; // Example count, replace with actual count
-            globalVariablesBinary += Convert.ToString(globalTeamsCount, 2).PadLeft(4, '0');
-            for (int i = 0; i < globalTeamsCount; i++)
+            var globalTeams = _allDeclaredVariables.Where(kvp => kvp.Value.Type == "Team").ToList();
+            globalVariablesBinary += Convert.ToString(globalTeams.Count, 2).PadLeft(4, '0');
+            foreach (var kvp in globalTeams)
             {
+                string translatedName = TranslateVariableName(kvp.Value.Type, kvp.Value.Index);
                 globalVariablesBinary += ConvertToBinary(0, 4); // Team
-                globalVariablesBinary += ConvertToBinary(1, 2); // Locality
+                globalVariablesBinary += ConvertToBinary(kvp.Value.Priority, 2); // Locality
             }
 
             // Process global players
-            int globalPlayersCount = 0; // Example count, replace with actual count
-            globalVariablesBinary += Convert.ToString(globalPlayersCount, 2).PadLeft(4, '0');
-            for (int i = 0; i < globalPlayersCount; i++)
+            var globalPlayers = _allDeclaredVariables.Where(kvp => kvp.Value.Type == "Player").ToList();
+            globalVariablesBinary += Convert.ToString(globalPlayers.Count, 2).PadLeft(4, '0');
+            foreach (var kvp in globalPlayers)
             {
-                globalVariablesBinary += ConvertToBinary(1, 2); // Locality
+                string translatedName = TranslateVariableName(kvp.Value.Type, kvp.Value.Index);
+                globalVariablesBinary += ConvertToBinary(kvp.Value.Priority, 2); // Locality
             }
 
             // Process global objects
-            int globalObjectsCount = 3; // Example count, replace with actual count
-            globalVariablesBinary += Convert.ToString(globalObjectsCount, 2).PadLeft(5, '0');
-            for (int i = 0; i < globalObjectsCount; i++)
+            var globalObjects = _allDeclaredVariables.Where(kvp => kvp.Value.Type == "Object").ToList();
+            globalVariablesBinary += Convert.ToString(globalObjects.Count, 2).PadLeft(5, '0');
+            foreach (var kvp in globalObjects)
             {
-                globalVariablesBinary += ConvertToBinary(1, 2); // Locality
+                string translatedName = TranslateVariableName(kvp.Value.Type, kvp.Value.Index);
+                globalVariablesBinary += ConvertToBinary(kvp.Value.Priority, 2); // Locality
             }
+
+            // Initialize counts for PlayerVars, ObjectVars, and TeamVars to zero
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(4, '0'); // playernumbers count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // playertimers count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // playerteams count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // playerplayers count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // playerobjects count
+
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(4, '0'); // objectnumbers count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // objecttimers count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(2, '0'); // objectteams count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // objectplayers count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // objectobjects count
+
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(4, '0'); // teamnumbers count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // teamtimers count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // teamteams count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // teamplayers count
+            globalVariablesBinary += Convert.ToString(0, 2).PadLeft(3, '0'); // teamobjects count
 
             return globalVariablesBinary;
         }
 
-        private void ProcessCondition(ExpressionSyntax condition, int conditionOffset, int orSequence = 0, bool isNot = false)
+
+
+
+        private void ProcessCondition(ExpressionSyntax condition, ref int conditionCount, ref int actionOffset, ref int conditionOffset, int orSequence = 0, bool isNot = false, int localActionOffset = 0)
         {
+            if (condition is PrefixUnaryExpressionSyntax unaryExpression && unaryExpression.OperatorToken.IsKind(SyntaxKind.ExclamationToken))
+            {
+                // Handle negation
+                ProcessCondition(unaryExpression.Operand, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, true, localActionOffset);
+                return;
+            }
+
+            if (condition is BinaryExpressionSyntax binaryExpression)
+            {
+                if (binaryExpression.OperatorToken.IsKind(SyntaxKind.AmpersandAmpersandToken))
+                {
+                    // Handle logical AND
+                    ProcessCondition(binaryExpression.Left, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot, localActionOffset);
+                    ProcessCondition(binaryExpression.Right, ref conditionCount, ref actionOffset, ref conditionOffset, ++orSequence, isNot, localActionOffset);
+                    return;
+                }
+                else if (binaryExpression.OperatorToken.IsKind(SyntaxKind.BarBarToken))
+                {
+                    // Handle logical OR
+                    ProcessCondition(binaryExpression.Left, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot, localActionOffset);
+                    ProcessCondition(binaryExpression.Right, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot, localActionOffset);
+                    return;
+                }
+            }
+
             if (condition is InvocationExpressionSyntax invocation)
             {
                 var identifier = invocation.Expression as IdentifierNameSyntax;
@@ -687,11 +1227,13 @@ namespace UniversalGametypeEditor
                                 if (param.ParameterType == typeof(ObjectTypeRef))
                                 {
                                     // Handle ObjectTypeRef conversion
-                                    if (_variableToIndexMap.TryGetValue(paramValue, out int index))
+                                    int priority = 1; // Default to low priority
+                                    if (paramValue != null && _variableToIndexMap.TryGetValue(paramValue, out VariableInfo index))
                                     {
-                                        paramValue = $"GlobalObject{index}";
+                                        paramValue = $"GlobalObject{index.Index}";
+                                        priority = index.Priority;
                                     }
-                                    parameters.Add(ConvertObjectTypeRefToBinary(paramValue, bitSize));
+                                    parameters.Add(ConvertObjectTypeRefToBinary(paramValue ?? string.Empty, bitSize, priority));
                                 }
                                 else if (param.ParameterType == typeof(ObjectType))
                                 {
@@ -712,15 +1254,24 @@ namespace UniversalGametypeEditor
                         // Convert the condition number to a 5-bit binary string
                         string conditionNumberBinary = ConvertToBinary(conditionDefinition.Id, 5);
 
-                        // Convert the NOT, ORSequence, and ConditionOffset to binary strings
+                        // Convert the NOT, ORSequence, and ActionOffset to binary strings
                         string notBinary = ConvertToBinary(isNot ? 1 : 0, 1);
                         string orSequenceBinary = ConvertToBinary(orSequence, 9);
-                        string conditionOffsetBinary = ConvertToBinary(conditionOffset, 10);
+                        string actionOffsetBinary = ConvertToBinary(actionOffset, 10); // Use localActionOffset for inline actions
 
                         // Concatenate all binary parts into a single binary string
-                        string binaryCondition = conditionNumberBinary + notBinary + orSequenceBinary + conditionOffsetBinary + string.Join("", parameters);
+                        string binaryCondition = conditionNumberBinary + notBinary + orSequenceBinary + actionOffsetBinary + string.Join("", parameters);
+
+                        // Add the condition to the conditions list
                         _conditions.Add(new ConditionObject(conditionName, new List<string> { binaryCondition }));
                         Console.WriteLine($"Added condition: {conditionName}({binaryCondition})");
+
+                        // Increment the condition count and condition offset
+                        conditionCount++;
+                        //conditionOffset++;
+
+                        // Increment the local action offset for the next condition in the inline action
+                        localActionOffset++;
                     }
                     else
                     {
@@ -734,12 +1285,131 @@ namespace UniversalGametypeEditor
             }
         }
 
-        private string ConvertObjectTypeRefToBinary(string value, int bitSize)
+        
+
+
+
+
+        // Method to determine if a condition is standalone
+        private bool IsStandaloneCondition(ExpressionSyntax condition)
+        {
+            // Get the parent of the condition
+            var parent = condition.Parent;
+
+            // Check if the parent is an IfStatementSyntax
+            if (parent is IfStatementSyntax ifStatement)
+            {
+                // Check if the IfStatement's parent is a BlockSyntax
+                if (ifStatement.Parent is BlockSyntax blockParent)
+                {
+                    // Check if the BlockSyntax's parent is a MethodDeclarationSyntax or LocalFunctionStatementSyntax
+                    if (blockParent.Parent is MethodDeclarationSyntax || blockParent.Parent is LocalFunctionStatementSyntax)
+                    {
+                        // This indicates that the condition is directly inside a method or local function and not nested
+                        return true;
+                    }
+                }
+            }
+
+            // If the parent is another conditional construct, it is nested
+            return false;
+        }
+
+
+        // Method to create a new trigger for a standalone condition
+        private int CreateNewTriggerForStandaloneCondition(ExpressionSyntax condition, string conditionName, string binaryCondition)
+        {
+            // Default trigger type and attribute
+            string triggerType = "Do";
+            string triggerAttribute = "OnCall";
+
+            // Count the number of conditions and actions for this trigger
+            int conditionOffset = _conditions.Count;  // Start where the current conditions end
+            int actionOffset = _actions.Count;        // Start where the current actions end
+            int conditionCount = 1;                   // We are creating a new trigger with a single condition
+            int actionCount = 0;                      // Initialize action count
+
+            // Push a new scope onto the stack
+            _scopeStack.Push(new Dictionary<string, VariableInfo>());
+
+            // Add the condition to the conditions list
+            _conditions.Add(new ConditionObject(conditionName, new List<string> { binaryCondition }));
+            Console.WriteLine($"Added standalone condition as part of new trigger: {conditionName}({binaryCondition})");
+
+            // Process the actions under the standalone condition
+            var parentIfStatement = condition.Parent as IfStatementSyntax;
+            if (parentIfStatement != null && parentIfStatement.Statement is BlockSyntax block)
+            {
+                foreach (var statement in block.Statements)
+                {
+                    ProcessStatement(statement, ref actionCount, ref conditionCount, ref actionOffset, ref actionOffset);
+                }
+            }
+
+            // Pop the scope from the stack
+            EndScope();
+
+            // Convert the counts and offsets to binary strings
+            string conditionOffsetBinary = ConvertToBinary(conditionOffset, 9);
+            string conditionCountBinary = ConvertToBinary(conditionCount, 10);
+            string actionOffsetBinary = ConvertToBinary(actionOffset, 10);
+            string actionCountBinary = ConvertToBinary(actionCount, 11);
+            string triggerTypeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerTypeEnum), triggerType), 3);
+            string triggerAttributeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerAttributeEnum), triggerAttribute), 3);
+
+            // Concatenate the binary strings for the trigger
+            string binaryTrigger = triggerTypeBinary + triggerAttributeBinary + conditionOffsetBinary + conditionCountBinary + actionOffsetBinary + actionCountBinary;
+            _triggers.Add(new TriggerObject(triggerType, new List<string> { binaryTrigger }));
+            Console.WriteLine($"Created new trigger for standalone condition: {triggerType} with binary data: {binaryTrigger}");
+
+            // Return the index of the newly created trigger
+            return _triggers.Count - 1;
+        }
+
+
+
+        private string ConvertPlayerTypeRefToBinary(string value, int bitSize)
+        {
+            // Define a dictionary to map input strings to their corresponding PlayerTypeRefEnum values
+            var playerTypeRefMap = new Dictionary<string, PlayerTypeRefEnum>
+            {
+                { "Player", PlayerTypeRefEnum.Player },
+                { "Player.Player", PlayerTypeRefEnum.PlayerPlayer },
+                { "Object.Player", PlayerTypeRefEnum.ObjectPlayer },
+                { "Team.Player", PlayerTypeRefEnum.TeamPlayer },
+                { "current_player", PlayerTypeRefEnum.Player }
+            };
+
+            // Split the value to handle nested structures
+            var parts = value.Split('.');
+
+            // Initialize the final binary string
+            string finalBinaryString = "";
+
+            //Convert PlayerTypeRef to its binary representation
+            if (playerTypeRefMap.TryGetValue(parts[0], out var playerTypeRefEnum))
+            {
+                finalBinaryString += Convert.ToString((int)playerTypeRefEnum, 2).PadLeft(2, '0');
+                finalBinaryString += Convert.ToString((int)PlayerRefEnum.CurrentPlayer, 2).PadLeft(5, '0');
+            }
+            else
+            {
+                throw new ArgumentException($"Unsupported PlayerTypeRef: {parts[0]}");
+            }
+
+
+            // Ensure the final binary string is padded to the specified bit size
+            return finalBinaryString.PadLeft(bitSize, '0');
+        }
+
+        private string ConvertObjectTypeRefToBinary(string value, int bitSize, int locality)
         {
             // Define a dictionary to map input strings to their corresponding ObjectTypeRefEnum values
             var objectTypeRefMap = new Dictionary<string, ObjectTypeRefEnum>
             {
-                { "current_player.biped", ObjectTypeRefEnum.PlayerBiped }
+                { "current_player.biped", ObjectTypeRefEnum.PlayerBiped },
+                { "NoObject", ObjectTypeRefEnum.ObjectRef },
+                {"current_object", ObjectTypeRefEnum.ObjectRef }
                 // Add more mappings as needed
             };
 
@@ -773,6 +1443,10 @@ namespace UniversalGametypeEditor
                 if (value == "current_player.biped")
                 {
                     parameterBinaries.Add(Convert.ToString((int)PlayerRefEnum.CurrentPlayer, 2).PadLeft(5, '0'));
+                }
+                else if (value == "current_object")
+                {
+                    parameterBinaries.Add(Convert.ToString((int)ObjectRef.CurrentObject, 2).PadLeft(5, '0'));
                 }
 
                 // Concatenate the binary representations to form the final binary string
@@ -894,13 +1568,14 @@ namespace UniversalGametypeEditor
                 {
                     if (_variableToIndexMap.ContainsKey(kvp.Key))
                     {
-                        if (_variableToIndexMap[kvp.Key] < _entityManager.GetPlayerIndex(new Player("")))
+                        var variableInfo = _variableToIndexMap[kvp.Key];
+                        if (variableInfo.Type == "Player" && variableInfo.Index < _entityManager.GetPlayerIndex(new Player("")))
                         {
-                            _entityManager.RemovePlayer(kvp.Value);
+                            _entityManager.RemovePlayer(variableInfo.Index);
                         }
-                        else
+                        else if (variableInfo.Type == "Object" && variableInfo.Index < _entityManager.GetObjectIndex(new GameObject("")))
                         {
-                            _entityManager.RemoveObject(kvp.Value);
+                            _entityManager.RemoveObject(variableInfo.Index);
                         }
                         _variableToIndexMap.Remove(kvp.Key);
                     }
@@ -1055,6 +1730,33 @@ namespace UniversalGametypeEditor
         }
     }
 
+    public class PlayerTypeRef
+    {
+        public string Name { get; set; }
+        public int Bits { get; set; }
+        public List<PlayerTypeRefParameter> Parameters { get; set; } = new List<PlayerTypeRefParameter>();
+
+        public PlayerTypeRef(string name, int bits)
+        {
+            Name = name;
+            Bits = bits;
+        }
+    }
+
+    public class  PlayerTypeRefParameter 
+    {
+        public string Name { get; set; }
+        public Type ParameterType { get; set; }
+        public int Bits { get; set; }
+
+        public PlayerTypeRefParameter(string name, Type parameterType, int bits)
+        {
+            Name = name;
+            ParameterType = parameterType;
+            Bits = bits;
+        }
+    }
+
     public class ObjectTypeRefParameter
     {
         public string Name { get; set; }
@@ -1165,6 +1867,32 @@ namespace UniversalGametypeEditor
         {
             return $"{TriggerType}({string.Join(", ", Parameters)})";
         }
+    }
+    internal static class CustomSyntaxKind
+    {
+        public static readonly SyntaxKind LocalKeyword = (SyntaxKind)1000; // Example value, replace with actual value
+        public static readonly SyntaxKind HighKeyword = (SyntaxKind)1001; // Example value, replace with actual value
+        public static readonly SyntaxKind LowKeyword = (SyntaxKind)1002; // Example value, replace with actual value
+    }
+    public class VariableInfo
+    {
+        public string Type { get; set; }
+        public int Index { get; set; }
+        public int Priority { get; set; }
+
+        public VariableInfo(string type, int index, int priority)
+        {
+            Type = type;
+            Index = index;
+            Priority = priority;
+        }
+    }
+    public enum PlayerTypeRefEnum
+    {
+        Player = 0b00,
+        PlayerPlayer = 0b01,
+        ObjectPlayer = 0b10,
+        TeamPlayer = 0b11
     }
 
     public enum ObjectType

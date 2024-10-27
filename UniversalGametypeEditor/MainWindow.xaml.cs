@@ -14,30 +14,19 @@ using System.Windows.Input;
 using UniversalGametypeEditor.Properties;
 using Newtonsoft.Json.Linq;
 using System.Collections.Specialized;
-using System.Windows.Forms.Design;
 using System.Collections.Generic;
 using System.Linq;
-using System.Drawing;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-using System.Xml.Linq;
 using System.Threading;
-using UniversalGametypeEditor;
-using System.Text;
 using System.Threading.Tasks;
-using Microsoft.VisualBasic;
 using System.ComponentModel;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Menu;
 using static UniversalGametypeEditor.ReadGametype;
 using Newtonsoft.Json;
-using System.Windows.Forms.Integration;
-using static System.Net.Mime.MediaTypeNames;
-using static UniversalGametypeEditor.MegaloEditPatcher;
-using System.Collections;
-using System.Runtime.Serialization;
 using Microsoft.Win32;
-using System.Windows.Data;
+using ICSharpCode.AvalonEdit.Highlighting.Xshd;
+using ICSharpCode.AvalonEdit.Highlighting;
+using System.Xml;
 
 
 
@@ -126,12 +115,12 @@ namespace UniversalGametypeEditor
         public MainWindow()
         {
             InitializeComponent();
-            ScriptCompiler sc = new();
+            //ScriptCompiler sc = new();
             //read the script.txt file
-            string script = File.ReadAllText("script.txt");
-            sc.CompileScript(script);
+            //string script = File.ReadAllText("script.txt");
+            //sc.CompileScript(script);
 
-
+            ConfigureSyntaxHighlighting();
 
             //CheckForUpdates(null, null);
 
@@ -1024,12 +1013,38 @@ namespace UniversalGametypeEditor
             return viewModel;
         }
 
+        private void ConfigureSyntaxHighlighting()
+        {
+            // Check if the ScriptInputTextEditor is properly initialized
+            if (ScriptInputTextEditor == null)
+            {
+                Debug.WriteLine("ScriptInputTextEditor is null.");
+                return;
+            }
+
+            // Attempt to load the syntax highlighting definition
+            using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("UniversalGametypeEditor.Csharp-Mode.xshd"))
+            {
+                if (stream == null)
+                {
+                    Debug.WriteLine("Resource stream for CSharp-Mode.xshd not found.");
+                    return;
+                }
+
+                using (var reader = new XmlTextReader(stream))
+                {
+                    ScriptInputTextEditor.SyntaxHighlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
+                }
+            }
+        }
 
 
         private void CompileScript_Click(object sender, RoutedEventArgs e)
         {
-            CompileScript(rg.gt.scriptOffset, File.ReadAllText("script.txt"));
+            string script = ScriptInputTextEditor.Text;
+            CompileScript(rg.gt.scriptOffset, script);
         }
+
 
         private void CompileScript(int bitOffset, string script)
         {
@@ -1132,6 +1147,7 @@ namespace UniversalGametypeEditor
                 //GametypeScroller.Children.Clear();
                 
                 Settings.Default.Selected = e.AddedItems[0].ToString();
+                Settings.Default.Save();
                 Decompile(e.AddedItems[0]);
 
                 //Take the rg.gt instance and serialize it as JSON
