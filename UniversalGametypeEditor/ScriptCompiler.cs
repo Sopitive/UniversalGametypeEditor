@@ -9,6 +9,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using static UniversalGametypeEditor.ReadGametype;
 using static UniversalGametypeEditor.ScriptCompiler;
+using static UniversalGametypeEditor.Enums.Enums;
 
 
 namespace UniversalGametypeEditor
@@ -32,12 +33,14 @@ namespace UniversalGametypeEditor
     {
         private List<Player> _players = new List<Player>();
         private List<GameObject> _objects = new List<GameObject>();
+        private List<int> _numbers = new List<int>();
         private Stack<int> _availablePlayerIndices = new Stack<int>();
         private Stack<int> _availableObjectIndices = new Stack<int>();
+        private Stack<int> _availableNumberIndices = new Stack<int>();
 
         public EntityManager()
         {
-            // Initialize with some default players or objects if needed
+            // Initialize with some default players, objects, or numbers if needed
         }
 
         public Player CreatePlayer(string name)
@@ -98,6 +101,33 @@ namespace UniversalGametypeEditor
             return gameObject;
         }
 
+        public int CreateNumber(int value)
+        {
+            int index;
+            if (_availableNumberIndices.Count > 0)
+            {
+                index = _availableNumberIndices.Pop();
+                Console.WriteLine($"Recycled number index: {index}");
+            }
+            else
+            {
+                index = _numbers.Count;
+                Console.WriteLine($"New number index: {index}");
+            }
+
+            // Ensure the list is large enough to hold the new number
+            if (index >= _numbers.Count)
+            {
+                _numbers.Add(value);
+            }
+            else
+            {
+                _numbers[index] = value;
+            }
+
+            return index;
+        }
+
         public void RemovePlayer(int index)
         {
             if (index >= 0 && index < _players.Count)
@@ -118,6 +148,16 @@ namespace UniversalGametypeEditor
             }
         }
 
+        public void RemoveNumber(int index)
+        {
+            if (index >= 0 && index < _numbers.Count)
+            {
+                _numbers[index] = 0;
+                _availableNumberIndices.Push(index);
+                Console.WriteLine($"Recycled number index: {index}");
+            }
+        }
+
         public Player GetPlayer(int index)
         {
             if (index >= 0 && index < _players.Count)
@@ -134,6 +174,15 @@ namespace UniversalGametypeEditor
                 return _objects[index];
             }
             throw new Exception($"Object at index '{index}' not found.");
+        }
+
+        public int GetNumber(int index)
+        {
+            if (index >= 0 && index < _numbers.Count)
+            {
+                return _numbers[index];
+            }
+            throw new Exception($"Number at index '{index}' not found.");
         }
 
         public int GetPlayerIndex(Player player)
@@ -256,6 +305,15 @@ namespace UniversalGametypeEditor
                         _variableToIndexMap[varName] = variableInfo;
                         _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
                         Console.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {networkingPriority}");
+                    }
+                    else if (type == "Number")
+                    {
+                        int value = 0; // Default value for numbers
+                        var numberIndex = _entityManager.CreateNumber(value);
+                        var variableInfo = new VariableInfo(type, numberIndex, networkingPriority);
+                        _variableToIndexMap[varName] = variableInfo;
+                        _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
+                        Console.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {networkingPriority}");
                     }
                     else
                     {
@@ -754,6 +812,35 @@ namespace UniversalGametypeEditor
                             Console.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {priorityValue}");
                         }
                     }
+                    else if (actualType == "Number")
+                    {
+                        var initializer = variable.Initializer?.Value as InvocationExpressionSyntax;
+                        if (initializer != null)
+                        {
+                            // Add the variable to the map before processing the invocation
+                            int value = 0; // Default value for numbers
+                            var numberIndex = _entityManager.CreateNumber(value);
+                            var variableInfo = new VariableInfo(actualType, numberIndex, priorityValue);
+                            _variableToIndexMap[varName] = variableInfo;
+                            _scopeStack.Peek()[varName] = variableInfo;
+                            _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
+                            Console.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {priorityValue}");
+
+                            // Process the invocation with the varOut parameter
+                            ProcessInvocation(initializer, ref actionOffset, varName);
+                            actionCount++;
+                        }
+                        else
+                        {
+                            int value = 0; // Default value for numbers
+                            var numberIndex = _entityManager.CreateNumber(value);
+                            var variableInfo = new VariableInfo(actualType, numberIndex, priorityValue);
+                            _variableToIndexMap[varName] = variableInfo;
+                            _scopeStack.Peek()[varName] = variableInfo;
+                            _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
+                            Console.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {priorityValue}");
+                        }
+                    }
                     else
                     {
                         Console.WriteLine($"Unhandled local variable type: {actualType}");
@@ -800,17 +887,38 @@ namespace UniversalGametypeEditor
                         if (param.Name == "var_out")
                         {
                             hasVarOut = 1;
-                            if (varOut != null && _variableToIndexMap.TryGetValue(varOut, out VariableInfo varInfo))
+                            if (param.ParameterType == typeof(ObjectTypeRef))
                             {
-                                // Translate the index to a global number and then to ObjectRef
-                                string varOutValue = $"GlobalObject{varInfo.Index}";
-                                string binaryRepresentation = ConvertObjectTypeRefToBinary(varOutValue, bitSize, varInfo.Priority);
-                                parameters.Add(binaryRepresentation);
+                                if (varOut != null && _variableToIndexMap.TryGetValue(varOut, out VariableInfo varInfo))
+                                {
+                                    // Translate the index to a global number and then to ObjectRef
+                                    string varOutValue = $"GlobalObject{varInfo.Index}";
+                                    string binaryRepresentation = ConvertObjectTypeRefToBinary(varOutValue, bitSize, varInfo.Priority);
+                                    parameters.Add(binaryRepresentation);
+                                }
+                                else
+                                {
+                                    //use the default
+                                    parameters.Add(ConvertObjectTypeRefToBinary(param.DefaultValue?.ToString() ?? string.Empty, bitSize, 1));
+                                }
+                            } else if (param.ParameterType == typeof(NumericTypeRef))
+                            {
+                                if (varOut != null && _variableToIndexMap.TryGetValue(varOut, out VariableInfo varInfo))
+                                {
+                                    // Translate the index to a global number and then to ObjectRef
+                                    string varOutValue = $"GlobalNumber{varInfo.Index}";
+                                    string binaryRepresentation = ConvertNumericTypeRefToBinary(varOutValue, bitSize);
+                                    parameters.Add(binaryRepresentation);
+                                }
+                                else
+                                {
+                                    //use the default
+                                    parameters.Add(ConvertNumericTypeRefToBinary(param.DefaultValue?.ToString() ?? string.Empty, bitSize));
+                                }
                             }
                             else
                             {
-                                //use the default
-                                parameters.Add(ConvertObjectTypeRefToBinary(param.DefaultValue?.ToString() ?? string.Empty, bitSize, 1));
+                                parameters.Add(ConvertToBinary(varOut ?? string.Empty, bitSize));
                             }
                         }
                         else if (i < arguments.Count + hasVarOut)
@@ -830,6 +938,11 @@ namespace UniversalGametypeEditor
                             else if (param.ParameterType == typeof(PlayerTypeRef))
                             {
                                 string binaryRepresentation = ConvertPlayerTypeRefToBinary(argumentValue ?? string.Empty, bitSize);
+                                parameters.Add(binaryRepresentation);
+                            }
+                            else if (param.ParameterType == typeof(NumericTypeRef))
+                            {
+                                string binaryRepresentation = ConvertNumericTypeRefToBinary(argumentValue ?? string.Empty, bitSize);
                                 parameters.Add(binaryRepresentation);
                             }
                             else if (param.Name == "type")
@@ -874,24 +987,9 @@ namespace UniversalGametypeEditor
                     // Check if the action already exists in the actions list
                     if (!_actions.Any(a => a.Parameters.Contains(binaryAction)))
                     {
-                        //if (inlineActionOffset >= 0)
-                        //{
-                        //    _actions.Insert(inlineActionOffset, new ActionObject(actionName, new List<string> { binaryAction }));
-                        //    Console.WriteLine($"Added inline action: {actionName}({binaryAction})");
-                        //    actionOffset++;
-                        //}
-                        //else if (actionOffset >= 0)
-                        //{
-                        //    _actions.Insert(actionOffset, new ActionObject(actionName, new List<string> { binaryAction }));
-                        //    Console.WriteLine($"Added action at offset: {actionName}({binaryAction})");
-                        //    actionOffset++; // Increment the action offset
-                        //}
-                        //else
-                        //{
-                            _actions.Add(new ActionObject(actionName, new List<string> { binaryAction }));
-                            Console.WriteLine($"Added action: {actionName}({binaryAction})");
-                            inlineActionOffset++;
-                        //}
+                        _actions.Add(new ActionObject(actionName, new List<string> { binaryAction }));
+                        Console.WriteLine($"Added action: {actionName}({binaryAction})");
+                        inlineActionOffset++;
                     }
                 }
                 else
@@ -1110,7 +1208,8 @@ namespace UniversalGametypeEditor
             foreach (var kvp in globalNumbers)
             {
                 string translatedName = TranslateVariableName(kvp.Value.Type, kvp.Value.Index);
-                globalVariablesBinary += ConvertToBinary(0, 0); // Number
+                globalVariablesBinary += ConvertToBinary(0, 6); // Number
+                globalVariablesBinary += ConvertToBinary(0, 16);
                 globalVariablesBinary += ConvertToBinary(kvp.Value.Priority, 2); // Locality
             }
 
@@ -1235,6 +1334,16 @@ namespace UniversalGametypeEditor
                                     }
                                     parameters.Add(ConvertObjectTypeRefToBinary(paramValue ?? string.Empty, bitSize, priority));
                                 }
+                                else if (param.ParameterType == typeof(PlayerTypeRef))
+                                {
+                                    // Handle PlayerTypeRef conversion
+                                    parameters.Add(ConvertPlayerTypeRefToBinary(paramValue ?? string.Empty, bitSize));
+                                }
+                                else if (param.ParameterType == typeof(NumericTypeRef))
+                                {
+                                    // Handle NumericTypeRef conversion
+                                    parameters.Add(ConvertNumericTypeRefToBinary(paramValue ?? string.Empty, bitSize));
+                                }
                                 else if (param.ParameterType == typeof(ObjectType))
                                 {
                                     ObjectType objectType = (ObjectType)Enum.Parse(typeof(ObjectType), paramValue, true);
@@ -1285,87 +1394,85 @@ namespace UniversalGametypeEditor
             }
         }
 
-        
-
-
-
-
-        // Method to determine if a condition is standalone
-        private bool IsStandaloneCondition(ExpressionSyntax condition)
+        private string ConvertNumericTypeRefToBinary(string value, int bitSize)
         {
-            // Get the parent of the condition
-            var parent = condition.Parent;
-
-            // Check if the parent is an IfStatementSyntax
-            if (parent is IfStatementSyntax ifStatement)
+            // Define a dictionary to map input strings to their corresponding NumericTypeRef values
+            var numericTypeRefMap = new Dictionary<string, NumericTypeRefEnum>
+    {
+        { "Int16", NumericTypeRefEnum.Int16 },
+        { "Player.Number", NumericTypeRefEnum.PlayerNumber },
+        { "Object.Number", NumericTypeRefEnum.ObjectNumber },
+        { "Team.Number", NumericTypeRefEnum.TeamNumber },
+        { "Global.Number", NumericTypeRefEnum.GlobalNumber },
+        { "ScriptOption", NumericTypeRefEnum.ScriptOption },
+        { "Object.SpawnSeq", NumericTypeRefEnum .ObjectSpawnSeq },
+        { "Team.Score", NumericTypeRefEnum.TeamScore },
+        { "Player.Score", NumericTypeRefEnum.PlayerScore },
+        { "Player.Money", NumericTypeRefEnum.PlayerMoney },
+        { "Player.Rating", NumericTypeRefEnum.PlayerRating },
+        { "Player.Stat", NumericTypeRefEnum.PlayerStat },
+        { "Team.Stat", NumericTypeRefEnum.TeamStat },
+        { "CurrentRound", NumericTypeRefEnum.CurrentRound },
+        { "SymmetricMode", NumericTypeRefEnum.SymmetricMode },
+        { "SymmetricModeWritable", NumericTypeRefEnum.SymmetricModeWritable },
+        { "ScoreToWin", NumericTypeRefEnum.ScoreToWin },
+        { "Fireteams Enabled", NumericTypeRefEnum.FireteamsEnabled },
+        { "Teams Enabled", NumericTypeRefEnum.TeamsEnabled },
+        { "Round Time Limit", NumericTypeRefEnum.RoundTimeLimit },
+        { "Round Limit", NumericTypeRefEnum.RoundLimit },
+        { "Perfection Enabled", NumericTypeRefEnum.PerfectionEnabled },
+        { "Early Victory Win Count", NumericTypeRefEnum.EarlyVictoryWinCount },
+        { "Sudden Death Time Limit", NumericTypeRefEnum.SuddenDeathTimeLimit },
+        { "Grace Period Time Limit", NumericTypeRefEnum.GracePeriodTimeLimit },
+        { "Player.Lives", NumericTypeRefEnum.PlayerLives },
+        { "Team.Lives", NumericTypeRefEnum.TeamLives },
+        { "RespawnTime", NumericTypeRefEnum.RespawnTime },
+        { "Suicide Respawn Penalty", NumericTypeRefEnum.SuicideRespawnPenalty },
+        { "Betrayal Respawn Penalty", NumericTypeRefEnum.BetrayalRespawnPenalty },
+        { "Respawn Growth Time", NumericTypeRefEnum.RespawnGrowthTime },
+        { "Initial Loadout Selection Time", NumericTypeRefEnum.InitialLoadoutSelectionTime },
+        { "Respawn Traits Duration", NumericTypeRefEnum.RespawnTraitsDuration },
+        { "Friendly Fire Enabled", NumericTypeRefEnum.FriendlyFireEnabled },
+        { "Betrayal Booting Enabled", NumericTypeRefEnum.BetrayalBootingEnabled },
+        { "Enemy Voice Enabled", NumericTypeRefEnum.EnemyVoiceEnabled },
+        { "Open Channel Voice Enabled", NumericTypeRefEnum.OpenChannelVoiceEnabled },
+        { "Dead Player Voice Enabled", NumericTypeRefEnum.DeadPlayerVoiceEnabled },
+        { "Grenades on Map", NumericTypeRefEnum.GrenadesOnMap },
+        { "Indestructible Vehicles Enabled", NumericTypeRefEnum.IndestructibleVehiclesEnabled },
+        { "Red Traits Duration", NumericTypeRefEnum.RedTraitsDuration },
+        { "Blue Traits Duration", NumericTypeRefEnum.BlueTraitsDuration },
+        { "Yellow Traits Duration", NumericTypeRefEnum.YellowTraitsDuration },
+        { "Object Death Damage Type", NumericTypeRefEnum.ObjectDeathDamageType },
+        // Add more as needed
+    };
+            if (value.StartsWith("GlobalNumber"))
             {
-                // Check if the IfStatement's parent is a BlockSyntax
-                if (ifStatement.Parent is BlockSyntax blockParent)
+                int globalNumberIndex = int.Parse(value.Replace("GlobalNumber", ""));
+                globalNumberIndex += 1; // Increment the index by 1 to account for the NoObject case
+                if (globalNumberIndex < 0 || globalNumberIndex > 15)
                 {
-                    // Check if the BlockSyntax's parent is a MethodDeclarationSyntax or LocalFunctionStatementSyntax
-                    if (blockParent.Parent is MethodDeclarationSyntax || blockParent.Parent is LocalFunctionStatementSyntax)
-                    {
-                        // This indicates that the condition is directly inside a method or local function and not nested
-                        return true;
-                    }
+                    throw new ArgumentException($"Invalid GlobalNumber index: {globalNumberIndex}");
                 }
+                // Convert the NumericTypeRef to its binary representation
+                string numericTypeRefBinary = Convert.ToString((int)NumericTypeRefEnum.GlobalNumber, 2).PadLeft(6, '0');
+                // Convert the global number index to its binary representation
+                string globalNumberIndexBinary = Convert.ToString(globalNumberIndex, 2).PadLeft(5, '0');
+                // Concatenate the binary representations to form the final binary string
+                string finalBinaryString1 = numericTypeRefBinary + globalNumberIndexBinary;
+                return finalBinaryString1;
             }
-
-            // If the parent is another conditional construct, it is nested
-            return false;
-        }
-
-
-        // Method to create a new trigger for a standalone condition
-        private int CreateNewTriggerForStandaloneCondition(ExpressionSyntax condition, string conditionName, string binaryCondition)
-        {
-            // Default trigger type and attribute
-            string triggerType = "Do";
-            string triggerAttribute = "OnCall";
-
-            // Count the number of conditions and actions for this trigger
-            int conditionOffset = _conditions.Count;  // Start where the current conditions end
-            int actionOffset = _actions.Count;        // Start where the current actions end
-            int conditionCount = 1;                   // We are creating a new trigger with a single condition
-            int actionCount = 0;                      // Initialize action count
-
-            // Push a new scope onto the stack
-            _scopeStack.Push(new Dictionary<string, VariableInfo>());
-
-            // Add the condition to the conditions list
-            _conditions.Add(new ConditionObject(conditionName, new List<string> { binaryCondition }));
-            Console.WriteLine($"Added standalone condition as part of new trigger: {conditionName}({binaryCondition})");
-
-            // Process the actions under the standalone condition
-            var parentIfStatement = condition.Parent as IfStatementSyntax;
-            if (parentIfStatement != null && parentIfStatement.Statement is BlockSyntax block)
+            else if (numericTypeRefMap.TryGetValue(value, out var numericTypeRefEnumValue))
             {
-                foreach (var statement in block.Statements)
-                {
-                    ProcessStatement(statement, ref actionCount, ref conditionCount, ref actionOffset, ref actionOffset);
-                }
+                // Convert the NumericTypeRef to its binary representation
+                string numericTypeRefBinary = Convert.ToString((int)numericTypeRefEnumValue, 2).PadLeft(6, '0');
+                // Ensure the final binary string is padded to the specified bit size
+                return numericTypeRefBinary.PadLeft(bitSize, '0');
             }
-
-            // Pop the scope from the stack
-            EndScope();
-
-            // Convert the counts and offsets to binary strings
-            string conditionOffsetBinary = ConvertToBinary(conditionOffset, 9);
-            string conditionCountBinary = ConvertToBinary(conditionCount, 10);
-            string actionOffsetBinary = ConvertToBinary(actionOffset, 10);
-            string actionCountBinary = ConvertToBinary(actionCount, 11);
-            string triggerTypeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerTypeEnum), triggerType), 3);
-            string triggerAttributeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerAttributeEnum), triggerAttribute), 3);
-
-            // Concatenate the binary strings for the trigger
-            string binaryTrigger = triggerTypeBinary + triggerAttributeBinary + conditionOffsetBinary + conditionCountBinary + actionOffsetBinary + actionCountBinary;
-            _triggers.Add(new TriggerObject(triggerType, new List<string> { binaryTrigger }));
-            Console.WriteLine($"Created new trigger for standalone condition: {triggerType} with binary data: {binaryTrigger}");
-
-            // Return the index of the newly created trigger
-            return _triggers.Count - 1;
+            else
+            {
+                throw new ArgumentException($"Unsupported NumericTypeRef: {value}");
+            }
         }
-
 
 
         private string ConvertPlayerTypeRefToBinary(string value, int bitSize)
@@ -1490,74 +1597,7 @@ namespace UniversalGametypeEditor
             throw new InvalidOperationException("Unsupported type for binary conversion.");
         }
 
-        public enum TriggerTypeEnum
-        {
-            Do = 0b000,
-            Player = 0b001,
-            RandomPlayer = 0b010,
-            Team = 0b011,
-            Object = 0b100,
-            Labeled = 0b101,
-            Unlabelled1 = 0b110,
-            Unlabelled2 = 0b111
-        }
-
-        public enum TriggerAttributeEnum
-        {
-            OnTick = 0b000,
-            OnCall = 0b001,
-            OnInit = 0b010,
-            OnLocalInit = 0b011,
-            OnHostMigration = 0b100,
-            OnObjectDeath = 0b101,
-            OnLocal = 0b110,
-            OnPregame = 0b111
-        }
-
-
-        public enum NameIndex
-        {
-            None = 0b00000000,
-            MpBoneyardAIdleStart = 0b00000001,
-            MpBoneyardAFlyIn = 0b00000010,
-            MpBoneyardAIdleMid = 0b00000011,
-            MpBoneyardAFlyOut = 0b00000100,
-            MpBoneyardBFlyIn = 0b00000101,
-            MpBoneyardBIdleMid = 0b00000110,
-            MpBoneyardBFlyOut = 0b00000111,
-            MpBoneyardBIdleStart = 0b00001000,
-            MpBoneyardALeave1 = 0b00001001,
-            MpBoneyardBLeave1 = 0b00001010,
-            MpBoneyardBPickup = 0b00001011,
-            MpBoneyardBIdlePickup = 0b00001100,
-            MpBoneyardA = 0b00001101,
-            MpBoneyardB = 0b00001110,
-            Default = 0b00001111,
-            Carter = 0b00010000,
-            Jun = 0b00010001,
-            Female = 0b00010010,
-            Male = 0b00010011,
-            Emile = 0b00010100,
-            PlayerSkull = 0b00010101,
-            Kat = 0b00010110,
-            Minor = 0b00010111,
-            Officer = 0b00011000,
-            Ultra = 0b00011001,
-            Space = 0b00011010,
-            SpecOps = 0b00011011,
-            General = 0b00011100,
-            Zealot = 0b00011101,
-            Mp = 0b00011110,
-            Jetpack = 0b00011111,
-            Gauss = 0b00100000,
-            Troop = 0b00100001,
-            Rocket = 0b00100010,
-            Fr = 0b00100011,
-            Pl = 0b00100100,
-            Spire35Fp = 0b00100101,
-            MpSpireFp = 0b00100110,
-            MinusOne = 0b11111111
-        }
+        
 
         private void EndScope()
         {
@@ -1583,66 +1623,11 @@ namespace UniversalGametypeEditor
             }
         }
 
-        private void ListActions()
-        {
-            foreach (var action in _actions)
-            {
-                Console.WriteLine(action);
-            }
-        }
 
         
     }
 
 
-
-    public enum ObjectTypeRefEnum
-    {
-        ObjectRef = 0b000,
-        PlayerObject = 0b001,
-        ObjectObject = 0b010,
-        TeamObject = 0b011,
-        PlayerBiped = 0b100,
-        PlayerPlayerBiped = 0b101,
-        ObjectPlayerBiped = 0b110,
-        TeamPlayerBiped = 0b111
-    }
-
-    public enum PlayerRefEnum
-    {
-        NoPlayer = 0b00000,
-        Player0 = 0b00001,
-        Player1 = 0b00010,
-        Player2 = 0b00011,
-        Player3 = 0b00100,
-        Player4 = 0b00101,
-        Player5 = 0b00110,
-        Player6 = 0b00111,
-        Player7 = 0b01000,
-        Player8 = 0b01001,
-        Player9 = 0b01010,
-        Player10 = 0b01011,
-        Player11 = 0b01100,
-        Player12 = 0b01101,
-        Player13 = 0b01110,
-        Player14 = 0b01111,
-        Player15 = 0b10000,
-        GlobalPlayer0 = 0b10001,
-        GlobalPlayer1 = 0b10010,
-        GlobalPlayer2 = 0b10011,
-        GlobalPlayer3 = 0b10100,
-        GlobalPlayer4 = 0b10101,
-        GlobalPlayer5 = 0b10110,
-        GlobalPlayer6 = 0b10111,
-        GlobalPlayer7 = 0b11000,
-        CurrentPlayer = 0b11001,
-        HudPlayer = 0b11010,
-        HudTargetPlayer = 0b11011,
-        ObjectKiller = 0b11100,
-        Unlabelled1 = 0b11101,
-        Unlabelled2 = 0b11110,
-        Unlabelled3 = 0b11111
-    }
 
     public enum ObjectRef
     {
@@ -1729,6 +1714,35 @@ namespace UniversalGametypeEditor
             Parameters = parameters;
         }
     }
+
+    public class NumericTypeRef
+    {
+        public string Name { get; set; }
+        public int Bits { get; set; }
+        public List<NumericTypeRefParameter> Parameters { get; set; }
+
+        public NumericTypeRef(string name, int bits, List<NumericTypeRefParameter> parameters)
+        {
+            Name = name;
+            Bits = bits;
+            Parameters = parameters;
+        }
+    }
+
+    public class NumericTypeRefParameter
+    {
+        public string Name { get; set; }
+        public Type ParameterType { get; set; }
+        public int Bits { get; set; }
+
+        public NumericTypeRefParameter(string name, Type parameterType, int bits)
+        {
+            Name = name;
+            ParameterType = parameterType;
+            Bits = bits;
+        }
+    }
+
 
     public class PlayerTypeRef
     {
@@ -1868,12 +1882,6 @@ namespace UniversalGametypeEditor
             return $"{TriggerType}({string.Join(", ", Parameters)})";
         }
     }
-    internal static class CustomSyntaxKind
-    {
-        public static readonly SyntaxKind LocalKeyword = (SyntaxKind)1000; // Example value, replace with actual value
-        public static readonly SyntaxKind HighKeyword = (SyntaxKind)1001; // Example value, replace with actual value
-        public static readonly SyntaxKind LowKeyword = (SyntaxKind)1002; // Example value, replace with actual value
-    }
     public class VariableInfo
     {
         public string Type { get; set; }
@@ -1887,241 +1895,5 @@ namespace UniversalGametypeEditor
             Priority = priority;
         }
     }
-    public enum PlayerTypeRefEnum
-    {
-        Player = 0b00,
-        PlayerPlayer = 0b01,
-        ObjectPlayer = 0b10,
-        TeamPlayer = 0b11
-    }
-
-    public enum ObjectType
-    {
-        Spartan = 0x000,
-        Elite = 0x001,
-        Monitor = 0x002,
-        Flag = 0x003,
-        Bomb = 0x004,
-        Ball = 0x005,
-        Area = 0x006,
-        Stand = 0x007,
-        Destination = 0x008,
-        FragGrenade = 0x009,
-        PlasmaGrenade = 0x00A,
-        SpikeGrenade = 0x00B,
-        FirebombGrenade = 0x00C,
-        Dmr = 0x00D,
-        AssaultRifle = 0x00E,
-        PlasmaPistol = 0x00F,
-        SpikeRifle = 0x010,
-        Smg = 0x011,
-        NeedleRifle = 0x012,
-        PlasmaRepeater = 0x013,
-        EnergySword = 0x014,
-        Magnum = 0x015,
-        Needler = 0x016,
-        PlasmaRifle = 0x017,
-        RocketLauncher = 0x018,
-        Shotgun = 0x019,
-        SniperRifle = 0x01A,
-        BruteShot = 0x01B,
-        BeamRifle = 0x01C,
-        SpartanLaser = 0x01D,
-        GravityHammer = 0x01E,
-        Mauler = 0x01F,
-        Flamethrower = 0x020,
-        MissilePod = 0x021,
-        Warthog = 0x022,
-        Ghost = 0x023,
-        Scorpion = 0x024,
-        Wraith = 0x025,
-        Banshee = 0x026,
-        Mongoose = 0x027,
-        Chopper = 0x028,
-        Prowler = 0x029,
-        Hornet = 0x02A,
-        Stingray = 0x02B,
-        HeavyWraith = 0x02C,
-        Falcon = 0x02D,
-        Sabre = 0x02E,
-        SprintEquipment = 0x02F,
-        JetPackEquipment = 0x030,
-        ArmorLockEquipment = 0x031,
-        PowerFistEquipment = 0x032,
-        ActiveCamoEquipment = 0x033,
-        AmmoPackEquipment = 0x034,
-        SensorPackEquipment = 0x035,
-        Revenant = 0x036,
-        Pickup = 0x037,
-        PrototypeCoveySniper = 0x038,
-        TerritoryStatic = 0x039,
-        CtfFlagReturnArea = 0x03A,
-        CtfFlagSpawnPoint = 0x03B,
-        RespawnZone = 0x03C,
-        InvasionEliteBuy = 0x03D,
-        InvasionEliteDrop = 0x03E,
-        InvasionSlayer = 0x03F,
-        InvasionSpartanBuy = 0x040,
-        InvasionSpartanDrop = 0x041,
-        InvasionSpawnController = 0x042,
-        OddballBallSpawnPoint = 0x043,
-        PlasmaLauncher = 0x044,
-        FusionCoil = 0x045,
-        UnscShieldGenerator = 0x046,
-        CovShieldGenerator = 0x047,
-        InitialSpawnPoint = 0x048,
-        InvasionVehicleReq = 0x049,
-        VehicleReqFloor = 0x04A,
-        WallSwitch = 0x04B,
-        HealthStation = 0x04C,
-        ReqUnscLaser = 0x04D,
-        ReqUnscDmr = 0x04E,
-        ReqUnscRocket = 0x04F,
-        ReqUnscShotgun = 0x050,
-        ReqUnscSniper = 0x051,
-        ReqCovyLauncher = 0x052,
-        ReqCovyNeedler = 0x053,
-        ReqCovySniper = 0x054,
-        ReqCovySword = 0x055,
-        ShockLoadout = 0x056,
-        SpecialistLoadout = 0x057,
-        AssassinLoadout = 0x058,
-        InfiltratorLoadout = 0x059,
-        WarriorLoadout = 0x05A,
-        CombatantLoadout = 0x05B,
-        EngineerLoadout = 0x05C,
-        InfantryLoadout = 0x05D,
-        OperatorLoadout = 0x05E,
-        ReconLoadout = 0x05F,
-        ScoutLoadout = 0x060,
-        SeekerLoadout = 0x061,
-        AirborneLoadout = 0x062,
-        RangerLoadout = 0x063,
-        ReqBuyBanshee = 0x064,
-        ReqBuyFalcon = 0x065,
-        ReqBuyGhost = 0x066,
-        ReqBuyMongoose = 0x067,
-        ReqBuyRevenant = 0x068,
-        ReqBuyScorpion = 0x069,
-        ReqBuyWarthog = 0x06A,
-        ReqBuyWraith = 0x06B,
-        Fireteam1RespawnZone = 0x06C,
-        Fireteam2RespawnZone = 0x06D,
-        Fireteam3RespawnZone = 0x06E,
-        Fireteam4RespawnZone = 0x06F,
-        Semi = 0x070,
-        SoccerBall = 0x071,
-        GolfBall = 0x072,
-        GolfBallBlue = 0x073,
-        GolfBallRed = 0x074,
-        GolfClub = 0x075,
-        GolfCup = 0x076,
-        GolfTee = 0x077,
-        Dice = 0x078,
-        SpaceCrate = 0x079,
-        EradicatorLoadout = 0x07A,
-        SaboteurLoadout = 0x07B,
-        GrenadierLoadout = 0x07C,
-        MarksmanLoadout = 0x07D,
-        Flare = 0x07E,
-        GlowStick = 0x07F,
-        EliteShot = 0x080,
-        GrenadeLauncher = 0x081,
-        PhantomApproach = 0x082,
-        HologramEquipment = 0x083,
-        EvadeEquipment = 0x084,
-        UnscDataCore = 0x085,
-        DangerZone = 0x086,
-        TeleporterSender = 0x087,
-        TeleporterReceiver = 0x088,
-        Teleporter2Way = 0x089,
-        DataCoreBeam = 0x08A,
-        PhantomOverwatch = 0x08B,
-        Longsword = 0x08C,
-        InvisibleCubeOfDerek = 0x08D,
-        PhantomScenery = 0x08E,
-        PelicanScenery = 0x08F,
-        Phantom = 0x090,
-        Pelican = 0x091,
-        ArmoryShelf = 0x092,
-        CovResupplyCapsule = 0x093,
-        CovyDropPod = 0x094,
-        InvisibleMarker = 0x095,
-        WeakRespawnZone = 0x096,
-        WeakAntiRespawnZone = 0x097,
-        PhantomDevice = 0x098,
-        ResupplyCapsule = 0x099,
-        ResupplyCapsuleOpen = 0x09A,
-        WeaponBox = 0x09B,
-        TechConsoleStationary = 0x09C,
-        TechConsoleWall = 0x09D,
-        MpCinematicCamera = 0x09E,
-        InvisCovResupplyCapsule = 0x09F,
-        CovPowerModule = 0x0A0,
-        FlakCannon = 0x0A1,
-        DropzoneBoundary = 0x0A2,
-        ShieldDoorSmall = 0x0A3,
-        ShieldDoorMedium = 0x0A4,
-        ShieldDoorLarge = 0x0A5,
-        DropShieldEquipment = 0x0A6,
-        Machinegun = 0x0A7,
-        MachinegunTurret = 0x0A8,
-        PlasmaTurretWeapon = 0x0A9,
-        MountedPlasmaTurret = 0x0AA,
-        ShadeTurret = 0x0AB,
-        CargoTruck = 0x0AC,
-        CartElectric = 0x0AD,
-        Forklift = 0x0AE,
-        MilitaryTruck = 0x0AF,
-        OniVan = 0x0B0,
-        WarthogGunner = 0x0B1,
-        WarthogGaussTurret = 0x0B2,
-        WarthogRocketTurret = 0x0B3,
-        ScorpionInfantryGunner = 0x0B4,
-        FalconGrenadierLeft = 0x0B5,
-        FalconGrenadierRight = 0x0B6,
-        WraithInfantryTurret = 0x0B7,
-        LandMine = 0x0B8,
-        TargetLaser = 0x0B9,
-        FfKillZone = 0x0BA,
-        FfPlat1x1Flat = 0x0BB,
-        ShadeAntiAir = 0x0BC,
-        ShadeFlak = 0x0BD,
-        ShadePlasma = 0x0BE,
-        Killball = 0x0BF,
-        FfLightRed = 0x0C0,
-        FfLightBlue = 0x0C1,
-        FfLightGreen = 0x0C2,
-        FfLightOrange = 0x0C3,
-        FfLightPurple = 0x0C4,
-        FfLightYellow = 0x0C5,
-        FfLightWhite = 0x0C6,
-        FfLightFlashRed = 0x0C7,
-        FfLightFlashYellow = 0x0C8,
-        FxColorblind = 0x0C9,
-        FxGloomy = 0x0CA,
-        FxJuicy = 0x0CB,
-        FxNova = 0x0CC,
-        FxOldeTimey = 0x0CD,
-        FxPenAndInk = 0x0CE,
-        FxDusk = 0x0CF,
-        FxGoldenHour = 0x0D0,
-        FxEerie = 0x0D1,
-        FfGrid = 0x0D2,
-        InvisibleCubeOfAlarming1 = 0x0D3,
-        InvisibleCubeOfAlarming2 = 0x0D4,
-        SpawningSafe = 0x0D5,
-        SpawningSafeSoft = 0x0D6,
-        SpawningKill = 0x0D7,
-        SpawningKillSoft = 0x0D8,
-        PackageCabinet = 0x0D9,
-        CovPowermoduleStand = 0x0DA,
-        DlcCovenantBomb = 0x0DB,
-        DlcInvasionHeavyShield = 0x0DC,
-        DlcInvasionBombDoor = 0x0DD,
-        LanAMf = 0x104
-    }
-
-
 }
 

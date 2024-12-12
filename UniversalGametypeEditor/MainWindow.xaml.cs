@@ -2074,34 +2074,40 @@ namespace UniversalGametypeEditor
         {
             try
             {
-                string copyPath;
-                string directory;
+                string copyPath = Path.GetDirectoryName(destinationFile); ;
+                string directory = Path.GetDirectoryName(sourceFile);
                 File.Delete(destinationFile);
-                using (FileStream sourceStream = File.Open(sourceFile, FileMode.Open))
+                bool success = false;
+                while (success == false)
                 {
-                    using (FileStream destinationStream = File.Create(destinationFile))
+                    using (FileStream sourceStream = File.Open(sourceFile, FileMode.Open))
                     {
-                        copying = true;
-                        await sourceStream.CopyToAsync(destinationStream);
-                        sourceStream.Close();
-                        Thread.Sleep(10);
-                        File.Delete(sourceFile);
-                        //GetProcess.SendKey();
-                        if (Settings.Default.PlayBeep)
+                        using (FileStream destinationStream = File.Create(destinationFile))
                         {
-                            SystemSounds.Beep.Play();
+                            copying = true;
+                            await sourceStream.CopyToAsync(destinationStream);
+                            sourceStream.Close();
+                            Thread.Sleep(10);
+                            //File.Delete(sourceFile);
+
+                            System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                                UpdateHRListView(Settings.Default.HotReloadPath)
+                            ));
+                            System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                                UpdateFilePathListView(Settings.Default.FilePath)
+                            ));
                         }
-                        copying = false;
-                        copyPath = Path.GetDirectoryName(destinationFile);
-                        directory = Path.GetDirectoryName(sourceFile);
-                        System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                            UpdateHRListView(Settings.Default.HotReloadPath)
-                        ));
-                        System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                            UpdateFilePathListView(Settings.Default.FilePath)
-                        ));
                     }
+                    success = File.Exists(destinationFile);
                 }
+                Thread.Sleep(100);
+                File.Delete(sourceFile);
+                copying = false;
+                if (Settings.Default.PlayBeep)
+                {
+                    SystemSounds.Beep.Play();
+                }
+
                 if (Settings.Default.KeepNamedMglo == true)
                 {
                     if(File.Exists($"{copyPath}\\{name}"))
@@ -2155,7 +2161,7 @@ namespace UniversalGametypeEditor
 
             if (path == Settings.Default.HotReloadPath)
             {
-                if (name.EndsWith(".mglo"))
+                if (name.EndsWith(".mglo") && !name.Equals(".mglo"))
                 {
                     convertedBin = $"{name.Replace(".mglo", "")}_mod.bin";
                     ConvertToBin(path, name);

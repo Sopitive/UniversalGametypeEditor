@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using static UniversalGametypeEditor.ScriptCompiler;
 
 namespace UniversalGametypeEditor
 {
@@ -70,15 +71,15 @@ namespace UniversalGametypeEditor
                     new ActionParameter("object", typeof(ObjectTypeRef), null, 5),
                     new ActionParameter("delete", typeof(bool), 0, 1)
                 }),
-                new ActionDefinition(4, "get_speed", new List<ActionParameter>
+                new ActionDefinition(28, "GetSpeed", new List<ActionParameter>
                 {
-                    new ActionParameter("var_out", typeof(string)),
+                    new ActionParameter("var_out", typeof(NumericTypeRef)),
                     new ActionParameter("object", typeof(ObjectTypeRef))
                 }),
                 new ActionDefinition(5, "GetDistanceTo", new List<ActionParameter>
                 {
                     new ActionParameter("object1", typeof(ObjectTypeRef)),
-                    new ActionParameter("object2", typeof(string)),
+                    new ActionParameter("object2", typeof(ObjectTypeRef)),
                     new ActionParameter("var_out", typeof(string))
                 }),
                 new ActionDefinition(6, "set", new List<ActionParameter>
