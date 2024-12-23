@@ -606,11 +606,12 @@ namespace UniversalGametypeEditor
                 gametypeItem.IsChecked = false;
             }
             MapVariantsPanel.Children.Clear();
+            Playlist.Children.Clear(); // Clear the Playlist panel to remove any existing game modes
         }
 
         private void LoadPlaylistData(string filePath)
         {
-            ResetUIElements();
+            ResetUIElements(); // Reset the UI elements before loading the new playlist
             var playlistItems = LoadPlaylist(filePath);
 
             foreach (var playlistItem in playlistItems)
