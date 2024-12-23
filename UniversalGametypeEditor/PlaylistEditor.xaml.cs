@@ -486,9 +486,9 @@ namespace UniversalGametypeEditor
             }
             SystemSounds.Beep.Play();
             var jsonRoot = new Dictionary<string, object>
-    {
-        { "Version", 1 }
-    };
+            {
+                { "Version", 1 }
+            };
 
             int variantIndex = 0;
 
@@ -496,13 +496,16 @@ namespace UniversalGametypeEditor
             {
                 if (item is GametypeItem gametypeItem && gametypeItem.IsChecked)
                 {
+                    // Extract the gametype name without the folder path
+                    string gametypeName = System.IO.Path.GetFileName(gametypeItem.Name);
+
                     var variantDict = new Dictionary<string, object>
-            {
-                { "VariantId", GenerateMD5Hash(Guid.NewGuid().ToString()) },
-                { "Name", gametypeItem.Name },
-                { "LibraryId", "reach" },
-                { "GameVariantID", gametypeItem.Hash }
-            };
+                    {
+                        { "VariantId", GenerateMD5Hash(Guid.NewGuid().ToString()) },
+                        { "Name", gametypeName },
+                        { "LibraryId", "reach" },
+                        { "GameVariantID", gametypeItem.Hash }
+                    };
 
                     int mapIndex = 0;
                     foreach (var child in MapVariantsPanel.Children)
