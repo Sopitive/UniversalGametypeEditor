@@ -56,7 +56,7 @@ namespace UniversalGametypeEditor
             Top = 200;
             DispatcherTimer dispatcherTimer = new();
             dispatcherTimer.Tick += new EventHandler(dispatcherTimer_Tick);
-            dispatcherTimer.Interval = new TimeSpan(0, 0, 1);
+            dispatcherTimer.Interval = new TimeSpan(0, 0, 5);
             dispatcherTimer.Start();
             PreviewMouseDown += (sender, e) => e.Handled = true;
             PreviewMouseUp += (sender, e) => e.Handled = true;
@@ -327,7 +327,6 @@ namespace UniversalGametypeEditor
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            
             DispatcherTimer dispatcherTimer = new();
             dispatcherTimer.Tick += new EventHandler(UpdateGlobalNumbers);
             dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 1);

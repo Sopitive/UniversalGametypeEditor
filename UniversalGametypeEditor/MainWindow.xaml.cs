@@ -245,6 +245,10 @@ namespace UniversalGametypeEditor
             {
                 overlay.Show();
             }
+            if (pname.Length > 0)
+            {
+                overlay.Close();
+            }
             this.Show();
 
         }
