@@ -706,7 +706,7 @@
         <CommandBinding Command="{x:Static SystemCommands.RestoreWindowCommand}" CanExecute="CommandBinding_CanExecute" Executed="CommandBinding_Executed_Restore" />
     </Window.CommandBindings>
 
-    
+
 
     <Grid x:Name="FullWindow">
         <Grid.RowDefinitions>
@@ -727,7 +727,7 @@
                 <TextBlock Text="Playlist Editor" FontFamily="Arial" Margin="15 0 0 0" Foreground="{StaticResource TextColor}"/>
             </StackPanel>
 
-            
+
 
             <!--Caption buttons-->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -742,16 +742,22 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1">
+        <!-- Search bar -->
+        <TextBox Text="Search Gametypes..." LostFocus="GametypeSearch_Unfocused" GotFocus="GametypeSearch_Focused" Foreground="Gray" Grid.Row="1" FontSize="15" Panel.ZIndex="10" x:Name="SearchTextBox" Width="200" Height="20" Margin="5" VerticalAlignment="Top" HorizontalAlignment="Left" VerticalContentAlignment="Bottom" TextChanged="SearchTextBox_TextChanged"/>
+
+
+
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="165*" />
+                <ColumnDefinition Width="118*"/>
+                <ColumnDefinition Width="424*" />
                 <ColumnDefinition Width="110" />
-                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="283*" />
             </Grid.ColumnDefinitions>
 
             <!-- Define the Popup control -->
-            <Popup Name="FyiPopup" Placement="Center" StaysOpen="False">
+            <Popup Name="FyiPopup" Placement="Center" StaysOpen="False" Grid.ColumnSpan="3" Margin="0,0,424,0">
                 <Border Background="#2D2D30" BorderBrush="White" BorderThickness="1" CornerRadius="10" Padding="10">
                     <StackPanel>
                         <TextBlock Text="Welcome to the CGB Playlist Editor!"
@@ -791,14 +797,18 @@
             </Popup>
 
             <!-- Submit Button -->
-            <StackPanel Grid.Column="2">
+            <StackPanel Grid.Column="2" Grid.ColumnSpan="2" Margin="424,0,0,0">
+
                 <Button Foreground="White" Background="#252526" Content="Submit Playlist" HorizontalAlignment="Left" VerticalAlignment="Bottom" Padding="5" Margin="5" Width="100" Click="SubmitButton_Click"/>
                 <Button Foreground="White" Background="#252526" Content="Save Playlist" HorizontalAlignment="Left" VerticalAlignment="Bottom" Padding="5" Margin="5" Width="100" Click="SavePlaylistButton_Click"/>
                 <Button Foreground="White" Background="#252526" Content="Load Playlist" HorizontalAlignment="Left" VerticalAlignment="Bottom" Padding="5" Margin="5" Width="100" Click="LoadPlaylistButton_Click"/>
             </StackPanel>
 
+
+
+
             <!-- ListBox with hidden scrollbar -->
-            <ListBox x:Name="GametypeListBox" ScrollViewer.VerticalScrollBarVisibility="Hidden" Background="#252526" SelectionMode="Single" MaxHeight="500" Padding="0 0 0 10" SelectionChanged="GametypeListBox_SelectionChanged">
+            <ListBox x:Name="GametypeListBox" ScrollViewer.VerticalScrollBarVisibility="Hidden" Background="#252526" SelectionMode="Single" MaxHeight="500" Padding="0 0 0 10" SelectionChanged="GametypeListBox_SelectionChanged" Grid.ColumnSpan="3" Margin="0,0,424,0">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <CheckBox Foreground="White" Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Checked="GametypeCheckBox_Checked" Unchecked="GametypeCheckBox_Unchecked"/>
@@ -806,18 +816,19 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <!-- Top scroll indicator -->
-            <TextBlock x:Name="TopIndicator" Text="▲" Foreground="White" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Top" Visibility="Collapsed" Margin="0,5,0,0"/>
 
-            <TextBlock x:Name="BottomIndicator" Text="▼" Foreground="White" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Bottom" Visibility="Visible" Margin="0,0,0,5" Panel.ZIndex="2"/>
+            <!-- Top scroll indicator -->
+            <TextBlock x:Name="TopIndicator" Text="▲" Foreground="White" FontSize="16" HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed" Margin="141,5,0,0"/>
+
+            <TextBlock x:Name="BottomIndicator" Text="▼" Foreground="White" FontSize="16" HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Visible" Margin="135,0,0,5" Panel.ZIndex="2"/>
 
 
             <!-- Map Variants Panel -->
-            <StackPanel Orientation="Vertical" Grid.Column="1" x:Name="MapVariantsPanel" MaxHeight="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Window}}">
+            <StackPanel Orientation="Vertical" Grid.Column="2" x:Name="MapVariantsPanel" MaxHeight="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Window}}">
                 <local:DropDown x:Name="MapVariantsExpander" Visibility="Collapsed"/>
             </StackPanel>
 
-            <ScrollViewer Grid.Column="3" VerticalScrollBarVisibility="Hidden" MaxHeight="500">
+            <ScrollViewer Grid.Column="3" VerticalScrollBarVisibility="Hidden" MaxHeight="500" Grid.ColumnSpan="2" Margin="110,0,0,0">
                 <StackPanel x:Name="Playlist"  Orientation="Vertical" HorizontalAlignment="Right" Margin="10">
                 </StackPanel>
             </ScrollViewer>

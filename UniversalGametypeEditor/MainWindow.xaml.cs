@@ -188,9 +188,9 @@ namespace UniversalGametypeEditor
                 Settings.Default.Save();
 
 
-                DetectMenus($"{Settings.Default.GameDir}\\haloreach\\game_variants\\koth_054.bin", "Halo Reach");
-                DetectMenus($"{Settings.Default.GameDir}\\groundhog\\game_variants\\H2A_100_150_Slayer_Pro_137.bin", "Halo 2 Anniversary");
-                DetectMenus($"{Settings.Default.GameDir}\\halo4\\game_variants\\H4_CTF_132.bin", "Halo 4");
+                //DetectMenus($"{Settings.Default.GameDir}\\haloreach\\game_variants\\koth_054.bin", "Halo Reach");
+                //DetectMenus($"{Settings.Default.GameDir}\\groundhog\\game_variants\\H2A_100_150_Slayer_Pro_137.bin", "Halo 2 Anniversary");
+                //DetectMenus($"{Settings.Default.GameDir}\\halo4\\game_variants\\H4_CTF_132.bin", "Halo 4");
             }
 
             UpdateSettingsFromFile();
@@ -1885,9 +1885,9 @@ namespace UniversalGametypeEditor
                     Settings.Default.GameDir = folderName;
                     Settings.Default.Save();
                     UpdateLastEvent("Set Game Directory");
-                    DetectMenus($"{Settings.Default.GameDir}\\haloreach\\game_variants\\koth_054.bin", "Halo Reach");
-                    DetectMenus($"{Settings.Default.GameDir}\\groundhog\\game_variants\\H2A_100_150_Slayer_Pro_137.bin", "Halo 2 Anniversary");
-                    DetectMenus($"{Settings.Default.GameDir}\\halo4\\game_variants\\H4_CTF_132.bin", "Halo 4");
+                    //DetectMenus($"{Settings.Default.GameDir}\\haloreach\\game_variants\\koth_054.bin", "Halo Reach");
+                    //DetectMenus($"{Settings.Default.GameDir}\\groundhog\\game_variants\\H2A_100_150_Slayer_Pro_137.bin", "Halo 2 Anniversary");
+                    //DetectMenus($"{Settings.Default.GameDir}\\halo4\\game_variants\\H4_CTF_132.bin", "Halo 4");
                 }
             }
         }
@@ -2074,61 +2074,84 @@ namespace UniversalGametypeEditor
         {
             try
             {
-                string copyPath = Path.GetDirectoryName(destinationFile); ;
+                string copyPath = Path.GetDirectoryName(destinationFile);
                 string directory = Path.GetDirectoryName(sourceFile);
-                File.Delete(destinationFile);
                 bool success = false;
-                while (success == false)
-                {
-                    using (FileStream sourceStream = File.Open(sourceFile, FileMode.Open))
-                    {
-                        using (FileStream destinationStream = File.Create(destinationFile))
-                        {
-                            copying = true;
-                            await sourceStream.CopyToAsync(destinationStream);
-                            sourceStream.Close();
-                            Thread.Sleep(10);
-                            //File.Delete(sourceFile);
+                int retryCount = 0;
+                const int maxRetries = 5;
+                const int delay = 100; // milliseconds
 
-                            System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                                UpdateHRListView(Settings.Default.HotReloadPath)
-                            ));
-                            System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                                UpdateFilePathListView(Settings.Default.FilePath)
-                            ));
+                while (!success && retryCount < maxRetries)
+                {
+                    try
+                    {
+                        if (File.Exists(destinationFile))
+                        {
+                            File.Delete(destinationFile);
+                        }
+
+                        using (FileStream sourceStream = File.Open(sourceFile, FileMode.Open, FileAccess.Read, FileShare.None))
+                        {
+                            using (FileStream destinationStream = File.Create(destinationFile))
+                            {
+                                copying = true;
+                                await sourceStream.CopyToAsync(destinationStream);
+                            }
+                        }
+
+                        success = File.Exists(destinationFile);
+                        if (success)
+                        {
+                            File.Delete(sourceFile);
+                            copying = false;
+
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                UpdateHRListView(Settings.Default.HotReloadPath);
+                                UpdateFilePathListView(Settings.Default.FilePath);
+                            });
+
+                            if (Settings.Default.PlayBeep)
+                            {
+                                SystemSounds.Beep.Play();
+                            }
+
+                            if (Settings.Default.KeepNamedMglo)
+                            {
+                                if (File.Exists($"{copyPath}\\{name}"))
+                                {
+                                    File.Delete($"{copyPath}\\{name}");
+                                    Thread.Sleep(15);
+                                }
+                                File.Copy($"{copyPath}\\.mglo", $"{copyPath}\\{name}");
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    UpdateHRListView(Settings.Default.HotReloadPath);
+                                });
+                            }
                         }
                     }
-                    success = File.Exists(destinationFile);
-                }
-                Thread.Sleep(100);
-                File.Delete(sourceFile);
-                copying = false;
-                if (Settings.Default.PlayBeep)
-                {
-                    SystemSounds.Beep.Play();
+                    catch (IOException ioex)
+                    {
+                        Debug.WriteLine("An IOException occurred during move, " + ioex.Message);
+                        retryCount++;
+                        Thread.Sleep(delay);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine("An Exception occurred during move, " + ex.Message);
+                        break;
+                    }
                 }
 
-                if (Settings.Default.KeepNamedMglo == true)
+                if (!success)
                 {
-                    if(File.Exists($"{copyPath}\\{name}"))
-                    {
-                        File.Delete($"{copyPath}\\{name}");
-                        Thread.Sleep(15);
-                    }
-                    File.Copy($"{copyPath}\\.mglo", $"{copyPath}\\{name}");
-                    System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                        UpdateHRListView(Settings.Default.HotReloadPath)
-                    ));
+                    Debug.WriteLine("Failed to move the file after multiple attempts.");
                 }
-                
-            }
-            catch (IOException ioex)
-            {
-                Debug.WriteLine("An IOException occured during move, " + ioex.Message);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine("An Exception occured during move, " + ex.Message);
+                Debug.WriteLine("An unexpected exception occurred, " + ex.Message);
             }
         }
         private string? convertedBin;
@@ -2153,7 +2176,6 @@ namespace UniversalGametypeEditor
                 {
                     return;
                 }
-                
             }
 
             string? directory;
@@ -2175,10 +2197,6 @@ namespace UniversalGametypeEditor
                 return;
             }
       
-
-            
-
-
             if (changeType != WatcherChangeTypes.Changed)
             {
                 //UpdateLastEvent($"Created: {name}");
@@ -2302,120 +2320,6 @@ namespace UniversalGametypeEditor
             }
             
         }
-        private DateTime h4LastAccess = new();
-        private DateTime h2LastAccess = new();
-        private DateTime hrLastAccess = new();
-        private DateTime thisAccess;
-        private readonly DateTime defaultDateTime = new();
-        private void DetectMenus(string path, string game)
-        {
-            menuTimer.Interval = 20;
-            menuTimer.Tick += (sender, e) =>
-            {
-                thisAccess = File.GetLastAccessTime(path);
-                if (SwitchWatched.IsChecked)
-                {
-                    if (game == "Halo 4")
-                    {
-
-                        if (h4LastAccess == defaultDateTime)
-                        {
-                            h4LastAccess = thisAccess;
-                            return;
-                        }
-
-                        if (thisAccess != h4LastAccess)
-                        {
-                            GameSelector.SelectedIndex = 1;
-                            UpdateLastEvent($"Opened {game} Custom Games Menu");
-                            string folderName = $"{Settings.Default.GameDir}\\halo4\\game_variants";
-                            Settings.Default.FilePath = folderName;
-                            folders.Add(folderName);
-                            List<string> folderList = folders.Cast<string>().ToList(); // convert to list
-                            List<string> uniqueFolders = folderList.Distinct().ToList(); // remove duplicates
-                            folders.Clear();
-                            folders.AddRange(uniqueFolders.ToArray()); // add elements to new StringCollection
-                            dirHistory.Add(folderName);
-                            dirHistory = new ObservableCollection<string>(dirHistory.Distinct());
-                            Settings.Default.FilePathList = folders;
-                            DirHistory.Visibility = Visibility.Visible;
-                            DirHistory.Text = Settings.Default.FilePath;
-                            Settings.Default.Save();
-                            WatchedFilesList.Clear();
-                            GetFiles(folderName, WatchedFilesList);
-                        }
-                        h4LastAccess = File.GetLastAccessTime(path);
-                    }
-
-                    if (game == "Halo 2 Anniversary")
-                    {
-                        if (h2LastAccess == defaultDateTime)
-                        {
-                            h2LastAccess = thisAccess;
-                            return;
-                        }
-
-                        if (thisAccess != h2LastAccess)
-                        {
-                            GameSelector.SelectedIndex = 2;
-                            UpdateLastEvent($"Opened {game} Custom Games Menu");
-                            string folderName = $"{Settings.Default.GameDir}\\groundhog\\game_variants";
-                            Settings.Default.FilePath = folderName;
-                            folders.Add(folderName);
-                            List<string> folderList = folders.Cast<string>().ToList(); // convert to list
-                            List<string> uniqueFolders = folderList.Distinct().ToList(); // remove duplicates
-                            folders.Clear();
-                            folders.AddRange(uniqueFolders.ToArray()); // add elements to new StringCollection
-                            dirHistory.Add(folderName);
-                            dirHistory = new ObservableCollection<string>(dirHistory.Distinct());
-                            Settings.Default.FilePathList = folders;
-                            DirHistory.Visibility = Visibility.Visible;
-                            DirHistory.Text = Settings.Default.FilePath;
-                            Settings.Default.Save();
-                            WatchedFilesList.Clear();
-                            GetFiles(folderName, WatchedFilesList);
-                        }
-                        h2LastAccess = File.GetLastAccessTime(path);
-                    }
-
-                    if (game == "Halo Reach")
-                    {
-                        if (hrLastAccess == defaultDateTime)
-                        {
-                            hrLastAccess = thisAccess;
-                            return;
-                        }
-
-                        if (thisAccess != hrLastAccess)
-                        {
-                            GameSelector.SelectedIndex = 0;
-                            UpdateLastEvent($"Opened {game} Custom Games Menu");
-                            string folderName = $"{Settings.Default.GameDir}\\haloreach\\game_variants";
-                            Settings.Default.FilePath = folderName;
-                            folders.Add(folderName);
-                            List<string> folderList = folders.Cast<string>().ToList(); // convert to list
-                            List<string> uniqueFolders = folderList.Distinct().ToList(); // remove duplicates
-                            folders.Clear();
-                            folders.AddRange(uniqueFolders.ToArray()); // add elements to new StringCollection
-                            dirHistory.Add(folderName);
-                            dirHistory = new ObservableCollection<string>(dirHistory.Distinct());
-                            Settings.Default.FilePathList = folders;
-                            DirHistory.Visibility = Visibility.Visible;
-                            DirHistory.Text = Settings.Default.FilePath;
-                            Settings.Default.Save();
-                            WatchedFilesList.Clear();
-                            GetFiles(folderName, WatchedFilesList);
-                        }
-
-                        hrLastAccess = File.GetLastAccessTime(path);
-                    }
-                }
-
-
-            };
-            menuTimer.Start(); // Start the timer
-        }
-
 
         private void OnChange(object sender, FileSystemEventArgs e)
         {

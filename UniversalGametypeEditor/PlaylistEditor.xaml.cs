@@ -21,6 +21,7 @@ namespace UniversalGametypeEditor
         private List<string> gametypeHashes;
         private Dictionary<string, Dictionary<string, string>> gametypeMapVariantData;
         private List<GametypeItem> gametypeItems;
+        private List<GametypeItem> filteredGametypeItems;
 
         public PlaylistEditor()
         {
@@ -51,6 +52,7 @@ namespace UniversalGametypeEditor
                 scrollViewer.ScrollChanged += ScrollViewer_ScrollChanged;
             }
         }
+
 
         private void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
@@ -85,19 +87,61 @@ namespace UniversalGametypeEditor
 
         private void InitializeGametypeList()
         {
-            var (mapVariantTitles, mapVariantHashes, gametypeTitles, gametypeHashes) = CreatePlaylist.GetUUID();
+            var (mapVariantTitles, mapVariantHashes, gametypeTitles, gametypeHashes, mapFolderNames, gametypeFolderNames) = CreatePlaylist.GetUUID();
             mapVariants = mapVariantTitles; // Store the map variants
             this.mapVariantHashes = mapVariantHashes; // Store the map variant hashes
             this.gametypeHashes = gametypeHashes; // Store the gametype hashes
 
             for (int i = 0; i < gametypeTitles.Count; i++)
             {
-                var gametypeItem = new GametypeItem { Name = gametypeTitles[i], Hash = gametypeHashes[i] };
-                GametypeListBox.Items.Add(gametypeItem);
-                gametypeItems.Add(gametypeItem); // Add to the list
+                string folderName = gametypeFolderNames[i];
+                string gametypeName = gametypeTitles[i];
+                var gametypeItem = new GametypeItem
+                {
+                    Name = $"{folderName}\\{gametypeName}",
+                    Hash = gametypeHashes[i],
+                    FolderName = folderName
+                };
+                gametypeItems.Add(gametypeItem);
+            }
+
+            // Initialize the filtered list with all items
+            filteredGametypeItems = new List<GametypeItem>(gametypeItems);
+            GametypeListBox.ItemsSource = null; // Clear the ItemsSource
+            GametypeListBox.ItemsSource = filteredGametypeItems;
+        }
+        private void GametypeSearch_Focused(object sender, RoutedEventArgs e)
+        {
+            if (SearchTextBox.Text == "Search Gametypes...")
+            {
+                SearchTextBox.Text = "";
+                SearchTextBox.Foreground = Brushes.Black;
             }
         }
 
+        private void GametypeSearch_Unfocused(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(SearchTextBox.Text))
+            {
+                SearchTextBox.Text = "Search Gametypes...";
+                SearchTextBox.Foreground = Brushes.Gray;
+            }
+        }
+
+        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (SearchTextBox.Text == "Search Gametypes...")
+            {
+                return;
+            }
+
+            var searchText = SearchTextBox.Text.ToLower();
+            filteredGametypeItems = gametypeItems
+                .Where(item => item.Name.ToLower().Contains(searchText))
+                .ToList();
+            GametypeListBox.ItemsSource = null; // Clear the ItemsSource
+            GametypeListBox.ItemsSource = filteredGametypeItems;
+        }
 
 
         private void GametypeCheckBox_Checked(object sender, RoutedEventArgs e)
@@ -146,13 +190,30 @@ namespace UniversalGametypeEditor
             gametypeDropDown.Expander.Header = gametypeItem.Name;
             gametypeDropDown.Scroller.MaxHeight = 500;
 
-            var gametypeHashTextBlock = new TextBlock
+            //var gametypeHashTextBlock = new TextBlock
+            //{
+            //    Text = $"Game Variant Hash: {gametypeItem.Hash}",
+            //    Foreground = Brushes.White,
+            //    Margin = new Thickness(0, 0, 0, 10)
+            //};
+            //gametypeDropDown.DropdownData.Children.Add(gametypeHashTextBlock);
+
+            // Add the map search TextBox
+            var mapSearchTextBox = new TextBox
             {
-                Text = $"Game Variant Hash: {gametypeItem.Hash}",
-                Foreground = Brushes.White,
-                Margin = new Thickness(0, 0, 0, 10)
+                Width = 200,
+                Height = 30,
+                Margin = new Thickness(0, 0, 0, 10),
+                VerticalAlignment = VerticalAlignment.Top,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Tag = gametypeItem,
+                Foreground = Brushes.Gray,
+                Text = "Search Maps..."
             };
-            gametypeDropDown.DropdownData.Children.Add(gametypeHashTextBlock);
+            mapSearchTextBox.GotFocus += MapSearchTextBox_GotFocus;
+            mapSearchTextBox.LostFocus += MapSearchTextBox_LostFocus;
+            mapSearchTextBox.TextChanged += MapSearchTextBox_TextChanged;
+            gametypeDropDown.DropdownData.Children.Add(mapSearchTextBox);
 
             for (int i = 0; i < mapVariants.Count; i++)
             {
@@ -162,7 +223,8 @@ namespace UniversalGametypeEditor
                 var stackPanel = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Margin = new Thickness(0, 5, 0, 5)
+                    Margin = new Thickness(0, 5, 0, 5),
+                    Tag = mapVariant // Use Tag to store the map variant name
                 };
                 var mapLabel = new TextBlock
                 {
@@ -188,17 +250,64 @@ namespace UniversalGametypeEditor
                 stackPanel.Children.Add(numericUpDown);
                 gametypeDropDown.DropdownData.Children.Add(stackPanel);
 
-                var hashTextBlock = new TextBlock
-                {
-                    Text = $"Hash: {mapVariantHash}",
-                    Foreground = Brushes.White,
-                    Margin = new Thickness(0, 0, 0, 10)
-                };
-                gametypeDropDown.DropdownData.Children.Add(hashTextBlock);
+                //var hashTextBlock = new TextBlock
+                //{
+                //    Text = $"Hash: {mapVariantHash}",
+                //    Foreground = Brushes.White,
+                //    Margin = new Thickness(0, 0, 0, 10)
+                //};
+                //gametypeDropDown.DropdownData.Children.Add(hashTextBlock);
             }
 
             // Add the new DropDown instance to the MapVariantsPanel
             MapVariantsPanel.Children.Add(gametypeDropDown);
+        }
+
+        private void MapSearchTextBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox.Text == "Search Maps...")
+            {
+                textBox.Text = "";
+                textBox.Foreground = Brushes.Black;
+            }
+        }
+
+        private void MapSearchTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (string.IsNullOrWhiteSpace(textBox.Text))
+            {
+                textBox.Text = "Search Maps...";
+                textBox.Foreground = Brushes.Gray;
+            }
+        }
+
+        private void MapSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            var gametypeItem = textBox.Tag as GametypeItem;
+            var searchText = textBox.Text.ToLower();
+
+            if (textBox.Text == "Search Maps...")
+            {
+                return;
+            }
+
+            var gametypeDropDown = MapVariantsPanel.Children
+                .OfType<DropDown>()
+                .FirstOrDefault(dd => dd.Tag == gametypeItem);
+
+            if (gametypeDropDown != null)
+            {
+                foreach (var child in gametypeDropDown.DropdownData.Children)
+                {
+                    if (child is StackPanel stackPanel && stackPanel.Tag is string mapVariant)
+                    {
+                        stackPanel.Visibility = mapVariant.ToLower().Contains(searchText) ? Visibility.Visible : Visibility.Collapsed;
+                    }
+                }
+            }
         }
 
 
@@ -676,12 +785,13 @@ namespace UniversalGametypeEditor
     {
         public string Name { get; set; }
         public bool IsChecked { get; set; }
-        public string Hash { get; set; } // Add this property
+        public string Hash { get; set; }
+        public string FolderName { get; set; } // Add this property
     }
 
-    
 
-public class Variant
+
+    public class Variant
     {
         public string VariantId { get; set; }
         public string Name { get; set; }
