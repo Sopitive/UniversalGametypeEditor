@@ -1565,6 +1565,11 @@ namespace UniversalGametypeEditor
             Settings.Default.Save();
             if (Settings.Default.HotReloadPath != "Undefined")
             {
+                if (!Directory.Exists(Settings.Default.HotReloadPath))
+                {
+                    //Create the directory
+                    Directory.CreateDirectory(Settings.Default.HotReloadPath);
+                }
                 GetFiles(Settings.Default.HotReloadPath, HotReloadFilesList);
             }
                 

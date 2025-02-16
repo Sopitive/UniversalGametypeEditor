@@ -33,6 +33,41 @@ namespace UniversalGametypeEditor
         [DllImport("user32.dll")]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
 
+        // Added missing interop declarations and constants.
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        // New: SetWindowPos declaration and flags.
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool SetWindowPos(
+            IntPtr hWnd,
+            IntPtr hWndInsertAfter,
+            int X,
+            int Y,
+            int cx,
+            int cy,
+            uint uFlags);
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const uint SWP_SHOWWINDOW = 0x0040;
+        // Use HWND_TOPMOST (new IntPtr(-1)) to force the overlay above the game window.
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+
+        private const int GWL_STYLE = -16;
+        private const int WS_CHILD = 0x40000000;
+        private const int WS_POPUP = unchecked((int)0x80000000);
+
+        // Window message constants.
+        private const int WM_MOUSEACTIVATE = 0x0021;
+        private const int MA_NOACTIVATE = 3;
+        private const int WM_NCHITTEST = 0x0084;
+        private const int HTCLIENT = 1;
+        private const int HTTRANSPARENT = -1;
+
         public struct RECT
         {
             public int Left;
@@ -44,81 +79,179 @@ namespace UniversalGametypeEditor
         [DllImport("user32.dll")]
         public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
-
         private IntPtr haloWindowHandle = IntPtr.Zero;
         private bool anticheat = false;
 
         public Overlay()
         {
             InitializeComponent();
+            // Remove window chrome to match the exact size of the target window.
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            // Optional: if you want transparency (e.g. only display parts), set AllowsTransparency:
+            // AllowsTransparency = true;
+
+            // Exclude from taskbar.
+            ShowInTaskbar = false;
+
+            // Set the overlay window as topmost
+            Topmost = true;
             WindowStartupLocation = WindowStartupLocation.Manual;
+            // Initially position the overlay (will be updated in the timer)
             Left = SystemParameters.WorkArea.Width - Width;
             Top = 200;
+
             DispatcherTimer dispatcherTimer = new();
             dispatcherTimer.Tick += new EventHandler(dispatcherTimer_Tick);
             dispatcherTimer.Interval = new TimeSpan(0, 0, 5);
             dispatcherTimer.Start();
-            PreviewMouseDown += (sender, e) => e.Handled = true;
-            PreviewMouseUp += (sender, e) => e.Handled = true;
-            PreviewMouseMove += (sender, e) => e.Handled = true;
-            PreviewMouseWheel += (sender, e) => e.Handled = true;
-            Cursor = Cursors.None;
+
+            // Modify event handlers to conditionally handle events
+            PreviewMouseDown += Overlay_PreviewMouseDown;
+            PreviewMouseUp += Overlay_PreviewMouseUp;
+            PreviewMouseMove += Overlay_PreviewMouseMove;
+            PreviewMouseWheel += Overlay_PreviewMouseWheel;
+
+            // Set cursor to visible state
+            Cursor = Cursors.Arrow;
+
             globalHotkey = new GlobalHotkey();
             RegisterHotkey();
-            //globalHotkey.RegisterGlobalHotKey_O(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
-            //globalHotkey.RegisterGlobalHotKey_Numpad7(new WindowInteropHelper(Application.Current.MainWindow).Handle, 2);
+        }
+
+        
+
+        private void Overlay_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.Source is TextBox)
+            {
+                e.Handled = false; // Allow event to be handled by TextBox
+            }
+            else
+            {
+                e.Handled = true; // Handle event for other controls
+            }
+        }
+
+        private void Overlay_PreviewMouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (e.Source is TextBox)
+            {
+                e.Handled = false;
+            }
+            else
+            {
+                e.Handled = true;
+            }
+        }
+
+        private void Overlay_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.Source is TextBox)
+            {
+                e.Handled = false;
+            }
+            else
+            {
+                e.Handled = true;
+            }
+        }
+
+        private void Overlay_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (e.Source is TextBox)
+            {
+                e.Handled = false;
+            }
+            else
+            {
+                e.Handled = true;
+            }
         }
 
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-            var mainWindow = Application.Current.MainWindow;
-            if (mainWindow != null)
+            // Get the window handle.
+            HwndSource source = PresentationSource.FromVisual(this) as HwndSource;
+            if (source != null)
             {
-                HwndSource source = PresentationSource.FromVisual(mainWindow) as HwndSource;
-                if (source != null)
-                {
-                    source.AddHook(WndProc);
-                }
-                else
-                {
-                    // Handle the case where source is null
-                    Debug.WriteLine("HwndSource is null.");
-                }
+                // Modify the extended window style to include WS_EX_TOOLWINDOW, which prevents the window from being shown in Alt+Tab.
+                const int GWL_EXSTYLE = -20;
+                const int WS_EX_TOOLWINDOW = 0x00000080;
+                int exStyle = GetWindowLong(source.Handle, GWL_EXSTYLE);
+                SetWindowLong(source.Handle, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW);
+
+                // Add the window procedure hook.
+                source.AddHook(WndProc);
             }
             else
             {
-                // Handle the case where mainWindow is null
-                Debug.WriteLine("MainWindow is null.");
+                Debug.WriteLine("HwndSource is null.");
             }
         }
 
-
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            if (msg == 0x0312)
+            // Handle WM_MOUSEACTIVATE to prevent the overlay from losing focus when clicking game areas.
+            if (msg == WM_MOUSEACTIVATE)
+            {
+                // Get client coordinates from lParam.
+                int x = (short)(lParam.ToInt32() & 0xFFFF);
+                int y = (short)((lParam.ToInt32() >> 16) & 0xFFFF);
+                Point pt = new Point(x, y);
+                HitTestResult result = VisualTreeHelper.HitTest(this, pt);
+                // If not over an interactive control (e.g. not a TextBox), do not activate.
+                if (result == null || !(result.VisualHit is TextBox))
+                {
+                    handled = true;
+                    return new IntPtr(MA_NOACTIVATE);
+                }
+            }
+
+            // Make non-interactive areas click-through so that the underlying game retains input.
+            if (msg == WM_NCHITTEST)
+            {
+                // Get mouse position in screen coordinates.
+                int x = (short)(lParam.ToInt32() & 0xFFFF);
+                int y = (short)((lParam.ToInt32() >> 16) & 0xFFFF);
+                // Convert to window coordinates.
+                Point pt = this.PointFromScreen(new Point(x, y));
+                // Hit test the visual tree.
+                HitTestResult result = VisualTreeHelper.HitTest(this, pt);
+                if (result == null)
+                {
+                    handled = true;
+                    return new IntPtr(HTTRANSPARENT);
+                }
+                else
+                {
+                    handled = true;
+                    return new IntPtr(HTCLIENT);
+                }
+            }
+
+            if (msg == 0x0312) // WM_HOTKEY
             {
                 int hotkeyId = wParam.ToInt32();
                 switch (hotkeyId)
                 {
                     case 1:
-                        HotkeyCommandExecuted_O(null, null); // Call the hotkey command for Control + O
+                        HotkeyCommandExecuted_O(null, null);
                         break;
                     case 2:
-                        HotkeyCommandExecuted_Numpad7(null, null); // Call the hotkey command for Control + Numpad7
+                        HotkeyCommandExecuted_Numpad7(null, null);
                         break;
                 }
             }
             return IntPtr.Zero;
         }
 
-        // Remove the unregistration from OnClosed
         protected override void OnClosed(EventArgs e)
         {
             base.OnClosed(e);
         }
 
-        // Add a method to unregister the global hotkey
         public void UnregisterHotkey()
         {
             globalHotkey.UnregisterGlobalHotKey(new WindowInteropHelper(Application.Current.MainWindow).Handle, 1);
@@ -202,40 +335,72 @@ namespace UniversalGametypeEditor
 
         private void dispatcherTimer_Tick(object sender, EventArgs e)
         {
-            if (processes.Length == 0)
-            {
-                processes = Process.GetProcessesByName("MCC-Win64-Shipping");
-            }
-            
-
+            processes = Process.GetProcessesByName("MCC-Win64-Shipping");
             if (processes.Length > 0)
             {
                 haloWindowHandle = processes[0].MainWindowHandle;
                 WindowInteropHelper helper = new WindowInteropHelper(this);
-                if (helper.Owner != haloWindowHandle)
+
+                // Update overlay size and position to match the game window bounds.
+                if (GetWindowRect(haloWindowHandle, out RECT rect))
+                {
+                    // Convert from device pixels to WPF DIPs.
+                    PresentationSource source = PresentationSource.FromVisual(this);
+                    if (source?.CompositionTarget != null)
+                    {
+                        var transform = source.CompositionTarget.TransformFromDevice;
+                        Point topLeft = transform.Transform(new Point(rect.Left, rect.Top));
+                        Point bottomRight = transform.Transform(new Point(rect.Right, rect.Bottom));
+
+                        Left = topLeft.X;
+                        Top = topLeft.Y;
+                        Width = bottomRight.X - topLeft.X;
+                        Height = bottomRight.Y - topLeft.Y;
+                    }
+                    else
+                    {
+                        // Fallback to using device pixels if DPI info is not available.
+                        Left = rect.Left;
+                        Top = rect.Top;
+                        Width = rect.Right - rect.Left;
+                        Height = rect.Bottom - rect.Top;
+                    }
+                }
+
+                // Check if the target window is focused.
+                IntPtr foregroundWindow = GetForegroundWindow();
+                if (foregroundWindow != haloWindowHandle && foregroundWindow != helper.Handle)
+                {
+                    if (IsVisible)
+                    {
+                        Hide();
+                    }
+                }
+                else
+                {
+                    if (!IsVisible)
+                    {
+                        Show();
+                    }
+                }
+
+                // Ensure the overlay remains on top using HWND_TOPMOST.
+                SetWindowPos(helper.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            }
+            else
+            {
+                // No target window found. Hide the overlay if visible.
+                if (IsVisible)
                 {
                     Hide();
-                    helper.Owner = haloWindowHandle;
                 }
-                //Set the size of this window to the same size as the Halo window
-                GetWindowRect(haloWindowHandle, out RECT rect);
-                Width = rect.Right - rect.Left;
-                Height = rect.Bottom - rect.Top;
-                Left = rect.Left;
-                Top = rect.Top;
             }
         }
 
         private static int GetGlobalNumber(int index)
         {
-            var lastOffset = 0xBEC;
-            lastOffset += index * 0x4;
-            int[] offsets = { 0x02757E34, 0x150, lastOffset };
-            MemoryScanner.ScanPointer(offsets, out int globalnum, out IntPtr address);
-            return globalnum;
+            return MemoryScanner.ReadGlobalNumber(index);
         }
-
-        
 
         private void GetMegaloObjects()
         {
@@ -250,8 +415,7 @@ namespace UniversalGametypeEditor
                 return;
             }
 
-            
-            MemoryScanner.ScanPointer(new int[1] { 0x28799C4 },out int forge_count, out IntPtr forge_address);
+            MemoryScanner.ScanPointer(new int[1] { 0x28799C4 }, out int forge_count, out IntPtr forge_address);
 
             if (forge_address != IntPtr.Zero)
             {
@@ -264,7 +428,6 @@ namespace UniversalGametypeEditor
                 IntPtr forge_object_count = IntPtr.Subtract(address, 0x2FC);
                 forge_count = (int)MemoryScanner.ReadInt16(processes[0].Handle, forge_object_count);
             }
-
 
             if (forge_count > 0)
             {
@@ -292,20 +455,16 @@ namespace UniversalGametypeEditor
                 {
                     StaticObjectCount.Text = $"Static Objects: {static_object_count}";
                 }
-
             }
-            catch (AccessViolationException)
+            catch (Exception ex)
             {
                 // Handle access violation
             }
         }
 
-
-
         private void GetCoordinates()
         {
             //Pointer haloreach.dll+4872890
-
             MemoryScanner.ScanPointer(new int[] { 0x4872890 }, out int x, out IntPtr address);
             MemoryScanner.ScanPointer(new int[] { 0x4872894 }, out int y, out IntPtr address2);
             MemoryScanner.ScanPointer(new int[] { 0x4872898 }, out int z, out IntPtr address3);
@@ -333,10 +492,38 @@ namespace UniversalGametypeEditor
             dispatcherTimer.Start();
         }
 
+        private void GlobalNum_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            TextBox textBox = sender as TextBox;
+            if (textBox != null)
+            {
+                // Check if the text has actually changed
+                if (textBox.Tag == null || !textBox.Tag.Equals(textBox.Text))
+                {
+                    textBox.Tag = textBox.Text; // Update the Tag with the new value
+
+                    if (textBox.Text != "0" && !string.IsNullOrEmpty(textBox.Text))
+                    {
+                        int index = int.Parse(textBox.Name.Replace("GlobalNum", ""));
+                        string newValue = textBox.Text;
+
+                        // Update the value in memory
+                        UpdateGlobalValue(index, newValue);
+                    }
+                }
+            }
+        }
+
+        private void UpdateGlobalValue(int index, string newValue)
+        {
+            if (int.TryParse(newValue, out int intValue))
+            {
+                MemoryScanner.WriteGlobalNumber(index, intValue);
+            }
+        }
+
         private void UpdateGlobalNumbers(object sender, EventArgs e)
         {
-            GetMegaloObjects();
-            GetCoordinates();
             processes = Process.GetProcessesByName("EasyAntiCheat");
             if (processes.Length > 0)
             {
@@ -348,7 +535,7 @@ namespace UniversalGametypeEditor
             {
                 return;
             }
-            for (int i=0; i < 12 ; i++)
+            for (int i = 0; i < 12; i++)
             {
                 int globalnum = GetGlobalNumber(i);
                 switch (i)

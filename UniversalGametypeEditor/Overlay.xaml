@@ -7,7 +7,6 @@
         mc:Ignorable="d"
         Title="Overlay" Width="{x:Static SystemParameters.PrimaryScreenWidth}" Height="{x:Static SystemParameters.PrimaryScreenHeight}" Background="Transparent" WindowStyle="None" AllowsTransparency="True" ShowInTaskbar="False" Visibility="Visible" Loaded="Window_Loaded">
     <Grid>
-        
         <!-- Table for text data to display in the overlay -->
         <Grid Name="OverlayGrid" Background="Transparent">
             <Grid.ColumnDefinitions>
@@ -20,9 +19,9 @@
             </Grid.RowDefinitions>
 
             <StackPanel Height="500" Width="200" Orientation="Vertical" Grid.Column="1" Grid.Row="1" HorizontalAlignment="Right">
-                <Grid>
+                <Grid Background="Transparent">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -39,33 +38,54 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Global[0]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
-            <TextBlock Grid.Row="1" Text="Global[1]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Row="2" Text="Global[2]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Row="3" Text="Global[3]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Row="4" Text="Global[4]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Row="5" Text="Global[5]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Row="6" Text="Global[6]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Row="7" Text="Global[7]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Row="8" Text="Global[8]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Row="9" Text="Global[9]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Row="10" Text="Global[10]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Row="11" Text="Global[11]:" Foreground="DeepSkyBlue" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto"/>
-            
 
+                    <!-- GlobalNum0 -->
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="GlobalNum[0]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Name="GlobalNum0" Text="Global[0]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
 
-            <TextBlock Grid.Column="1" Grid.Row="0" Name="GlobalNum0" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="1" Name="GlobalNum1" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="2" Name="GlobalNum2" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="3" Name="GlobalNum3" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="4" Name="GlobalNum4" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="5" Name="GlobalNum5" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="6" Name="GlobalNum6" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="7" Name="GlobalNum7" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="8" Name="GlobalNum8" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="9" Name="GlobalNum9" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="10" Name="GlobalNum10" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
-            <TextBlock Grid.Column="1" Grid.Row="11" Name="GlobalNum11" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto"/>
+                    <!-- GlobalNum1 -->
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="GlobalNum[1]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Name="GlobalNum1" Text="Global[1]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
+
+                    <!-- GlobalNum2 -->
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="GlobalNum[2]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Name="GlobalNum2" Text="Global[2]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
+
+                    <!-- GlobalNum3 -->
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="GlobalNum[3]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Name="GlobalNum3" Text="Global[3]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
+
+                    <!-- GlobalNum4 -->
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="GlobalNum[4]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Name="GlobalNum4" Text="Global[4]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
+
+                    <!-- GlobalNum5 -->
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="GlobalNum[5]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="5" Grid.Column="1" Name="GlobalNum5" Text="Global[5]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
+
+                    <!-- GlobalNum6 -->
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="GlobalNum[6]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="6" Grid.Column="1" Name="GlobalNum6" Text="Global[6]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
+
+                    <!-- GlobalNum7 -->
+                    <TextBlock Grid.Row="7" Grid.Column="0" Text="GlobalNum[7]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="7" Grid.Column="1" Name="GlobalNum7" Text="Global[7]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
+
+                    <!-- GlobalNum8 -->
+                    <TextBlock Grid.Row="8" Grid.Column="0" Text="GlobalNum[8]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="8" Grid.Column="1" Name="GlobalNum8" Text="Global[8]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
+
+                    <!-- GlobalNum9 -->
+                    <TextBlock Grid.Row="9" Grid.Column="0" Text="GlobalNum[9]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="9" Grid.Column="1" Name="GlobalNum9" Text="Global[9]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
+
+                    <!-- GlobalNum10 -->
+                    <TextBlock Grid.Row="10" Grid.Column="0" Text="GlobalNum[10]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="10" Grid.Column="1" Name="GlobalNum10" Text="Global[10]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
+
+                    <!-- GlobalNum11 -->
+                    <TextBlock Grid.Row="11" Grid.Column="0" Text="GlobalNum[11]:" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <TextBox Grid.Row="11" Grid.Column="1" Name="GlobalNum11" Text="Global[11]" Foreground="LawnGreen" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Width="Auto" Background="Transparent" BorderThickness="0" TextChanged="GlobalNum_TextChanged" Focusable="True" IsHitTestVisible="True"/>
                 </Grid>
             </StackPanel>
 
@@ -80,11 +100,6 @@
                 <TextBlock Name="StaticObjectCount" Foreground="DeepSkyBlue" FontSize="15" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
                 <TextBlock Name="ForgeObjectCount" Foreground="DeepSkyBlue" FontSize="15" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Width="Auto" Margin="0" Padding="1"/>
             </StackPanel>
-
-
         </Grid>
-
-
-
     </Grid>
 </Window>
