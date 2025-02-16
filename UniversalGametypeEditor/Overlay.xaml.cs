@@ -522,7 +522,7 @@ namespace UniversalGametypeEditor
             }
         }
 
-        private void UpdateGlobalNumbers(object sender, EventArgs e)
+        private async void UpdateGlobalNumbers(object sender, EventArgs e)
         {
             processes = Process.GetProcessesByName("EasyAntiCheat");
             if (processes.Length > 0)
@@ -535,49 +535,31 @@ namespace UniversalGametypeEditor
             {
                 return;
             }
-            for (int i = 0; i < 12; i++)
+
+            // Offload memory reading to a background thread.
+            int[] globalValues = await Task.Run(() =>
             {
-                int globalnum = GetGlobalNumber(i);
-                switch (i)
+                int[] values = new int[12];
+                for (int i = 0; i < 12; i++)
                 {
-                    case 0:
-                        GlobalNum0.Text = globalnum.ToString();
-                        break;
-                    case 1:
-                        GlobalNum1.Text = globalnum.ToString();
-                        break;
-                    case 2:
-                        GlobalNum2.Text = globalnum.ToString();
-                        break;
-                    case 3:
-                        GlobalNum3.Text = globalnum.ToString();
-                        break;
-                    case 4:
-                        GlobalNum4.Text = globalnum.ToString();
-                        break;
-                    case 5:
-                        GlobalNum5.Text = globalnum.ToString();
-                        break;
-                    case 6:
-                        GlobalNum6.Text = globalnum.ToString();
-                        break;
-                    case 7:
-                        GlobalNum7.Text = globalnum.ToString();
-                        break;
-                    case 8:
-                        GlobalNum8.Text = globalnum.ToString();
-                        break;
-                    case 9:
-                        GlobalNum9.Text = globalnum.ToString();
-                        break;
-                    case 10:
-                        GlobalNum10.Text = globalnum.ToString();
-                        break;
-                    case 11:
-                        GlobalNum11.Text = globalnum.ToString();
-                        break;
+                    values[i] = GetGlobalNumber(i);
                 }
-            }
+                return values;
+            });
+
+            // UI update after memory reading completes.
+            GlobalNum0.Text = globalValues[0].ToString();
+            GlobalNum1.Text = globalValues[1].ToString();
+            GlobalNum2.Text = globalValues[2].ToString();
+            GlobalNum3.Text = globalValues[3].ToString();
+            GlobalNum4.Text = globalValues[4].ToString();
+            GlobalNum5.Text = globalValues[5].ToString();
+            GlobalNum6.Text = globalValues[6].ToString();
+            GlobalNum7.Text = globalValues[7].ToString();
+            GlobalNum8.Text = globalValues[8].ToString();
+            GlobalNum9.Text = globalValues[9].ToString();
+            GlobalNum10.Text = globalValues[10].ToString();
+            GlobalNum11.Text = globalValues[11].ToString();
         }
     }
 }

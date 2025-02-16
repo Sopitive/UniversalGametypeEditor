@@ -277,8 +277,10 @@ class MemoryScanner
     /// 
     /// The output buffer will receive the computed pointer.
     /// </summary>
+    /// 
     public static void InjectAndRetrievePointer()
     {
+
         // AOB pattern for injection (points to the mov instruction).
         byte[] aobPattern = new byte[] { 0x8B, 0x9C, 0x88, 0xE4, 0x01, 0x00, 0x00 };
         IntPtr targetAddress = AOBScan(aobPattern, moduleName);
@@ -289,9 +291,7 @@ class MemoryScanner
         }
         Debug.WriteLine($"Found target instruction at 0x{targetAddress.ToInt64():X}");
 
-        // In InjectAndRetrievePointer()
-
-        // Set patchLength to 14 bytes for the absolute JMP implementation.
+        // Set patchLength to 12 bytes for the absolute JMP implementation.
         int patchLength = 12;
 
         // Save the original patchLength bytes.
@@ -320,12 +320,13 @@ class MemoryScanner
         if (shellcodeAddress == IntPtr.Zero)
         {
             Debug.WriteLine("Failed to allocate shellcode memory.");
+            // Free the previously allocated globalNumbersMemory.
+            VirtualFreeEx(process.Handle, globalNumbersMemory, UIntPtr.Zero, MEM_RELEASE1);
             return;
         }
         Debug.WriteLine($"Allocated shellcode memory at 0x{shellcodeAddress.ToInt64():X}");
 
-        // Now build the shellcode with our shellcodeAddress known.
-        // The shellcode will replay the overwritten instructions (originalBytes) and then jump to returnAddress.
+        // Build the shellcode.
         byte[] shellcode = BuildShellcode(globalNumbersMemory, returnAddress, originalBytes, shellcodeAddress);
         int shellcodeLength = shellcode.Length;
 
@@ -333,6 +334,8 @@ class MemoryScanner
         if (!WriteProcessMemory(process.Handle, shellcodeAddress, shellcode, shellcodeLength, out int _))
         {
             Debug.WriteLine("Failed to write shellcode into target process.");
+            VirtualFreeEx(process.Handle, shellcodeAddress, UIntPtr.Zero, MEM_RELEASE1);
+            VirtualFreeEx(process.Handle, globalNumbersMemory, UIntPtr.Zero, MEM_RELEASE1);
             return;
         }
 
@@ -354,14 +357,13 @@ class MemoryScanner
         if (!WriteProcessMemory(process.Handle, targetAddress, jmpPatch, patchLength, out int _))
         {
             Debug.WriteLine("Failed to write jump patch at targetAddress.");
+            VirtualFreeEx(process.Handle, shellcodeAddress, UIntPtr.Zero, MEM_RELEASE1);
+            VirtualFreeEx(process.Handle, globalNumbersMemory, UIntPtr.Zero, MEM_RELEASE1);
             return;
         }
 
         // Pause to allow shellcode execution.
         Thread.Sleep(100);
-
-        // [Rest of the code as before...]
-
 
         // Read the computed pointer stored at GlobalNumbers memory.
         byte[] pointerBytes = new byte[IntPtr.Size];
@@ -376,9 +378,22 @@ class MemoryScanner
             Debug.WriteLine($"Computed pointer (via injection): 0x{GlobalNumbersAddress.ToInt64():X}");
         }
 
-        // Optionally, restore the original bytes if needed.
+        // Restore the original bytes.
         WriteProcessMemory(process.Handle, targetAddress, originalBytes, originalBytes.Length, out int _);
+
+        // Free the allocated memory for shellcode and the global pointer.
+        VirtualFreeEx(process.Handle, shellcodeAddress, UIntPtr.Zero, MEM_RELEASE1);
+        VirtualFreeEx(process.Handle, globalNumbersMemory, UIntPtr.Zero, MEM_RELEASE1);
     }
+
+    private const uint MEM_COMMIT1 = 0x1000;
+    private const uint MEM_RESERVE1 = 0x2000;
+    private const uint MEM_RELEASE1 = 0x8000;
+    private const uint PAGE_EXECUTE_READWRITE1 = 0x40;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool VirtualFreeEx(IntPtr hProcess, IntPtr lpAddress, UIntPtr dwSize, uint dwFreeType);
+
 
 
     /// <summary>
