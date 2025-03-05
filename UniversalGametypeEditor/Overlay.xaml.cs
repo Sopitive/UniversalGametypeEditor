@@ -380,7 +380,15 @@ namespace UniversalGametypeEditor
                 {
                     if (!IsVisible)
                     {
-                        Show();
+                        try
+                        {
+                            Show();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine(ex.Message);
+                        }
+
                     }
                 }
 
@@ -486,10 +494,10 @@ namespace UniversalGametypeEditor
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            DispatcherTimer dispatcherTimer = new();
-            dispatcherTimer.Tick += new EventHandler(UpdateGlobalNumbers);
-            dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 1);
-            dispatcherTimer.Start();
+            //DispatcherTimer dispatcherTimer = new();
+            //dispatcherTimer.Tick += new EventHandler(UpdateGlobalNumbers);
+            //dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 1);
+            //dispatcherTimer.Start();
         }
 
         private void GlobalNum_TextChanged(object sender, TextChangedEventArgs e)
