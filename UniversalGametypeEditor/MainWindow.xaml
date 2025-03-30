@@ -739,7 +739,7 @@
                     </MenuItem>
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="Tools"  Header="Tools" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="PlaylistEditor" Header="Edit CGB Playlist..." ToolTip="Edit The Playlist For The Cutom Games Browser" Click="EditPlaylist" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
-                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="OverlayToggle" Header="ToggleOverlay" ToolTip="Toggle Overlay" Click="ToggleOverlay" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                        <!--<MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="OverlayToggle" Header="ToggleOverlay" ToolTip="Toggle Overlay" Click="ToggleOverlay" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>-->
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="MegaloEditPatch" Header="Patch MegaloEdit" ToolTip="Allow All Actions In MegaloEdit Local Trigger" Click="PatchMegaloEdit" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
                 </Menu>

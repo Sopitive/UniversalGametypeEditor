@@ -149,7 +149,7 @@ namespace UniversalGametypeEditor
                     new ActionParameter("action_offset", typeof(int), 0, 10),
                     new ActionParameter("action_count", typeof(int), 0, 11)
                 }),
-                new ActionDefinition(21, "GetWeapon", new List<ActionParameter>
+                new ActionDefinition(83, "GetWeapon", new List<ActionParameter>
                 {
                     new ActionParameter("player", typeof(PlayerTypeRef)),
                     new ActionParameter("slot", typeof(bool), 1, 1),

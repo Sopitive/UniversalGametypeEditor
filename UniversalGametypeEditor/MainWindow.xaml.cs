@@ -111,7 +111,7 @@ namespace UniversalGametypeEditor
 
 
 
-        Overlay overlay = new();
+        
         public MainWindow()
         {
             InitializeComponent();
@@ -168,15 +168,15 @@ namespace UniversalGametypeEditor
                 }
 
                 // Add the game variants folders to the watched folders
-                if (!watchedFolders.Contains($"{Settings.Default.GameDir}\\haloreach\\game_variants"))
+                if (!watchedFolders.Contains($"{Settings.Default.GameDir}\\haloreach\\game_variants") && Directory.Exists($"{Settings.Default.GameDir}\\haloreach\\game_variants"))
                 {
                     watchedFolders.Add($"{Settings.Default.GameDir}\\haloreach\\game_variants");
                 }
-                if (!watchedFolders.Contains($"{Settings.Default.GameDir}\\groundhog\\game_variants"))
+                if (!watchedFolders.Contains($"{Settings.Default.GameDir}\\groundhog\\game_variants") && Directory.Exists($"{Settings.Default.GameDir}\\groundhog\\game_variants"))
                 {
                     watchedFolders.Add($"{Settings.Default.GameDir}\\groundhog\\game_variants");
                 }
-                if (!watchedFolders.Contains($"{Settings.Default.GameDir}\\halo4\\game_variants"))
+                if (!watchedFolders.Contains($"{Settings.Default.GameDir}\\halo4\\game_variants") && Directory.Exists($"{Settings.Default.GameDir}\\halo4\\game_variants"))
                 {
                     watchedFolders.Add($"{Settings.Default.GameDir}\\halo4\\game_variants");
                 }
@@ -235,20 +235,20 @@ namespace UniversalGametypeEditor
                 string folderName = Settings.Default.HotReloadPath;
                 GetFiles(folderName, HotReloadFilesList);
             }
-
+            //Overlay overlay = new();
             CheckTutorialCompletion();
             //Show Overlay window if the process EasyAntiCheat.exe is not open
-            Process[] pname = Process.GetProcessesByName("EasyAntiCheat_EOS");
-            //Get whether MCC is open
-            Process[] mcc = Process.GetProcessesByName("MCC-Win64-Shipping");
-            if (pname.Length == 0 && mcc.Length != 0)
-            {
-                overlay.Show();
-            }
-            if (pname.Length > 0)
-            {
-                overlay.Close();
-            }
+            //Process[] pname = Process.GetProcessesByName("EasyAntiCheat_EOS");
+            ////Get whether MCC is open
+            //Process[] mcc = Process.GetProcessesByName("MCC-Win64-Shipping");
+            //if (pname.Length == 0 && mcc.Length != 0)
+            //{
+            //    overlay.Show();
+            //}
+            //if (pname.Length > 0)
+            //{
+            //    overlay.Close();
+            //}
             this.Show();
 
         }
@@ -256,17 +256,17 @@ namespace UniversalGametypeEditor
         public void ToggleOverlay(object sender, RoutedEventArgs e)
         {
             //if overlay is shown, hide it and vice versa
-            if (overlay != null)
-            {
-                if (overlay.IsVisible)
-                {
-                    overlay.Hide();
-                }
-                else
-                {
-                    overlay.Show();
-                }
-            }
+            //if (overlay != null)
+            //{
+            //    if (overlay.IsVisible)
+            //    {
+            //        overlay.Hide();
+            //    }
+            //    else
+            //    {
+            //        overlay.Show();
+            //    }
+            //}
         }
 
             private async void PatchMegaloEdit(object sender, RoutedEventArgs e)

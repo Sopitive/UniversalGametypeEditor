@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 using static UniversalGametypeEditor.ReadGametype;
 using static UniversalGametypeEditor.ScriptCompiler;
 using static UniversalGametypeEditor.Enums.Enums;
+using System.Diagnostics;
 
 
 namespace UniversalGametypeEditor
@@ -49,12 +50,12 @@ namespace UniversalGametypeEditor
             if (_availablePlayerIndices.Count > 0)
             {
                 index = _availablePlayerIndices.Pop();
-                Console.WriteLine($"Recycled player index: {index}");
+                Debug.WriteLine($"Recycled player index: {index}");
             }
             else
             {
                 index = _players.Count;
-                Console.WriteLine($"New player index: {index}");
+                Debug.WriteLine($"New player index: {index}");
             }
 
             var player = new Player(name);
@@ -78,12 +79,12 @@ namespace UniversalGametypeEditor
             if (_availableObjectIndices.Count > 0)
             {
                 index = _availableObjectIndices.Pop();
-                Console.WriteLine($"Recycled object index: {index}");
+                Debug.WriteLine($"Recycled object index: {index}");
             }
             else
             {
                 index = _objects.Count;
-                Console.WriteLine($"New object index: {index}");
+                Debug.WriteLine($"New object index: {index}");
             }
 
             var gameObject = new GameObject(name);
@@ -107,12 +108,12 @@ namespace UniversalGametypeEditor
             if (_availableNumberIndices.Count > 0)
             {
                 index = _availableNumberIndices.Pop();
-                Console.WriteLine($"Recycled number index: {index}");
+                Debug.WriteLine($"Recycled number index: {index}");
             }
             else
             {
                 index = _numbers.Count;
-                Console.WriteLine($"New number index: {index}");
+                Debug.WriteLine($"New number index: {index}");
             }
 
             // Ensure the list is large enough to hold the new number
@@ -134,7 +135,7 @@ namespace UniversalGametypeEditor
             {
                 _players[index] = null!;
                 _availablePlayerIndices.Push(index);
-                Console.WriteLine($"Recycled player index: {index}");
+                Debug.WriteLine($"Recycled player index: {index}");
             }
         }
 
@@ -144,7 +145,7 @@ namespace UniversalGametypeEditor
             {
                 _objects[index] = null!;
                 _availableObjectIndices.Push(index);
-                Console.WriteLine($"Recycled object index: {index}");
+                Debug.WriteLine($"Recycled object index: {index}");
             }
         }
 
@@ -154,7 +155,7 @@ namespace UniversalGametypeEditor
             {
                 _numbers[index] = 0;
                 _availableNumberIndices.Push(index);
-                Console.WriteLine($"Recycled number index: {index}");
+                Debug.WriteLine($"Recycled number index: {index}");
             }
         }
 
@@ -250,7 +251,7 @@ namespace UniversalGametypeEditor
 
             foreach (var diagnostic in diagnostics)
             {
-                Console.WriteLine(diagnostic);
+                Debug.WriteLine(diagnostic);
             }
         }
 
@@ -259,7 +260,7 @@ namespace UniversalGametypeEditor
         {
             if (member is ClassDeclarationSyntax classDecl)
             {
-                Console.WriteLine($"Class: {classDecl.Identifier.Text}");
+                Debug.WriteLine($"Class: {classDecl.Identifier.Text}");
                 foreach (var classMember in classDecl.Members)
                 {
                     ProcessMember(classMember);
@@ -295,7 +296,7 @@ namespace UniversalGametypeEditor
                         var variableInfo = new VariableInfo(type, index, networkingPriority);
                         _variableToIndexMap[varName] = variableInfo;
                         _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
-                        Console.WriteLine($"Initialized Player variable '{varName}' at global.player[{index}] with networking priority {networkingPriority}");
+                        Debug.WriteLine($"Initialized Player variable '{varName}' at global.player[{index}] with networking priority {networkingPriority}");
                     }
                     else if (type == "Object")
                     {
@@ -304,7 +305,7 @@ namespace UniversalGametypeEditor
                         var variableInfo = new VariableInfo(type, index, networkingPriority);
                         _variableToIndexMap[varName] = variableInfo;
                         _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
-                        Console.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {networkingPriority}");
+                        Debug.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {networkingPriority}");
                     }
                     else if (type == "Number")
                     {
@@ -313,17 +314,17 @@ namespace UniversalGametypeEditor
                         var variableInfo = new VariableInfo(type, numberIndex, networkingPriority);
                         _variableToIndexMap[varName] = variableInfo;
                         _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
-                        Console.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {networkingPriority}");
+                        Debug.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {networkingPriority}");
                     }
                     else
                     {
-                        Console.WriteLine($"Unhandled global variable type: {type}");
+                        Debug.WriteLine($"Unhandled global variable type: {type}");
                     }
                 }
             }
             else if (member is MethodDeclarationSyntax method)
             {
-                Console.WriteLine($"Method: {method.Identifier.Text}");
+                Debug.WriteLine($"Method: {method.Identifier.Text}");
                 _scopeStack.Push(new Dictionary<string, VariableInfo>());
                 int actionCount = 0;
                 if (method.Body != null)
@@ -340,7 +341,7 @@ namespace UniversalGametypeEditor
             }
             else if (member is PropertyDeclarationSyntax property)
             {
-                Console.WriteLine($"Property: {property.Identifier.Text}");
+                Debug.WriteLine($"Property: {property.Identifier.Text}");
                 _scopeStack.Push(new Dictionary<string, VariableInfo>());
                 int actionCount = 0;
                 if (property.AccessorList != null)
@@ -367,7 +368,7 @@ namespace UniversalGametypeEditor
             }
             else if (member is ConstructorDeclarationSyntax constructor)
             {
-                Console.WriteLine($"Constructor: {constructor.Identifier.Text}");
+                Debug.WriteLine($"Constructor: {constructor.Identifier.Text}");
                 if (constructor.Body != null)
                 {
                     _scopeStack.Push(new Dictionary<string, VariableInfo>());
@@ -384,12 +385,12 @@ namespace UniversalGametypeEditor
             }
             else if (member is GlobalStatementSyntax globalStatement)
             {
-                Console.WriteLine("Global Statement");
+                Debug.WriteLine("Global Statement");
                 _scopeStack.Push(new Dictionary<string, VariableInfo>()); // Ensure a new scope is pushed
                 int actionCount = 0;
                 if (globalStatement.Statement is LocalFunctionStatementSyntax localFunction)
                 {
-                    Console.WriteLine($"Local Function: {localFunction.Identifier.Text}");
+                    Debug.WriteLine($"Local Function: {localFunction.Identifier.Text}");
                     if (localFunction.Body != null)
                     {
                         // Call ProcessTrigger for top-level local function declarations
@@ -409,11 +410,11 @@ namespace UniversalGametypeEditor
                             var variableInfo = new VariableInfo(type, index, 1); // Default to low priority
                             _variableToIndexMap[varName] = variableInfo;
                             _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
-                            Console.WriteLine($"Initialized global Object variable '{varName}' at global.object[{index}]");
+                            Debug.WriteLine($"Initialized global Object variable '{varName}' at global.object[{index}]");
                         }
                         else
                         {
-                            Console.WriteLine($"Unhandled global variable type: {type}");
+                            Debug.WriteLine($"Unhandled global variable type: {type}");
                         }
                     }
                 }
@@ -428,7 +429,7 @@ namespace UniversalGametypeEditor
             }
             else
             {
-                Console.WriteLine($"Unhandled member type: {member.GetType().Name}");
+                Debug.WriteLine($"Unhandled member type: {member.GetType().Name}");
             }
         }
 
@@ -437,21 +438,21 @@ namespace UniversalGametypeEditor
             if (expression is AssignmentExpressionSyntax assignment)
             {
                 // Handle assignment expressions
-                Console.WriteLine($"Assignment: {assignment}");
+                Debug.WriteLine($"Assignment: {assignment}");
                 ProcessAssignment(assignment, ref actionOffset);
                 actionCount++;
             }
             else if (expression is InvocationExpressionSyntax invocation)
             {
                 // Handle method invocations
-                Console.WriteLine($"Invocation: {invocation}");
+                Debug.WriteLine($"Invocation: {invocation}");
                 ProcessInvocation(invocation, ref actionOffset);
                 actionCount++;
             }
             else if (expression is BinaryExpressionSyntax binaryExpression)
             {
                 // Handle binary expressions (conditions)
-                Console.WriteLine($"Binary Expression: {binaryExpression}");
+                Debug.WriteLine($"Binary Expression: {binaryExpression}");
                 int conditionCount = 0; // Initialize conditionCount
                 ProcessCondition(binaryExpression, ref conditionCount, ref actionOffset, ref actionCount);
             }
@@ -468,7 +469,7 @@ namespace UniversalGametypeEditor
 
             string binaryInlineAction = "1100011" + conditionOffsetBinary + conditionCountBinary + actionOffsetBinary + actionCountBinary;
             _actions.Insert(triggerActionOffset, new ActionObject("Inline", new List<string> { binaryInlineAction }));
-            Console.WriteLine($"Added inline action: Inline({binaryInlineAction})");
+            Debug.WriteLine($"Added inline action: Inline({binaryInlineAction})");
             int finalConditionCount = conditionCount;
             // Return the number of actions added (1 in this case)
             return (1 - actionCount, finalConditionCount);
@@ -509,12 +510,12 @@ namespace UniversalGametypeEditor
                 case ExpressionStatementSyntax expressionStatement:
                     // Process expressions
                     ProcessExpression(expressionStatement.Expression, ref actionCount, actionOffset);
-                    Console.WriteLine($"Action Count after Expression: {actionCount}");
+                    Debug.WriteLine($"Action Count after Expression: {actionCount}");
                     //inlineActionOffset++; // Update action offset after processing the expression
                     break;
 
                 case IfStatementSyntax ifStatement:
-                    Console.WriteLine($"If Statement: {ifStatement.Condition}");
+                    Debug.WriteLine($"If Statement: {ifStatement.Condition}");
 
                     // Record current condition and action offsets before processing
                     int conditionStartOffset = _conditions.Count;
@@ -527,7 +528,7 @@ namespace UniversalGametypeEditor
                     // Process the condition and update condition count
                     ProcessCondition(ifStatement.Condition, ref conditionCount, ref conditionActionOffset, ref conditionOffset);
                     conditionIndices.Add(_conditions.Count - 1); // Track the index of the added condition
-                    Console.WriteLine($"Condition Count after If Condition: {conditionCount}");
+                    Debug.WriteLine($"Condition Count after If Condition: {conditionCount}");
 
                     // Process the body of the if statement
                     if (ifStatement.Statement is BlockSyntax block)
@@ -587,7 +588,7 @@ namespace UniversalGametypeEditor
                     break;
 
                 case LocalFunctionStatementSyntax localFunction:
-                    Console.WriteLine($"Local Function: {localFunction.Identifier.Text}");
+                    Debug.WriteLine($"Local Function: {localFunction.Identifier.Text}");
                     if (localFunction.Body != null)
                     {
                         _scopeStack.Push(new Dictionary<string, VariableInfo>());
@@ -600,7 +601,7 @@ namespace UniversalGametypeEditor
                     break;
 
                 case ReturnStatementSyntax returnStatement:
-                    Console.WriteLine($"Return Statement: {returnStatement.Expression}");
+                    Debug.WriteLine($"Return Statement: {returnStatement.Expression}");
                     break;
 
                 case BlockSyntax block1:
@@ -611,7 +612,7 @@ namespace UniversalGametypeEditor
                     break;
 
                 default:
-                    Console.WriteLine($"Unhandled statement type: {statement.GetType().Name}");
+                    Debug.WriteLine($"Unhandled statement type: {statement.GetType().Name}");
                     break;
             }
         }
@@ -772,7 +773,7 @@ namespace UniversalGametypeEditor
                     _ => 1, // Default to "low"
                 };
 
-                Console.WriteLine($"Variable '{varName}' of type '{actualType}' with priority '{networkingPriority}'");
+                Debug.WriteLine($"Variable '{varName}' of type '{actualType}' with priority '{networkingPriority}'");
 
                 if (_variableToIndexMap.TryGetValue(varName, out var existingVariable))
                 {
@@ -795,7 +796,7 @@ namespace UniversalGametypeEditor
                             _variableToIndexMap[varName] = variableInfo;
                             _scopeStack.Peek()[varName] = variableInfo;
                             _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
-                            Console.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {priorityValue}");
+                            Debug.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {priorityValue}");
 
                             // Process the invocation with the varOut parameter
                             ProcessInvocation(initializer, ref actionOffset, varName);
@@ -809,7 +810,7 @@ namespace UniversalGametypeEditor
                             _variableToIndexMap[varName] = variableInfo;
                             _scopeStack.Peek()[varName] = variableInfo;
                             _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
-                            Console.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {priorityValue}");
+                            Debug.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {priorityValue}");
                         }
                     }
                     else if (actualType == "Number")
@@ -824,7 +825,7 @@ namespace UniversalGametypeEditor
                             _variableToIndexMap[varName] = variableInfo;
                             _scopeStack.Peek()[varName] = variableInfo;
                             _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
-                            Console.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {priorityValue}");
+                            Debug.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {priorityValue}");
 
                             // Process the invocation with the varOut parameter
                             ProcessInvocation(initializer, ref actionOffset, varName);
@@ -838,12 +839,12 @@ namespace UniversalGametypeEditor
                             _variableToIndexMap[varName] = variableInfo;
                             _scopeStack.Peek()[varName] = variableInfo;
                             _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
-                            Console.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {priorityValue}");
+                            Debug.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {priorityValue}");
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"Unhandled local variable type: {actualType}");
+                        Debug.WriteLine($"Unhandled local variable type: {actualType}");
                     }
                 }
             }
@@ -861,8 +862,10 @@ namespace UniversalGametypeEditor
             if (left != null && right != null)
             {
                 string varName = left.Identifier.Text;
-                Console.WriteLine($"Processing assignment: {varName} = {right}");
+                Debug.WriteLine($"Processing assignment: {varName} = {right}");
                 ProcessInvocation(right, ref actionOffset, varName);
+                Debug.WriteLine($"Assignment result: {varName} = {right}");
+                actionOffset++;
             }
         }
 
@@ -872,7 +875,7 @@ namespace UniversalGametypeEditor
             if (identifier != null)
             {
                 string actionName = identifier.Identifier.Text;
-                Console.WriteLine($"Processing invocation: {actionName}");
+                Debug.WriteLine($"Processing invocation: {actionName} with parameters: {string.Join(", ", invocation.ArgumentList.Arguments)}");
                 var actionDefinition = ActionDefinitions.ValidActions.FirstOrDefault(a => a.Name == actionName);
                 if (actionDefinition != null)
                 {
@@ -988,13 +991,13 @@ namespace UniversalGametypeEditor
                     if (!_actions.Any(a => a.Parameters.Contains(binaryAction)))
                     {
                         _actions.Add(new ActionObject(actionName, new List<string> { binaryAction }));
-                        Console.WriteLine($"Added action: {actionName}({binaryAction})");
+                        Debug.WriteLine($"Added action: {actionName}({binaryAction})");
                         inlineActionOffset++;
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"Action definition not found for: {actionName}");
+                    Debug.WriteLine($"Action definition not found for: {actionName}");
                 }
             }
         }
@@ -1308,7 +1311,7 @@ namespace UniversalGametypeEditor
                 if (identifier != null)
                 {
                     string conditionName = identifier.Identifier.Text;
-                    Console.WriteLine($"Processing condition: {conditionName}");
+                    Debug.WriteLine($"Processing condition: {conditionName}");
                     var conditionDefinition = ConditionDefinitions.ValidConditions.FirstOrDefault(c => c.Name == conditionName);
                     if (conditionDefinition != null)
                     {
@@ -1373,7 +1376,7 @@ namespace UniversalGametypeEditor
 
                         // Add the condition to the conditions list
                         _conditions.Add(new ConditionObject(conditionName, new List<string> { binaryCondition }));
-                        Console.WriteLine($"Added condition: {conditionName}({binaryCondition})");
+                        Debug.WriteLine($"Added condition: {conditionName}({binaryCondition})");
 
                         // Increment the condition count and condition offset
                         conditionCount++;
@@ -1384,13 +1387,13 @@ namespace UniversalGametypeEditor
                     }
                     else
                     {
-                        Console.WriteLine($"Condition definition not found for: {conditionName}");
+                        Debug.WriteLine($"Condition definition not found for: {conditionName}");
                     }
                 }
             }
             else
             {
-                Console.WriteLine($"Unhandled condition type: {condition.GetType().Name}");
+                Debug.WriteLine($"Unhandled condition type: {condition.GetType().Name}");
             }
         }
 
@@ -1896,4 +1899,3 @@ namespace UniversalGametypeEditor
         }
     }
 }
-
