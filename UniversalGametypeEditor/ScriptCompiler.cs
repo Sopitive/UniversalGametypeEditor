@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -1275,6 +1275,80 @@ namespace UniversalGametypeEditor
             return globalVariablesBinary;
         }
 
+        private void ProcessBinaryCondition(BinaryExpressionSyntax binaryExpression, ref int conditionCount, ref int actionOffset, ref int conditionOffset, int orSequence = 0, bool isNot = false)
+        {
+            // Determine operator type
+            string operatorSymbol = binaryExpression.OperatorToken.ValueText;
+            string operatorBinary = "";
+
+            switch (operatorSymbol)
+            {
+                case "<": operatorBinary = "000"; break;    // LessThan
+                case ">": operatorBinary = "001"; break;    // GreaterThan
+                case "==": operatorBinary = "010"; break;   // Equals
+                case "<=": operatorBinary = "011"; break;   // LessThanEquals
+                case ">=": operatorBinary = "100"; break;   // GreaterThanEquals
+                case "!=": operatorBinary = "101"; break;   // NotEquals
+                default:
+                    Debug.WriteLine($"Unsupported operator: {operatorSymbol}");
+                    return;
+            }
+
+            // Process left-hand side (typically a variable)
+            string leftVarType = "000"; // Default to NumericVar
+            string leftVarBinary = "";
+
+            if (binaryExpression.Left is IdentifierNameSyntax leftIdentifier)
+            {
+                string varName = leftIdentifier.Identifier.Text;
+                if (_variableToIndexMap.TryGetValue(varName, out VariableInfo varInfo))
+                {
+                    // Handle based on variable type
+                    if (varInfo.Type == "Number")
+                    {
+                        // NumericVar (000) + NumericTypeRef (GlobalNumber = 5)
+                        string numericTypeRefBinary = Convert.ToString((int)NumericTypeRefEnum.GlobalNumber, 2).PadLeft(6, '0');
+                        string globalNumberIndexBinary = Convert.ToString(varInfo.Index, 2).PadLeft(4, '0');
+                        leftVarBinary = numericTypeRefBinary + globalNumberIndexBinary;
+                    }
+                    // Add handling for other variable types if needed
+                }
+            }
+
+            // Process right-hand side (typically a literal)
+            string rightVarType = "000"; // Default to NumericVar
+            string rightVarBinary = "";
+
+            if (binaryExpression.Right is LiteralExpressionSyntax rightLiteral)
+            {
+                // For numeric literals, use Int16 NumericTypeRef (0)
+                string numericTypeRefBinary = Convert.ToString((int)NumericTypeRefEnum.Int16, 2).PadLeft(6, '0');
+                int literalValue = int.Parse(rightLiteral.Token.ValueText);
+                string literalValueBinary = Convert.ToString(literalValue, 2).PadLeft(16, '0');
+                rightVarBinary = numericTypeRefBinary + literalValueBinary;
+            }
+
+            // Convert the condition number to a 5-bit binary string (Megl.If = 1)
+            string conditionNumberBinary = ConvertToBinary(1, 5);
+
+            // Convert NOT and ORSequence to binary strings
+            string notBinary = ConvertToBinary(isNot ? 1 : 0, 1);
+            string orSequenceBinary = ConvertToBinary(orSequence, 9);
+            string actionOffsetBinary = ConvertToBinary(actionOffset, 10);
+
+            // Construct the full binary condition
+            string binaryCondition = conditionNumberBinary + notBinary + orSequenceBinary + actionOffsetBinary
+                                   + leftVarType + leftVarBinary
+                                   + rightVarType + rightVarBinary
+                                   + operatorBinary;
+
+            // Add the condition to the conditions list
+            _conditions.Add(new ConditionObject("Megl.If", new List<string> { binaryCondition }));
+            Debug.WriteLine($"Added binary condition: Megl.If({binaryCondition})");
+
+            // Increment condition count
+            conditionCount++;
+        }
 
 
 
@@ -1289,20 +1363,9 @@ namespace UniversalGametypeEditor
 
             if (condition is BinaryExpressionSyntax binaryExpression)
             {
-                if (binaryExpression.OperatorToken.IsKind(SyntaxKind.AmpersandAmpersandToken))
-                {
-                    // Handle logical AND
-                    ProcessCondition(binaryExpression.Left, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot, localActionOffset);
-                    ProcessCondition(binaryExpression.Right, ref conditionCount, ref actionOffset, ref conditionOffset, ++orSequence, isNot, localActionOffset);
-                    return;
-                }
-                else if (binaryExpression.OperatorToken.IsKind(SyntaxKind.BarBarToken))
-                {
-                    // Handle logical OR
-                    ProcessCondition(binaryExpression.Left, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot, localActionOffset);
-                    ProcessCondition(binaryExpression.Right, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot, localActionOffset);
-                    return;
-                }
+                // Handle binary expressions (e.g., speed > 0)
+                ProcessBinaryCondition(binaryExpression, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
+                return;
             }
 
             if (condition is InvocationExpressionSyntax invocation)
@@ -1451,7 +1514,7 @@ namespace UniversalGametypeEditor
             if (value.StartsWith("GlobalNumber"))
             {
                 int globalNumberIndex = int.Parse(value.Replace("GlobalNumber", ""));
-                globalNumberIndex += 1; // Increment the index by 1 to account for the NoObject case
+                //globalNumberIndex += 1; // Increment the index by 1 to account for the NoObject case
                 if (globalNumberIndex < 0 || globalNumberIndex > 15)
                 {
                     throw new ArgumentException($"Invalid GlobalNumber index: {globalNumberIndex}");
@@ -1459,7 +1522,7 @@ namespace UniversalGametypeEditor
                 // Convert the NumericTypeRef to its binary representation
                 string numericTypeRefBinary = Convert.ToString((int)NumericTypeRefEnum.GlobalNumber, 2).PadLeft(6, '0');
                 // Convert the global number index to its binary representation
-                string globalNumberIndexBinary = Convert.ToString(globalNumberIndex, 2).PadLeft(5, '0');
+                string globalNumberIndexBinary = Convert.ToString(globalNumberIndex, 2).PadLeft(4, '0');
                 // Concatenate the binary representations to form the final binary string
                 string finalBinaryString1 = numericTypeRefBinary + globalNumberIndexBinary;
                 return finalBinaryString1;

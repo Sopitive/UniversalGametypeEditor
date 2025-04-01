@@ -785,6 +785,7 @@ namespace UniversalGametypeEditor
                 }
 
                 GametypeScroller.ItemsSource = Gametype;
+                ScriptEditor.Visibility = Visibility.Visible; // Show the script editor
             });
         }
 

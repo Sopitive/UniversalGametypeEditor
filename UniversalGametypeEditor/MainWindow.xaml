@@ -783,8 +783,8 @@
             </Grid.RowDefinitions>
 
             <!-- Script input area -->
-            <StackPanel Grid.Column="2" Grid.Row="0" Margin="20,100,20,20" Orientation="Vertical" Visibility="Hidden">
-                <TextBlock Text="Script Input" Foreground="{StaticResource TextColor}" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
+            <StackPanel x:Name="ScriptEditor" Grid.Column="2" Grid.Row="0" Margin="20,100,20,20" Orientation="Vertical" >
+                <TextBlock Text="Script Input: EXPERIMENTAL" Foreground="{StaticResource TextColor}" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
                 <avalonedit:TextEditor x:Name="ScriptInputTextEditor" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" 
                            Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" FontSize="15" Height="300" Width="400" WordWrap="True" BorderBrush="{StaticResource TextColor}" BorderThickness="1"/>
             </StackPanel>

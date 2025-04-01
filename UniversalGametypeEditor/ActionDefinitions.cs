@@ -42,7 +42,7 @@ namespace UniversalGametypeEditor
                 new ActionDefinition(2, "CreateObject", new List<ActionParameter>
                 {
                     new ActionParameter("type", typeof(string), null, 12),
-                    new ActionParameter("var_out", typeof(string), "NoObject", 5),
+                    new ActionParameter("var_out", typeof(ObjectTypeRef), "NoObject", 5),
                     new ActionParameter("placeat", typeof(ObjectTypeRef)),
                     new ActionParameter("label", typeof(string), 1, 1),
                     new ActionParameter("suppress", typeof(bool), 0, 1), // Default value
@@ -73,8 +73,9 @@ namespace UniversalGametypeEditor
                 }),
                 new ActionDefinition(28, "GetSpeed", new List<ActionParameter>
                 {
-                    new ActionParameter("var_out", typeof(NumericTypeRef)),
-                    new ActionParameter("object", typeof(ObjectTypeRef))
+                    new ActionParameter("object", typeof(ObjectTypeRef)),
+                    new ActionParameter("var_out", typeof(NumericTypeRef))
+                    
                 }),
                 new ActionDefinition(5, "GetDistanceTo", new List<ActionParameter>
                 {
