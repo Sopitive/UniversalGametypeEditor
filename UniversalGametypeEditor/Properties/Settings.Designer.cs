@@ -357,5 +357,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["RVTDirectory"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool AutoRecompile {
+            get {
+                return ((bool)(this["AutoRecompile"]));
+            }
+            set {
+                this["AutoRecompile"] = value;
+            }
+        }
     }
 }

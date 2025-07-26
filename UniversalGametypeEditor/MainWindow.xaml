@@ -733,6 +733,7 @@
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="KeepNamedMglo" Header="Keep Named Mglo" ToolTip="Copy named .mglo files to the HotReload directory" IsCheckable="True" Checked="UpdateNamedMglo" Unchecked="UpdateNamedMglo" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ConvertToForge" Header="Convert To Forge" ToolTip="Convert multiplayer gametypes to forge gametypes automatically" IsCheckable="True" Checked="UpdateConvertForge" Unchecked="UpdateConvertForge" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="MultiDirectory" Header="Multi Directory" ToolTip="Watch every directory in the folders list at the same time" IsCheckable="True" Checked="UpdateWatchMulti" Unchecked="UpdateWatchMulti" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="AutoRecompile" Header="Auto Recompile" ToolTip="When saving .rvt files, recompile the script automatically" IsCheckable="True" Checked="UpdateAutoCompile" Unchecked="UpdateAutoCompile" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
                     </MenuItem>
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Help" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ShowTut" Header="Tutorial" ToolTip="Show tutorial" Click="ShowTutorial" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
@@ -783,7 +784,7 @@
             </Grid.RowDefinitions>
 
             <!-- Script input area -->
-            <StackPanel x:Name="ScriptEditor" Grid.Column="2" Grid.Row="0" Margin="20,100,20,20" Orientation="Vertical" >
+            <StackPanel x:Name="ScriptEditor" Grid.Column="2" Grid.Row="0" Margin="20,100,20,20" Orientation="Vertical" Visibility="Hidden">
                 <TextBlock Text="Script Input: EXPERIMENTAL" Foreground="{StaticResource TextColor}" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
                 <avalonedit:TextEditor x:Name="ScriptInputTextEditor" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" 
                            Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" FontSize="15" Height="300" Width="400" WordWrap="True" BorderBrush="{StaticResource TextColor}" BorderThickness="1"/>

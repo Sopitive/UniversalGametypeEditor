@@ -125,6 +125,10 @@ namespace UniversalGametypeEditor
                 var installPath = key.GetValue("InstallLocation") as string;
                 if (!string.IsNullOrWhiteSpace(installPath) && File.Exists(Path.Combine(installPath, exeName)))
                 {
+                    //Remove last forward slash off the end
+                    installPath = installPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    //Replace forward slash with escaped backslash
+                    installPath = installPath.Replace('/', '\\');
                     Debug.WriteLine($"Found RVT at {installPath} using Install");
                     return installPath;
                 }
@@ -1340,6 +1344,7 @@ namespace UniversalGametypeEditor
             SortBy.SelectedIndex = Settings.Default.OrderBy;
             ConvertToForge.IsChecked = Settings.Default.ConvertToForge;
             MultiDirectory.IsChecked = Settings.Default.MultiDirectory;
+            AutoRecompile.IsChecked = Settings.Default.AutoRecompile;
         }
         private FileSystemWatcher watcher = new();
         private void UpdateWatchMulti(object sender, RoutedEventArgs e)
@@ -1353,6 +1358,19 @@ namespace UniversalGametypeEditor
                 Settings.Default.MultiDirectory = false;
                 UnregisterWatchers();
                 RegisterWatcher(Settings.Default.FilePath, watcher);
+            }
+            Settings.Default.Save();
+        }
+
+        private void UpdateAutoCompile(object sender, RoutedEventArgs e)
+        {
+            if (AutoRecompile.IsChecked == true)
+            {
+                Settings.Default.AutoRecompile = true;
+            }
+            else
+            {
+                Settings.Default.AutoRecompile = false;
             }
             Settings.Default.Save();
         }
@@ -1954,7 +1972,7 @@ namespace UniversalGametypeEditor
 
 
             //Auto recompile script files
-            if (name.EndsWith(".rvt"))
+            if (name.EndsWith(".rvt") && Settings.Default.AutoRecompile == true)
             {
                 if (Settings.Default.RVTDirectory != "Undefined")
                 {
@@ -1970,11 +1988,14 @@ namespace UniversalGametypeEditor
                             //Invoke the RVT command line
                             //ReachVariantTool --headless <in-variant> --recompile <in-script> --dst <out-variant>
                             string inVariant = files[0];
-                            string outVariant = Path.Combine(watchedPath, $"{nameWithoutExtension}.bin");
+                            string outVariant = Path.Combine(watchedPath, $"{nameWithoutExtension}_mod.bin");
                             string rvtPath = $"{Settings.Default.RVTDirectory}\\ReachVariantTool.exe";
-                            string scriptPath = Path.Combine(Settings.Default.FilePath, name);
+                            string scriptPath = path;
                             string command = $"--headless \"{inVariant}\" --recompile \"{scriptPath}\" --dst \"{outVariant}\"";
-                            RunCommand(rvtPath, command);
+                            (int code, string output, string error) = RunCommand(rvtPath, command);
+                            //Log errors
+                            Debug.WriteLine(error);
+                            UpdateLastEvent($"Started recompile of {nameWithoutExtension}.rvt");
                         }
                     }
                 }
