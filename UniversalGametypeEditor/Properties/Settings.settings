@@ -83,5 +83,8 @@
     <Setting Name="MultiDirectory" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
+    <Setting Name="RVTDirectory" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Undefined</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

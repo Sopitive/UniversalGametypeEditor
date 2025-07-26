@@ -468,13 +468,55 @@ namespace UniversalGametypeEditor
             string actionCountBinary = ConvertToBinary(actionCount, 11);
 
             string binaryInlineAction = "1100011" + conditionOffsetBinary + conditionCountBinary + actionOffsetBinary + actionCountBinary;
-            _actions.Insert(triggerActionOffset, new ActionObject("Inline", new List<string> { binaryInlineAction }));
-            Debug.WriteLine($"Added inline action: Inline({binaryInlineAction})");
-            int finalConditionCount = conditionCount;
-            // Return the number of actions added (1 in this case)
-            return (1 - actionCount, finalConditionCount);
+
+            // Insert at the correct position in the actions list
+            _actions.Insert(actionOffset, new ActionObject("Inline", new List<string> { binaryInlineAction }));
+            Debug.WriteLine($"Added inline action: Inline({binaryInlineAction}) at index {actionOffset}");
+
+            // Return the number of actions added and conditions processed
+            return (1, conditionCount);
         }
 
+        // Add this method to the ScriptCompiler class
+        private void ProcessIfStatement(IfStatementSyntax ifStatement, ref int actionCount, ref int conditionCount, ref int actionOffset, ref int conditionOffset)
+        {
+            Debug.WriteLine($"Processing If Statement: {ifStatement.Condition}");
+
+            // Process the condition
+            int ifStartActionCount = _actions.Count;
+            int ifConditionCount = 0;
+            int originalConditionOffset = conditionOffset;
+
+            // Process the condition (adds to _conditions)
+            ProcessCondition(ifStatement.Condition, ref ifConditionCount, ref actionOffset, ref conditionOffset, 0);
+            conditionCount += ifConditionCount;
+
+            // Remember the state before processing the body
+            int beforeBodyActionCount = _actions.Count;
+
+            // Process the body of the if statement
+            int bodyActionCount = 0;
+            int bodyConditionCount = 0;
+
+            if (ifStatement.Statement is BlockSyntax block)
+            {
+                foreach (var blockStatement in block.Statements)
+                {
+                    ProcessStatement(blockStatement, ref bodyActionCount, ref bodyConditionCount, ref actionOffset, ref conditionOffset, false);
+                }
+            }
+            else
+            {
+                ProcessStatement(ifStatement.Statement, ref bodyActionCount, ref bodyConditionCount, ref actionOffset, ref conditionOffset, false);
+            }
+
+            // Update the action count
+            actionCount += bodyActionCount;
+            conditionCount += bodyConditionCount;
+
+            // Debugging
+            Debug.WriteLine($"If statement processed with {bodyActionCount} actions and {bodyConditionCount} conditions");
+        }
 
 
 
@@ -482,9 +524,9 @@ namespace UniversalGametypeEditor
         private int actionsAdded = 0;
         private int inlineActionOffset = 1;
         private int inlineActionsOffsetDiff = 0;
+        // Replace the ProcessStatement method with this improved version
         private void ProcessStatement(StatementSyntax statement, ref int actionCount, ref int conditionCount, ref int actionOffset, ref int conditionOffset, bool isTopLevel = true)
         {
-            
             if (_scopeStack.Count == 0)
             {
                 throw new InvalidOperationException("Scope stack is empty.");
@@ -499,7 +541,7 @@ namespace UniversalGametypeEditor
             // Mark the statement as processed
             _processedStatements.Add(statement);
 
-            // Refactored to use a switch statement with pattern matching
+            // Handle different statement types
             switch (statement)
             {
                 case LocalDeclarationStatementSyntax localDeclaration:
@@ -508,106 +550,44 @@ namespace UniversalGametypeEditor
                     break;
 
                 case ExpressionStatementSyntax expressionStatement:
-                    // Process expressions
+                    // Process expressions (assignments, method calls)
                     ProcessExpression(expressionStatement.Expression, ref actionCount, actionOffset);
-                    Debug.WriteLine($"Action Count after Expression: {actionCount}");
-                    //inlineActionOffset++; // Update action offset after processing the expression
                     break;
 
                 case IfStatementSyntax ifStatement:
-                    Debug.WriteLine($"If Statement: {ifStatement.Condition}");
-
-                    // Record current condition and action offsets before processing
-                    int conditionStartOffset = _conditions.Count;
-                    int actionStartOffset = inlineActionOffset;
-
-                    // Track conditions in the current block
-                    List<int> conditionIndices = new List<int>();
-                    int conditionActionOffset = _actions.Count;
-
-                    // Process the condition and update condition count
-                    ProcessCondition(ifStatement.Condition, ref conditionCount, ref conditionActionOffset, ref conditionOffset);
-                    conditionIndices.Add(_conditions.Count - 1); // Track the index of the added condition
-                    Debug.WriteLine($"Condition Count after If Condition: {conditionCount}");
-
-                    // Process the body of the if statement
-                    if (ifStatement.Statement is BlockSyntax block)
-                    {
-                        foreach (var blockStatement in block.Statements)
-                        {
-                            ProcessStatement(blockStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
-                        }
-                    }
-                    else
-                    {
-                        ProcessStatement(ifStatement.Statement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
-                    }
-
-                    //// Track inline actions without compiling them
-                    if (!IsBottomLevelBlock(ifStatement))
-                    {
-                        //inlineActionOffset++;
-                        //inlineActionOffset = inlineActionOffset == 0 ? 1 : inlineActionOffset;
-                        int inlineConditionCount = _conditions.Count - conditionStartOffset;
-                        int inlineActionCount = inlineActionOffset - actionStartOffset;
-                        //inlineActionOffset += inlineActionCount;
-                        int firstConditionOffset = -1;
-
-                        // Cache the parameters for inline actions
-                        _inlineActionCaches.Add(new InlineActionCache
-                        {
-                            ConditionStartOffset = conditionStartOffset,
-                            InlineConditionCount = inlineConditionCount,
-                            ActionStartOffset = actionStartOffset,
-                            InlineActionCount = inlineActionCount
-                        });
-
-                        // Update the actionOffset for each condition in the inline action
-                        //for (int i = 0; i < inlineConditionCount; i++)
-                        //{
-                        //    int conditionIndex = conditionStartOffset + i;
-                        //    var condition = _conditions[conditionIndex];
-                        //    string binaryCondition = condition.Parameters.First();
-
-                        //    // Get the current action offset
-                        //    if (firstConditionOffset < 0)
-                        //    {
-                        //        firstConditionOffset = Convert.ToInt32(binaryCondition.Substring(15, 10), 2);
-                        //    }
-
-                        //    string updatedBinaryCondition = UpdateConditionActionOffset(binaryCondition, firstConditionOffset, false);
-                        //    _conditions[conditionIndex] = new ConditionObject(condition.ConditionType, new List<string> { updatedBinaryCondition });
-                        //}
-                    }
-
-                    // Check for else or else-if statements and compile inline actions
-                    if (ifStatement.Else != null)
-                    {
-                        ProcessStatement(ifStatement.Else.Statement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
-                    }
+                    // Use the specialized method for if statements
+                    ProcessIfStatement(ifStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset);
                     break;
 
                 case LocalFunctionStatementSyntax localFunction:
                     Debug.WriteLine($"Local Function: {localFunction.Identifier.Text}");
+                    // Process local function statements
+                    _scopeStack.Push(new Dictionary<string, VariableInfo>());
+                    int localFunctionActionCount = 0;
+                    int localFunctionConditionCount = 0;
+
                     if (localFunction.Body != null)
                     {
-                        _scopeStack.Push(new Dictionary<string, VariableInfo>());
-                        foreach (var localStatement in localFunction.Body.Statements)
+                        foreach (var stmt in localFunction.Body.Statements)
                         {
-                            ProcessStatement(localStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
+                            ProcessStatement(stmt, ref localFunctionActionCount, ref localFunctionConditionCount, ref actionOffset, ref conditionOffset, false);
                         }
-                        EndScope();
                     }
+
+                    actionCount += localFunctionActionCount;
+                    conditionCount += localFunctionConditionCount;
+                    EndScope();
                     break;
 
-                case ReturnStatementSyntax returnStatement:
-                    Debug.WriteLine($"Return Statement: {returnStatement.Expression}");
-                    break;
-
-                case BlockSyntax block1:
-                    foreach (var blockStatement in block1.Statements)
+                case BlockSyntax blockStmt:
+                    // Process all statements in a block
+                    foreach (var blockStatement in blockStmt.Statements)
                     {
-                        ProcessStatement(blockStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
+                        int blockActionCount = 0;
+                        int blockConditionCount = 0;
+                        ProcessStatement(blockStatement, ref blockActionCount, ref blockConditionCount, ref actionOffset, ref conditionOffset, false);
+                        actionCount += blockActionCount;
+                        conditionCount += blockConditionCount;
                     }
                     break;
 
@@ -616,6 +596,7 @@ namespace UniversalGametypeEditor
                     break;
             }
         }
+
 
         public class InlineActionCache
         {
@@ -1027,93 +1008,43 @@ namespace UniversalGametypeEditor
             int actionOffset = _actions.Count;
             int conditionCount = 0;
             int actionCount = 0;
-            int inlineActionCount = 0; // Track the number of inline actions created
-            triggerActionOffset = actionOffset;
+
             // Push a new scope onto the stack
             _scopeStack.Push(new Dictionary<string, VariableInfo>());
 
             if (method.Body != null)
             {
+                // Process all statements in the trigger method body
                 foreach (var statement in method.Body.Statements)
                 {
-                    ProcessStatement(statement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset);
-                }
-            }
-            int actionDifference = 0;
-            // Compile the cached inline actions
-            int totalInlineActions = _inlineActionCaches.Count;
-            int lastOffset = 0;
-            foreach (var cache in _inlineActionCaches)
-            {
-                int actionsAdded = 0;
-                int conditionsAdded = 0;
-                (actionsAdded, conditionsAdded) = CompileInlineAction(cache.ConditionStartOffset, cache.InlineConditionCount, cache.ActionStartOffset + _inlineActionCaches.Count, cache.InlineActionCount);
-                inlineActionCount += actionsAdded;
-                conditionCount -= conditionsAdded;
-                conditionOffset += conditionsAdded;
-                int processedCount = 0;
-                actionDifference += actionsAdded;
-                // Update the actionOffset for each condition in the inline action
-                for (int i = 0; i < cache.InlineConditionCount; i++)
-                {
-                    int conditionIndex = cache.ConditionStartOffset + i;
-                    var condition = _conditions[conditionIndex];
-                    string binaryCondition = condition.Parameters.First();
+                    int statementActionCount = 0;
+                    int statementConditionCount = 0;
+                    ProcessStatement(statement, ref statementActionCount, ref statementConditionCount, ref actionOffset, ref conditionOffset);
 
-                    // Get the current action offset
-                    int currentActionOffset = Convert.ToInt32(binaryCondition.Substring(15, 10), 2);
-                    processedCount = currentActionOffset - lastOffset;
-                    processedCount = i == 0 ? 0 : processedCount;
-                    // Subtract the number of conditions already processed
-                    int updatedActionOffset = processedCount;
-                    lastOffset = currentActionOffset;
-
-                    // Convert the updated action offset back to binary
-                    string updatedBinaryCondition = binaryCondition.Substring(0, 15) + ConvertToBinary(updatedActionOffset, 10) + binaryCondition.Substring(25);
-                    _conditions[conditionIndex] = new ConditionObject(condition.ConditionType, new List<string> { updatedBinaryCondition });
+                    actionCount += statementActionCount;
+                    conditionCount += statementConditionCount;
                 }
             }
 
-            // Adjust actionOffset for conditions not part of inline actions
-            foreach (var condition in _conditions.Skip(conditionOffset))
-            {
-                string binaryCondition = condition.Parameters.First();
-                int currentActionOffset = Convert.ToInt32(binaryCondition.Substring(15, 10), 2);
-                int updatedActionOffset = Math.Max(currentActionOffset + actionDifference, 0);
-                string updatedBinaryCondition = binaryCondition.Substring(0, 15) + ConvertToBinary(updatedActionOffset, 10) + binaryCondition.Substring(25);
-                condition.Parameters[0] = updatedBinaryCondition;
-            }
-            int inlineActionCount2 = _inlineActionCaches.Count;
-            // Clear the cache after processing
-            _inlineActionCaches.Clear();
+            // Get the final counts after processing
+            int finalConditionCount = _conditions.Count - conditionOffset;
+            int finalActionCount = _actions.Count - actionOffset;
 
             EndScope();
 
-            int totalActionCount = actionCount + inlineActionCount;
-            actionCount += inlineActionCount;
-
-            // Calculate the number of actions to move
-            int actionsToMoveCount = actionCount - inlineActionCount2;
-
-            // Extract the actions to move from the bottom of the list
-            var actionsToMove = _actions.Skip(_actions.Count - actionsToMoveCount).ToList();
-
-            // Remove the extracted actions from the bottom of the list
-            _actions.RemoveRange(_actions.Count - actionsToMoveCount, actionsToMoveCount);
-
-            // Insert the extracted actions just underneath the inline actions
-            _actions.InsertRange(triggerActionOffset + inlineActionCount2, actionsToMove);
-
+            // Create the trigger binary representation
             string conditionOffsetBinary = ConvertToBinary(conditionOffset, 9);
-            string conditionCountBinary = ConvertToBinary(conditionCount, 10);
-            string actionOffsetBinary = ConvertToBinary(Math.Max(actionOffset - 1, 0), 10);
-            string actionCountBinary = ConvertToBinary(totalActionCount, 11); // Use the total action count
+            string conditionCountBinary = ConvertToBinary(finalConditionCount, 10);
+            string actionOffsetBinary = ConvertToBinary(actionOffset, 10);
+            string actionCountBinary = ConvertToBinary(finalActionCount, 11);
 
             string triggerTypeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerTypeEnum), triggerType), 3);
             string triggerAttributeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerAttributeEnum), triggerAttribute), 3);
 
             string binaryTrigger = triggerTypeBinary + triggerAttributeBinary + conditionOffsetBinary + conditionCountBinary + actionOffsetBinary + actionCountBinary;
             _triggers.Add(new TriggerObject(triggerType, new List<string> { binaryTrigger }));
+
+            Debug.WriteLine($"Created trigger: {triggerType}({triggerAttribute}) with {finalConditionCount} conditions and {finalActionCount} actions");
         }
 
 
@@ -1275,6 +1206,7 @@ namespace UniversalGametypeEditor
             return globalVariablesBinary;
         }
 
+        // Replace the ProcessBinaryCondition method with this improved version
         private void ProcessBinaryCondition(BinaryExpressionSyntax binaryExpression, ref int conditionCount, ref int actionOffset, ref int conditionOffset, int orSequence = 0, bool isNot = false)
         {
             // Determine operator type
@@ -1306,10 +1238,11 @@ namespace UniversalGametypeEditor
                     // Handle based on variable type
                     if (varInfo.Type == "Number")
                     {
-                        // NumericVar (000) + NumericTypeRef (GlobalNumber = 5)
+                        // NumericVar (000) + NumericTypeRef (GlobalNumber = 4)
                         string numericTypeRefBinary = Convert.ToString((int)NumericTypeRefEnum.GlobalNumber, 2).PadLeft(6, '0');
                         string globalNumberIndexBinary = Convert.ToString(varInfo.Index, 2).PadLeft(4, '0');
                         leftVarBinary = numericTypeRefBinary + globalNumberIndexBinary;
+                        Debug.WriteLine($"Processing variable {varName} as global.number[{varInfo.Index}]");
                     }
                     // Add handling for other variable types if needed
                 }
@@ -1326,6 +1259,7 @@ namespace UniversalGametypeEditor
                 int literalValue = int.Parse(rightLiteral.Token.ValueText);
                 string literalValueBinary = Convert.ToString(literalValue, 2).PadLeft(16, '0');
                 rightVarBinary = numericTypeRefBinary + literalValueBinary;
+                Debug.WriteLine($"Processing literal value {literalValue}");
             }
 
             // Convert the condition number to a 5-bit binary string (Megl.If = 1)
@@ -1334,7 +1268,11 @@ namespace UniversalGametypeEditor
             // Convert NOT and ORSequence to binary strings
             string notBinary = ConvertToBinary(isNot ? 1 : 0, 1);
             string orSequenceBinary = ConvertToBinary(orSequence, 9);
-            string actionOffsetBinary = ConvertToBinary(actionOffset, 10);
+
+            // Use the current actions count as the target for this condition
+            // This is critical for correctly pointing to the first action that should run if this condition is true
+            int currentActionOffset = _actions.Count;
+            string actionOffsetBinary = ConvertToBinary(currentActionOffset, 10);
 
             // Construct the full binary condition
             string binaryCondition = conditionNumberBinary + notBinary + orSequenceBinary + actionOffsetBinary
@@ -1344,7 +1282,7 @@ namespace UniversalGametypeEditor
 
             // Add the condition to the conditions list
             _conditions.Add(new ConditionObject("Megl.If", new List<string> { binaryCondition }));
-            Debug.WriteLine($"Added binary condition: Megl.If({binaryCondition})");
+            Debug.WriteLine($"Added binary condition: Megl.If({binaryCondition}) pointing to action at index {currentActionOffset}");
 
             // Increment condition count
             conditionCount++;
@@ -1352,18 +1290,29 @@ namespace UniversalGametypeEditor
 
 
 
-        private void ProcessCondition(ExpressionSyntax condition, ref int conditionCount, ref int actionOffset, ref int conditionOffset, int orSequence = 0, bool isNot = false, int localActionOffset = 0)
+        private void ProcessCondition(ExpressionSyntax condition, ref int conditionCount, ref int actionOffset, ref int conditionOffset, int orSequence = 0, bool isNot = false)
         {
             if (condition is PrefixUnaryExpressionSyntax unaryExpression && unaryExpression.OperatorToken.IsKind(SyntaxKind.ExclamationToken))
             {
-                // Handle negation
-                ProcessCondition(unaryExpression.Operand, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, true, localActionOffset);
+                // Handle negation (NOT operator)
+                ProcessCondition(unaryExpression.Operand, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, true);
                 return;
             }
 
             if (condition is BinaryExpressionSyntax binaryExpression)
             {
-                // Handle binary expressions (e.g., speed > 0)
+                // For binary expressions in the "OR" form (a || b)
+                if (binaryExpression.OperatorToken.IsKind(SyntaxKind.BarBarToken))
+                {
+                    // Process left side with current orSequence
+                    ProcessCondition(binaryExpression.Left, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
+
+                    // Process right side with incremented orSequence to create the OR chain
+                    ProcessCondition(binaryExpression.Right, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence + 1, isNot);
+                    return;
+                }
+
+                // For comparison operators (==, !=, >, <, >=, <=)
                 ProcessBinaryCondition(binaryExpression, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
                 return;
             }
@@ -1380,18 +1329,21 @@ namespace UniversalGametypeEditor
                     {
                         var arguments = invocation.ArgumentList.Arguments;
                         List<string> parameters = new List<string>();
+
+                        // Process the condition parameters
                         for (int i = 0; i < conditionDefinition.Parameters.Count; i++)
                         {
                             var param = conditionDefinition.Parameters[i];
-                            int bitSize = param.Bits; // Use the Bits property from ConditionParameter
+                            int bitSize = param.Bits;
 
                             if (i < arguments.Count)
                             {
                                 // Convert parameters to binary
                                 string paramValue = arguments[i].ToString().Trim('"');
+
+                                // Handle different parameter types
                                 if (param.ParameterType == typeof(ObjectTypeRef))
                                 {
-                                    // Handle ObjectTypeRef conversion
                                     int priority = 1; // Default to low priority
                                     if (paramValue != null && _variableToIndexMap.TryGetValue(paramValue, out VariableInfo index))
                                     {
@@ -1402,12 +1354,10 @@ namespace UniversalGametypeEditor
                                 }
                                 else if (param.ParameterType == typeof(PlayerTypeRef))
                                 {
-                                    // Handle PlayerTypeRef conversion
                                     parameters.Add(ConvertPlayerTypeRefToBinary(paramValue ?? string.Empty, bitSize));
                                 }
                                 else if (param.ParameterType == typeof(NumericTypeRef))
                                 {
-                                    // Handle NumericTypeRef conversion
                                     parameters.Add(ConvertNumericTypeRefToBinary(paramValue ?? string.Empty, bitSize));
                                 }
                                 else if (param.ParameterType == typeof(ObjectType))
@@ -1422,6 +1372,7 @@ namespace UniversalGametypeEditor
                             }
                             else
                             {
+                                // Use default value if no argument is provided
                                 parameters.Add(ConvertToBinary(param.DefaultValue, bitSize));
                             }
                         }
@@ -1432,21 +1383,19 @@ namespace UniversalGametypeEditor
                         // Convert the NOT, ORSequence, and ActionOffset to binary strings
                         string notBinary = ConvertToBinary(isNot ? 1 : 0, 1);
                         string orSequenceBinary = ConvertToBinary(orSequence, 9);
-                        string actionOffsetBinary = ConvertToBinary(actionOffset, 10); // Use localActionOffset for inline actions
+
+                        // Use the current action list count for the action offset
+                        string actionOffsetBinary = ConvertToBinary(_actions.Count, 10);
 
                         // Concatenate all binary parts into a single binary string
                         string binaryCondition = conditionNumberBinary + notBinary + orSequenceBinary + actionOffsetBinary + string.Join("", parameters);
 
                         // Add the condition to the conditions list
                         _conditions.Add(new ConditionObject(conditionName, new List<string> { binaryCondition }));
-                        Debug.WriteLine($"Added condition: {conditionName}({binaryCondition})");
+                        Debug.WriteLine($"Added condition: {conditionName}({binaryCondition}) with action offset {_actions.Count}");
 
-                        // Increment the condition count and condition offset
+                        // Increment the condition count
                         conditionCount++;
-                        //conditionOffset++;
-
-                        // Increment the local action offset for the next condition in the inline action
-                        localActionOffset++;
                     }
                     else
                     {

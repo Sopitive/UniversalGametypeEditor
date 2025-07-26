@@ -104,6 +104,54 @@ namespace UniversalGametypeEditor
             return null;
         }
 
+        public static string? GetRVTPath()
+        {
+            // 1. Check default path first
+            //string defaultPath = @"C:\Program Files (x86)\ReachVariantTool";
+            string exeName = "ReachVariantTool.exe";
+
+            //string fullPath = Path.Combine(defaultPath, exeName);
+            //if (File.Exists(fullPath))
+                //return defaultPath;
+
+            // 2. Fall back to registry
+            const string regPath = @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{E8991692-EB10-4EB2-965C-92DB5A468561}_is1";
+
+            using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+            using var key = baseKey.OpenSubKey(regPath);
+            if (key != null)
+            {
+                // First try InstallLocation
+                var installPath = key.GetValue("InstallLocation") as string;
+                if (!string.IsNullOrWhiteSpace(installPath) && File.Exists(Path.Combine(installPath, exeName)))
+                {
+                    Debug.WriteLine($"Found RVT at {installPath} using Install");
+                    return installPath;
+                }
+                    
+
+                // Fallback: extract from UninstallString
+                var uninstallString = key.GetValue("UninstallString") as string;
+                if (!string.IsNullOrWhiteSpace(uninstallString))
+                {
+                    try
+                    {
+                        string derivedPath = Path.GetDirectoryName(uninstallString.Trim('"'))!;
+                        if (File.Exists(Path.Combine(derivedPath, exeName)))
+                        {
+                            Debug.WriteLine($"Found RVT at {derivedPath} using UninstallString");
+                            return derivedPath;
+                        }
+                            
+                    }
+                    catch { }
+                }
+            }
+
+            // Not found
+            return null;
+        }
+
 
 
         public ObservableCollection<string> HotReloadFilesList { get; set; } =
@@ -152,6 +200,16 @@ namespace UniversalGametypeEditor
                         Settings.Default.Save();
                     }
                 }   
+            }
+
+            if (Settings.Default.RVTDirectory == "Undefined")
+            {
+                string? rvtPath = GetRVTPath();
+                if (rvtPath != null && Directory.Exists(rvtPath))
+                {
+                    Settings.Default.RVTDirectory = rvtPath;
+                    Settings.Default.Save();
+                }
             }
 
             if (Settings.Default.GameDir != "Undefined")
@@ -1814,6 +1872,32 @@ namespace UniversalGametypeEditor
                 Debug.WriteLine("An unexpected exception occurred, " + ex.Message);
             }
         }
+
+        public static (int ExitCode, string Output, string Error) RunCommand(string fileName, string arguments)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = new Process { StartInfo = psi };
+
+            process.Start();
+
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+
+            process.WaitForExit();
+
+            return (process.ExitCode, output, error);
+        }
+
+
         private string? convertedBin;
         private string? convertedMglo;
         public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
@@ -1866,6 +1950,34 @@ namespace UniversalGametypeEditor
             {
                 name = Regex.Replace(name, @"(.*)\..*", "$1");
                 Thread.Sleep(50);
+            }
+
+
+            //Auto recompile script files
+            if (name.EndsWith(".rvt"))
+            {
+                if (Settings.Default.RVTDirectory != "Undefined")
+                {
+                    //Extract just the name without the extension
+                    string nameWithoutExtension = Path.GetFileNameWithoutExtension(name);
+                    //Search all watched folders for a .bin file with the same name
+                    for (int i = 0; i < Settings.Default.FilePathList.Count; i++)
+                    {
+                        string watchedPath = Settings.Default.FilePathList[i];
+                        string[] files = Directory.GetFiles(watchedPath, $"{nameWithoutExtension}.bin", SearchOption.AllDirectories);
+                        if (files.Length > 0)
+                        {
+                            //Invoke the RVT command line
+                            //ReachVariantTool --headless <in-variant> --recompile <in-script> --dst <out-variant>
+                            string inVariant = files[0];
+                            string outVariant = Path.Combine(watchedPath, $"{nameWithoutExtension}.bin");
+                            string rvtPath = $"{Settings.Default.RVTDirectory}\\ReachVariantTool.exe";
+                            string scriptPath = Path.Combine(Settings.Default.FilePath, name);
+                            string command = $"--headless \"{inVariant}\" --recompile \"{scriptPath}\" --dst \"{outVariant}\"";
+                            RunCommand(rvtPath, command);
+                        }
+                    }
+                }
             }
 
             if (setDirectory)
@@ -1959,7 +2071,7 @@ namespace UniversalGametypeEditor
 
 
 
-            if (name.EndsWith(".bin") == false)
+            if (name.EndsWith(".bin") == false && name.EndsWith(".rvt") == false)
             {
                 if (convertedMglo == name)
                 {
@@ -1990,11 +2102,10 @@ namespace UniversalGametypeEditor
             //    SoundPlayer player = new(ms);
             //    player.Play();
             //}
-            if (e.Name.EndsWith("mglo") || e.Name.EndsWith("bin"))
+            if (e.Name.EndsWith("mglo") || e.Name.EndsWith("bin") || e.Name.EndsWith("rvt"))
             {
                 HandleFiles(e.Name, e.FullPath, e.ChangeType, true);
             }
-            
         }
 
         public void UpdateFilePathListView(string filePath)
