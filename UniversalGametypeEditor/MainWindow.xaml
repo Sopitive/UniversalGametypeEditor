@@ -738,6 +738,7 @@
                     </MenuItem>
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Help" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ShowTut" Header="Tutorial" ToolTip="Show tutorial" Click="ShowTutorial" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
+                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="About" Header="v2.1.1.2" ToolTip="Version" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" IsEnabled="False"/>
                     </MenuItem>
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="Tools"  Header="Tools" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="PlaylistEditor" Header="Edit CGB Playlist..." ToolTip="Edit The Playlist For The Cutom Games Browser" Click="EditPlaylist" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
