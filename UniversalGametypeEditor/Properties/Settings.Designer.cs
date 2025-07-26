@@ -369,5 +369,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["AutoRecompile"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool RequireCompileParams {
+            get {
+                return ((bool)(this["RequireCompileParams"]));
+            }
+            set {
+                this["RequireCompileParams"] = value;
+            }
+        }
     }
 }

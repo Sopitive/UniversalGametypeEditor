@@ -1345,6 +1345,7 @@ namespace UniversalGametypeEditor
             ConvertToForge.IsChecked = Settings.Default.ConvertToForge;
             MultiDirectory.IsChecked = Settings.Default.MultiDirectory;
             AutoRecompile.IsChecked = Settings.Default.AutoRecompile;
+            RequireParams.IsChecked = Settings.Default.RequireCompileParams;
         }
         private FileSystemWatcher watcher = new();
         private void UpdateWatchMulti(object sender, RoutedEventArgs e)
@@ -1371,6 +1372,19 @@ namespace UniversalGametypeEditor
             else
             {
                 Settings.Default.AutoRecompile = false;
+            }
+            Settings.Default.Save();
+        }
+
+        private void UpdateRequireParams(object sender, RoutedEventArgs e)
+        {
+            if (RequireParams.IsChecked == true)
+            {
+                Settings.Default.RequireCompileParams = true;
+            }
+            else
+            {
+                Settings.Default.RequireCompileParams = false;
             }
             Settings.Default.Save();
         }
@@ -1974,10 +1988,22 @@ namespace UniversalGametypeEditor
             //Auto recompile script files
             if (name.EndsWith(".rvt") && Settings.Default.AutoRecompile == true)
             {
+                //Open the script file as a .txt file
+                string scriptContent = "";
+                try
+                {
+                    scriptContent = File.ReadAllText(path);
+                }
+                catch (Exception ex)
+                {
+                    Thread.Sleep(50);
+                    scriptContent = File.ReadAllText(path);
+                }
                 if (Settings.Default.RVTDirectory != "Undefined")
                 {
                     //Extract just the name without the extension
                     string nameWithoutExtension = Path.GetFileNameWithoutExtension(name);
+                    string outFile = $"{nameWithoutExtension}.bin";
                     //Search all watched folders for a .bin file with the same name
                     for (int i = 0; i < Settings.Default.FilePathList.Count; i++)
                     {
@@ -1985,10 +2011,42 @@ namespace UniversalGametypeEditor
                         string[] files = Directory.GetFiles(watchedPath, $"{nameWithoutExtension}.bin", SearchOption.AllDirectories);
                         if (files.Length > 0)
                         {
-                            //Invoke the RVT command line
                             //ReachVariantTool --headless <in-variant> --recompile <in-script> --dst <out-variant>
+                            
+                            if (Settings.Default.RequireCompileParams == true)
+                            {
+                                //Check the top for special parameters
+                                //--@outfile is the output file name
+                                //--@compile determines if we should recompile this or not
+                                string? recompileParam = scriptContent.Split('\n').FirstOrDefault(line => line.StartsWith("--@compile"));
+                                //if it doesn't exist, skip
+                                if (recompileParam == null)
+                                {
+                                    UpdateLastEvent($"Skipped recompile of {nameWithoutExtension}.rvt: @recompile not specified");
+                                    return;
+                                }
+                                
+                                //update the outfile if the param exists
+                                string? outfileParam = scriptContent.Split('\n').FirstOrDefault(line => line.StartsWith("--@outFile"));
+                                if (outfileParam != null)
+                                {
+                                    //Change the outFile param
+                                    //Example: --@outFile gametype_testing1.bin
+                                    //Example2: --@outFile gametype_testing1
+                                    outFile = outfileParam.Split(' ').Last();
+                                    //Remove \r from the string
+                                    outFile = outFile.TrimEnd('\r');
+                                    //Check if the outFile already contains "bin" and if not, add it to the end
+                                    if (!outFile.EndsWith(".bin"))
+                                    {
+                                        outFile += ".bin";
+                                    }
+                                }
+                            }
+                            
+
                             string inVariant = files[0];
-                            string outVariant = Path.Combine(watchedPath, $"{nameWithoutExtension}_mod.bin");
+                            string outVariant = Path.Combine(watchedPath, $"{outFile}");
                             string rvtPath = $"{Settings.Default.RVTDirectory}\\ReachVariantTool.exe";
                             string scriptPath = path;
                             string command = $"--headless \"{inVariant}\" --recompile \"{scriptPath}\" --dst \"{outVariant}\"";
