@@ -27,6 +27,7 @@ using Microsoft.Win32;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
 using ICSharpCode.AvalonEdit.Highlighting;
 using System.Xml;
+using UniversalGametypeEditor;
 
 
 
@@ -103,6 +104,7 @@ namespace UniversalGametypeEditor
 
             return null;
         }
+
 
         public static string? GetRVTPath()
         {
@@ -190,6 +192,8 @@ namespace UniversalGametypeEditor
             //MegaloEditPatcher.Patch();
 
             CreatePlaylist.GetUUID();
+
+            
             
             if (Settings.Default.GameDir == "Undefined")
             {
@@ -329,6 +333,22 @@ namespace UniversalGametypeEditor
             //        overlay.Show();
             //    }
             //}
+        }
+
+        private void ApplyPatches(object sender, RoutedEventArgs e)
+        {
+            // Run ApplyPatches on a background thread
+            Task.Run(() =>
+            {
+                try
+                {
+                    Patches.ApplyPatches();
+                }
+                catch (Exception ex)
+                {
+
+                }
+            });
         }
 
             private async void PatchMegaloEdit(object sender, RoutedEventArgs e)

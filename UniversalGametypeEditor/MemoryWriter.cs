@@ -149,6 +149,27 @@ public static class MemoryWriter
         Debug.WriteLine("No match found");
     }
 
+    public static void WriteBytes(IntPtr addressToWrite, byte[] bytesToWrite)
+    {
+        // Get the process handle
+        Process process = MemoryScanner.process;
+        IntPtr processHandle = process.Handle;
+
+        // Write the byte array to the specified memory address
+        int bytesWritten;
+        bool success = WriteProcessMemory(processHandle, addressToWrite, bytesToWrite, bytesToWrite.Length, out bytesWritten);
+
+        if (success)
+        {
+            Debug.WriteLine($"Successfully wrote {bytesWritten} bytes to address {addressToWrite}.");
+        }
+        else
+        {
+            Debug.WriteLine($"Failed to write bytes to address {addressToWrite}. Error code: {Marshal.GetLastWin32Error()}");
+        }
+    }
+
+
     static bool CompareData(byte[] data1, byte[] data2)
     {
         if (data1.Length != data2.Length)
