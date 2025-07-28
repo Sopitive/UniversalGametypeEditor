@@ -34,4 +34,5 @@ Latest Development Build
 This is the latest build of the project. This will contain the most recent updates that have been pushed to the repo and may contain bugs and errors.
 Report any encountered bugs by creating a new issue.
 
-[![GitHub release](https://img.shields.io/github/release/Naereen/StrapDown.js.svg)](https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip)
+[![GitHub release](https://img.shields.io/github/release/Sopitive/UniversalGametypeEditor.svg)](https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip)
+
