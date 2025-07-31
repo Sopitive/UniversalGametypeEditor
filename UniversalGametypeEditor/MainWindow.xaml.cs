@@ -2010,29 +2010,54 @@ namespace UniversalGametypeEditor
             {
                 //Open the script file as a .txt file
                 string scriptContent = "";
-                try
+                //Check if file is in use
+                bool inUse = true;
+                while (inUse) 
                 {
-                    scriptContent = File.ReadAllText(path);
+                    try
+                    {
+                        scriptContent = File.ReadAllText(path);
+                        inUse = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        Thread.Sleep(50);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Thread.Sleep(50);
-                    scriptContent = File.ReadAllText(path);
-                }
+                
                 if (Settings.Default.RVTDirectory != "Undefined")
                 {
                     //Extract just the name without the extension
                     string nameWithoutExtension = Path.GetFileNameWithoutExtension(name);
                     string outFile = $"{nameWithoutExtension}.bin";
+
+                    //update the outfile if the param exists
+                    string? outfileParam = scriptContent.Split('\n').FirstOrDefault(line => line.StartsWith("--@outFile"));
+                    if (outfileParam != null)
+                    {
+                        //Change the outFile param
+                        //Example: --@outFile gametype_testing1.bin
+                        //Example2: --@outFile gametype_testing1
+                        //Extract the file name with regex by removing the "--@outFile" and leaving everything else
+                        outFile = Regex.Unescape(outfileParam).Replace("--@outFile ", "").Trim();
+                        //Remove \r from the string
+                        outFile = outFile.TrimEnd('\r');
+                       
+                        //Check if the outFile already contains "bin" and if not, add it to the end
+                        if (!outFile.EndsWith(".bin"))
+                        {
+                            outFile += ".bin";
+                        }
+                        nameWithoutExtension = Path.GetFileNameWithoutExtension(outFile);
+                    }
                     //Search all watched folders for a .bin file with the same name
                     for (int i = 0; i < Settings.Default.FilePathList.Count; i++)
                     {
+
                         string watchedPath = Settings.Default.FilePathList[i];
                         string[] files = Directory.GetFiles(watchedPath, $"{nameWithoutExtension}.bin", SearchOption.AllDirectories);
                         if (files.Length > 0)
                         {
-                            //ReachVariantTool --headless <in-variant> --recompile <in-script> --dst <out-variant>
-                            
                             if (Settings.Default.RequireCompileParams == true)
                             {
                                 //Check the top for special parameters
@@ -2046,23 +2071,10 @@ namespace UniversalGametypeEditor
                                     return;
                                 }
                                 
-                                //update the outfile if the param exists
-                                string? outfileParam = scriptContent.Split('\n').FirstOrDefault(line => line.StartsWith("--@outFile"));
-                                if (outfileParam != null)
-                                {
-                                    //Change the outFile param
-                                    //Example: --@outFile gametype_testing1.bin
-                                    //Example2: --@outFile gametype_testing1
-                                    outFile = outfileParam.Split(' ').Last();
-                                    //Remove \r from the string
-                                    outFile = outFile.TrimEnd('\r');
-                                    //Check if the outFile already contains "bin" and if not, add it to the end
-                                    if (!outFile.EndsWith(".bin"))
-                                    {
-                                        outFile += ".bin";
-                                    }
-                                }
+                                
                             }
+                            
+                            
                             
 
                             string inVariant = files[0];
@@ -2072,7 +2084,7 @@ namespace UniversalGametypeEditor
                             string command = $"--headless \"{inVariant}\" --recompile \"{scriptPath}\" --dst \"{outVariant}\"";
                             (int code, string output, string error) = RunCommand(rvtPath, command);
                             //Log errors
-                            Debug.WriteLine(error);
+                            Debug.WriteLine(output);
                             UpdateLastEvent($"Started recompile of {nameWithoutExtension}.rvt");
                         }
                     }
