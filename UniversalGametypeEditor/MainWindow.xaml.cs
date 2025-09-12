@@ -1,33 +1,36 @@
 ﻿
+using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.Highlighting.Xshd;
+using Microsoft.Win32;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Media;
 using System.Net;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
-using UniversalGametypeEditor.Properties;
-using Newtonsoft.Json.Linq;
-using System.Collections.Specialized;
-using System.Collections.Generic;
-using System.Linq;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Threading;
-using System.Threading.Tasks;
-using System.ComponentModel;
-using static UniversalGametypeEditor.ReadGametype;
-using Newtonsoft.Json;
-using Microsoft.Win32;
-using ICSharpCode.AvalonEdit.Highlighting.Xshd;
-using ICSharpCode.AvalonEdit.Highlighting;
 using System.Xml;
 using UniversalGametypeEditor;
+using UniversalGametypeEditor.Properties;
+using static UniversalGametypeEditor.ReadGametype;
 
 
 
@@ -1366,6 +1369,7 @@ namespace UniversalGametypeEditor
             MultiDirectory.IsChecked = Settings.Default.MultiDirectory;
             AutoRecompile.IsChecked = Settings.Default.AutoRecompile;
             RequireParams.IsChecked = Settings.Default.RequireCompileParams;
+            InsertErrors.IsChecked = Settings.Default.InsertErrors;
         }
         private FileSystemWatcher watcher = new();
         private void UpdateWatchMulti(object sender, RoutedEventArgs e)
@@ -1405,6 +1409,19 @@ namespace UniversalGametypeEditor
             else
             {
                 Settings.Default.RequireCompileParams = false;
+            }
+            Settings.Default.Save();
+        }
+
+        private void UpdateInsertErrors (object sender, RoutedEventArgs e)
+        {
+            if (InsertErrors.IsChecked == true)
+            {
+                Settings.Default.InsertErrors = true;
+            }
+            else
+            {
+                Settings.Default.InsertErrors = false;
             }
             Settings.Default.Save();
         }
@@ -1949,9 +1966,109 @@ namespace UniversalGametypeEditor
             return (process.ExitCode, output, error);
         }
 
+        public string ComputeSHA256Hash(string input)
+        {
+            using SHA256 sha256 = SHA256.Create();
+            byte[] inputBytes = Encoding.UTF8.GetBytes(input);
+            byte[] hashBytes = sha256.ComputeHash(inputBytes);
+            return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+        }
+
 
         private string? convertedBin;
         private string? convertedMglo;
+        private static readonly ConcurrentDictionary<string, byte> _suppressNextChange = new(); // path -> once
+        private static int _processingGate = 0; // 0 = free, 1 = busy
+        // Track last-seen content hash per file (case-insensitive on Windows)
+        private static readonly ConcurrentDictionary<string, string> _lastHashByPath =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        private static readonly Regex StripErrorBlocksRx = new(
+    // remove prior "--[ERROR]:" lines + any number of following blank/whitespace-only lines
+    @"(?m)^(?:\uFEFF)?[ \t]*--\[ERROR\]:.*(?:\r?\n[ \t]*)*",
+    RegexOptions.Compiled
+);
+
+        // [ERROR] Line N Col M: message
+        private static readonly Regex CompilerErrRx = new(
+            @"^\[ERROR\]\s*Line\s+(\d+)\s+Col\s+\d+:\s*(.*)$",
+            RegexOptions.Multiline | RegexOptions.Compiled
+        );
+
+        // pull "symbol" from quoted token in the message if present
+        private static readonly Regex QuotedRx = new("\"([^\"]+)\"", RegexOptions.Compiled);
+
+        private static string RemoveOldErrors(string text) => StripErrorBlocksRx.Replace(text, string.Empty);
+
+        private static bool IsBlank(string s) => s.Trim().Length == 0;
+        private static bool IsErrorLine(string s) => s.TrimStart('\uFEFF', ' ', '\t').StartsWith("--[ERROR]:");
+
+        // find the actual offending code line starting just after the reported "previous" line
+        private static int FindOffending(IList<string> lines, int idxBase, string? symbol)
+        {
+            int upper = Math.Min(lines.Count - 1, idxBase + 32); // small forward window
+            for (int j = idxBase; j <= upper; j++)
+            {
+                var s = lines[j];
+                if (IsErrorLine(s) || IsBlank(s)) continue;
+                if (symbol == null || s.Contains(symbol)) return j;
+            }
+            for (int j = idxBase; j <= upper; j++)
+            {
+                var s = lines[j];
+                if (!IsErrorLine(s) && !IsBlank(s)) return j;
+            }
+            return Math.Min(idxBase, Math.Max(0, lines.Count - 1));
+        }
+
+        /// <summary>
+        /// Insert fresh error comments into the given CONTENT (which may still contain old errors).
+        /// This function first strips all prior error blocks, then inserts new ones aligned immediately
+        /// above the offending lines. It always inserts *new* comment lines (consistent policy).
+        /// </summary>
+        private static string InsertErrorsAligned(string contentPossiblyWithOldErrors, string compilerOutput)
+        {
+            // 0) Start from a fully cleaned buffer so stale comments never survive
+            string baseText = RemoveOldErrors(contentPossiblyWithOldErrors);
+
+            // 1) Preserve newline style
+            string NL = baseText.Contains("\r\n") ? "\r\n" : "\n";
+
+            // 2) Work on the same text you compiled
+            var lines = baseText.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None).ToList();
+
+            // 3) Collect errors: idxBase = 0-based "between N and N+1"
+            var items = new List<(int idxBase, string msg, string? symbol)>();
+            foreach (Match m in CompilerErrRx.Matches(compilerOutput))
+            {
+                int n1 = int.Parse(m.Groups[1].Value); // 1-based "previous" line
+                string msg = m.Groups[2].Value.Trim();
+                var qm = QuotedRx.Match(msg);
+                string? symbol = qm.Success ? qm.Groups[1].Value : null;
+
+                int idx = Math.Clamp(n1, 0, lines.Count);
+                items.Add((idx, msg, symbol));
+            }
+
+            // 4) Insert bottom→top so indices remain stable
+            foreach (var (idxBase, msg, symbol) in items.OrderByDescending(x => x.idxBase))
+            {
+                int idx = idxBase;
+
+                // EOF guard: if file ends with trailing empty split token, reuse it
+                if (idx == lines.Count && lines.Count > 0 && lines[^1].Length == 0)
+                    idx = lines.Count - 1;
+
+                // locate the real offending code line and insert directly above it
+                int codeIdx = FindOffending(lines, idx, symbol);
+                int insertAt = Math.Clamp(codeIdx, 0, lines.Count);
+                lines.Insert(insertAt, $"--[ERROR]: {msg}");
+            }
+
+            // 5) Recompose with original newline style
+            return string.Join(NL, lines);
+        }
+
         public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
         {
             
@@ -2004,92 +2121,214 @@ namespace UniversalGametypeEditor
                 Thread.Sleep(50);
             }
 
-
-            //Auto recompile script files
+            // Add this as a class-level variable to prevent recursive processing
+            bool isProcessingScript = false;
+            string lastHash = "";
+            // Auto recompile script files
             if (name.EndsWith(".rvt") && Settings.Default.AutoRecompile == true)
             {
-                //Open the script file as a .txt file
-                string scriptContent = "";
-                //Check if file is in use
-                bool inUse = true;
-                while (inUse) 
+                path = Path.GetFullPath(path);
+
+                if (_suppressNextChange.TryRemove(path, out _))
                 {
-                    try
-                    {
-                        scriptContent = File.ReadAllText(path);
-                        inUse = false;
-                    }
-                    catch (Exception ex)
-                    {
-                        Thread.Sleep(50);
-                    }
+                    Debug.WriteLine("Ignoring change triggered by our own write.");
+                    return;
                 }
-                
-                if (Settings.Default.RVTDirectory != "Undefined")
+
+                if (Interlocked.Exchange(ref _processingGate, 1) == 1)
                 {
-                    //Extract just the name without the extension
-                    string nameWithoutExtension = Path.GetFileNameWithoutExtension(name);
-                    string outFile = $"{nameWithoutExtension}.bin";
+                    Debug.WriteLine("Re-entry blocked.");
+                    return;
+                }
 
-                    //update the outfile if the param exists
-                    string? outfileParam = scriptContent.Split('\n').FirstOrDefault(line => line.StartsWith("--@outFile"));
-                    if (outfileParam != null)
+                try
+                {
+                    // --- Read file with retry ---
+                    string scriptContent = "";
+                    for (; ; )
                     {
-                        //Change the outFile param
-                        //Example: --@outFile gametype_testing1.bin
-                        //Example2: --@outFile gametype_testing1
-                        //Extract the file name with regex by removing the "--@outFile" and leaving everything else
-                        outFile = Regex.Unescape(outfileParam).Replace("--@outFile ", "").Trim();
-                        //Remove \r from the string
-                        outFile = outFile.TrimEnd('\r');
-                       
-                        //Check if the outFile already contains "bin" and if not, add it to the end
-                        if (!outFile.EndsWith(".bin"))
-                        {
-                            outFile += ".bin";
-                        }
-                        nameWithoutExtension = Path.GetFileNameWithoutExtension(outFile);
+                        try { scriptContent = File.ReadAllText(path); break; }
+                        catch { Thread.Sleep(50); }
                     }
-                    //Search all watched folders for a .bin file with the same name
-                    for (int i = 0; i < Settings.Default.FilePathList.Count; i++)
-                    {
 
-                        string watchedPath = Settings.Default.FilePathList[i];
-                        string[] files = Directory.GetFiles(watchedPath, $"{nameWithoutExtension}.bin", SearchOption.AllDirectories);
-                        if (files.Length > 0)
+                    _lastHashByPath.TryGetValue(path, out var lastHashForPath);
+                    string currentHash = ComputeSHA256Hash(scriptContent);
+                    if (currentHash == lastHashForPath)
+                    {
+                        Debug.WriteLine("File unchanged, skipping processing.");
+                        return;
+                    }
+
+                    if (Settings.Default.RVTDirectory == "Undefined")
+                        return;
+
+                    string rvtPath = $"{Settings.Default.RVTDirectory}\\ReachVariantTool.exe";
+
+                    // Determine base text & compile source depending on InsertErrors setting
+                    if (Settings.Default.InsertErrors)
+                    {
+                        // -------- INSERT ERRORS FLOW --------
+
+                        // 1) Strip prior injected errors + any trailing blank lines after them
+                        string cleanedContent = RemoveOldErrors(scriptContent);
+
+                        // 2) Compile AGAINST a TEMP CLEAN FILE so line numbers match what we insert into
+                        string tempClean = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".rvt");
+                        File.WriteAllText(tempClean, cleanedContent);
+
+                        // Resolve output .bin name from @outFile (from the *cleaned* text)
+                        string nameWithoutExtension = Path.GetFileNameWithoutExtension(name);
+                        string outFile = $"{nameWithoutExtension}.bin";
+                        string? outfileParam = cleanedContent.Split('\n').FirstOrDefault(l => l.StartsWith("--@outFile"));
+                        if (outfileParam != null)
                         {
+                            outFile = Regex.Unescape(outfileParam).Replace("--@outFile ", "").Trim();
+                            outFile = outFile.TrimEnd('\r');
+                            if (!outFile.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)) outFile += ".bin";
+                            nameWithoutExtension = Path.GetFileNameWithoutExtension(outFile);
+                        }
+
+                        try
+                        {
+                            // Look for an existing .bin to recompile into
+                            for (int i = 0; i < Settings.Default.FilePathList.Count; i++)
+                            {
+                                string watchedPath = Settings.Default.FilePathList[i];
+                                string[] files = Directory.GetFiles(watchedPath, $"{nameWithoutExtension}.bin", SearchOption.AllDirectories);
+                                if (files.Length == 0) continue;
+
+                                if (Settings.Default.RequireCompileParams == true)
+                                {
+                                    string? recompileParam = cleanedContent.Split('\n').FirstOrDefault(l => l.StartsWith("--@compile"));
+                                    if (recompileParam == null)
+                                    {
+                                        UpdateLastEvent($"Skipped recompile of {nameWithoutExtension}.rvt: @compile not specified");
+                                        _lastHashByPath[path] = currentHash;
+                                        return;
+                                    }
+                                }
+
+                                string inVariant = files[0];
+                                string outVariant = Path.Combine(watchedPath, $"{outFile}");
+                                string command = $"--headless \"{inVariant}\" --recompile \"{tempClean}\" --dst \"{outVariant}\"";
+
+                                (int code, string output, string error) = RunCommand(rvtPath, command);
+                                Debug.WriteLine(output);
+
+                                if (CompilerErrRx.IsMatch(output))
+                                {
+                                    UpdateLastEvent("Script errors detected!");
+
+                                    // IMPORTANT: insert into cleanedContent (not scriptContent)
+                                    string updatedContent = InsertErrorsAligned(cleanedContent, output);
+
+                                    _suppressNextChange[path] = 0;
+                                    watcher.EnableRaisingEvents = false;
+                                    try
+                                    {
+                                        File.WriteAllText(path, updatedContent);
+                                        _lastHashByPath[path] = ComputeSHA256Hash(updatedContent);
+                                    }
+                                    finally
+                                    {
+                                        watcher.EnableRaisingEvents = true;
+                                    }
+
+                                    break; // stop after first successful write
+                                }
+                                else
+                                {
+                                    // No errors: if we had old error lines, write the cleaned content back to remove them.
+                                    if (cleanedContent != scriptContent)
+                                    {
+                                        _suppressNextChange[path] = 0;
+                                        watcher.EnableRaisingEvents = false;
+                                        try
+                                        {
+                                            File.WriteAllText(path, cleanedContent);
+                                            _lastHashByPath[path] = ComputeSHA256Hash(cleanedContent);
+                                        }
+                                        finally
+                                        {
+                                            watcher.EnableRaisingEvents = true;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _lastHashByPath[path] = currentHash;
+                                    }
+
+                                    UpdateLastEvent($"Started recompile of {nameWithoutExtension}.rvt");
+                                    break; // avoid multiple writes if multiple folders matched
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            try { File.Delete(tempClean); } catch { /* ignore */ }
+                        }
+                    }
+                    else
+                    {
+                        // -------- NO INSERT FLOW (just compile, no file writes) --------
+
+                        // Resolve output .bin name from @outFile (from the *original* text)
+                        string nameWithoutExtension = Path.GetFileNameWithoutExtension(name);
+                        string outFile = $"{nameWithoutExtension}.bin";
+                        string? outfileParam = scriptContent.Split('\n').FirstOrDefault(l => l.StartsWith("--@outFile"));
+                        if (outfileParam != null)
+                        {
+                            outFile = Regex.Unescape(outfileParam).Replace("--@outFile ", "").Trim();
+                            outFile = outFile.TrimEnd('\r');
+                            if (!outFile.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)) outFile += ".bin";
+                            nameWithoutExtension = Path.GetFileNameWithoutExtension(outFile);
+                        }
+
+                        // Look for an existing .bin to recompile into
+                        for (int i = 0; i < Settings.Default.FilePathList.Count; i++)
+                        {
+                            string watchedPath = Settings.Default.FilePathList[i];
+                            string[] files = Directory.GetFiles(watchedPath, $"{nameWithoutExtension}.bin", SearchOption.AllDirectories);
+                            if (files.Length == 0) continue;
+
                             if (Settings.Default.RequireCompileParams == true)
                             {
-                                //Check the top for special parameters
-                                //--@outfile is the output file name
-                                //--@compile determines if we should recompile this or not
-                                string? recompileParam = scriptContent.Split('\n').FirstOrDefault(line => line.StartsWith("--@compile"));
-                                //if it doesn't exist, skip
+                                string? recompileParam = scriptContent.Split('\n').FirstOrDefault(l => l.StartsWith("--@compile"));
                                 if (recompileParam == null)
                                 {
-                                    UpdateLastEvent($"Skipped recompile of {nameWithoutExtension}.rvt: @recompile not specified");
+                                    UpdateLastEvent($"Skipped recompile of {nameWithoutExtension}.rvt: @compile not specified");
+                                    _lastHashByPath[path] = currentHash;
                                     return;
                                 }
-                                
-                                
                             }
-                            
-                            
-                            
 
                             string inVariant = files[0];
                             string outVariant = Path.Combine(watchedPath, $"{outFile}");
-                            string rvtPath = $"{Settings.Default.RVTDirectory}\\ReachVariantTool.exe";
-                            string scriptPath = path;
-                            string command = $"--headless \"{inVariant}\" --recompile \"{scriptPath}\" --dst \"{outVariant}\"";
+                            string command = $"--headless \"{inVariant}\" --recompile \"{path}\" --dst \"{outVariant}\"";
+
                             (int code, string output, string error) = RunCommand(rvtPath, command);
-                            //Log errors
                             Debug.WriteLine(output);
-                            UpdateLastEvent($"Started recompile of {nameWithoutExtension}.rvt");
+
+                            // No file writes in this mode; just record the current hash so we don't loop
+                            _lastHashByPath[path] = currentHash;
+
+                            // Optional: tailored status
+                            if (CompilerErrRx.IsMatch(output))
+                                UpdateLastEvent("Recompile finished with errors (inline insertion disabled).");
+                            else
+                                UpdateLastEvent($"Started recompile of {nameWithoutExtension}.rvt (inline insertion disabled).");
+
+                            break; // avoid multiple recompiles if multiple folders matched
                         }
                     }
                 }
+                finally
+                {
+                    Volatile.Write(ref _processingGate, 0);
+                }
             }
+
+
 
             if (setDirectory)
             {

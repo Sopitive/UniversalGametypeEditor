@@ -381,5 +381,17 @@ namespace UniversalGametypeEditor.Properties {
                 this["RequireCompileParams"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool InsertErrors {
+            get {
+                return ((bool)(this["InsertErrors"]));
+            }
+            set {
+                this["InsertErrors"] = value;
+            }
+        }
     }
 }
