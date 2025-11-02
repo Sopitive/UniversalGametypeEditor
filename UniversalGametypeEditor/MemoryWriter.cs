@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Runtime.InteropServices;
 
 public static class MemoryWriter
 {
-
-
     // Import the ReadProcessMemory function from the Windows API
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool ReadProcessMemory(
@@ -18,164 +15,176 @@ public static class MemoryWriter
     public static extern bool WriteProcessMemory(
         IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, int nSize, out int lpNumberOfBytesWritten);
 
-    public static void WriteValue(IntPtr addressToWrite, int value)
-    {
-        // Set the process name or process ID of the target process
-        string processName = "MCC-Win64-Shipping";
-        // Alternatively, you can use the process ID
-        // int processId = 1234;
-
-        // Convert the integer value to a byte array
-        byte[] buffer = BitConverter.GetBytes(value);
-
-        // Open the target process
-        
-        Process? process = MemoryScanner.process;
-
-        // Alternatively, you can use the process ID
-        // Process process = Process.GetProcessById(processId);
-
-        // Get the handle of the target process
-        IntPtr processHandle = process.Handle;
-
-        // Write the value to the specified memory address
-        int bytesWritten;
-        bool success = WriteProcessMemory(processHandle, addressToWrite, buffer, buffer.Length, out bytesWritten);
-
-        if (success)
-        {
-            Debug.WriteLine("Value written successfully!");
-        }
-        else
-        {
-            Debug.WriteLine("Failed to write the value.");
-        }
-    }
-
     // Import the OpenProcess function from the Windows API
     [DllImport("kernel32.dll")]
     public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+
+    // Import VirtualQueryEx to enumerate memory regions
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr VirtualQueryEx(IntPtr hProcess, IntPtr lpAddress, out MEMORY_BASIC_INFORMATION lpBuffer, IntPtr dwLength);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MEMORY_BASIC_INFORMATION
+    {
+        public IntPtr BaseAddress;
+        public IntPtr AllocationBase;
+        public uint AllocationProtect;
+        public UIntPtr RegionSize;
+        public uint State;
+        public uint Protect;
+        public uint Type;
+    }
+
+    private const uint MEM_COMMIT =0x1000;
+    private const uint PAGE_GUARD =0x100;
+    private const uint PAGE_NOACCESS =0x01;
+
+    public static void WriteValue(IntPtr addressToWrite, int value)
+    {
+        // Convert the integer value to a byte array
+        byte[] buffer = BitConverter.GetBytes(value);
+
+        // Get the process handle from the MemoryScanner helper
+        Process? process = MemoryScanner.process;
+        if (process == null)
+        {
+            Debug.WriteLine("Target process not set in MemoryScanner.");
+            return;
+        }
+
+        IntPtr processHandle = process.Handle;
+
+        // Write the value to the specified memory address
+        bool success = WriteProcessMemory(processHandle, addressToWrite, buffer, buffer.Length, out int bytesWritten);
+
+        if (success)
+            Debug.WriteLine("Value written successfully!");
+        else
+            Debug.WriteLine($"Failed to write the value. Error: {Marshal.GetLastWin32Error()}");
+    }
+
     public static void WriteOpcode()
     {
-        // Get the process
-        Process process = Process.GetProcessesByName("mcc-win64-shipping")[0];
+        // Simple example that patches a fixed offset in a module (kept for backward compatibility)
+        var procs = Process.GetProcessesByName("mcc-win64-shipping");
+        if (procs == null || procs.Length ==0)
+        {
+            Debug.WriteLine("Process 'mcc-win64-shipping' not found.");
+            return;
+        }
 
-        // Get the base address of the mcc-win64-shipping.exe module
+        Process process = procs[0];
         IntPtr baseAddress = process.MainModule.BaseAddress;
-
-        // Define PROCESS_ALL_ACCESS
-        const int PROCESS_ALL_ACCESS = 0x1F0FFF;
-
-        // Open the process with all access
+        const int PROCESS_ALL_ACCESS =0x1F0FFF;
         IntPtr processHandle = OpenProcess(PROCESS_ALL_ACCESS, false, process.Id);
 
-        // Define the patch (from jne to je)
-        byte[] patch = { 0x74 };
-
-
-        // Define the memory offset
-        int memoryOffset = 0x5042B1;
-
-        // Calculate the absolute memory address
+        byte[] patch = {0x74 }; // jne -> je (example)
+        int memoryOffset =0x5042B1;
         IntPtr memoryAddress = IntPtr.Add(baseAddress, memoryOffset);
 
-        // Apply the patch
         WriteProcessMemory(processHandle, memoryAddress, patch, patch.Length, out _);
-        //Restore the original value
-        byte[] original = { 0x75 };
-        //Wait 10ms
+
+        // Restore original after a delay (example)
+        byte[] original = {0x75 };
         System.Threading.Thread.Sleep(1000);
         WriteProcessMemory(processHandle, memoryAddress, original, original.Length, out _);
     }
 
+    // Scans the entire process address space (committed readable regions) for the provided AOB and patches the first byte (0x75 ->0xEB)
     public static int WriteOpcode2()
     {
-        // Get the process
-        Process process = Process.GetProcessesByName("MegaloEdit")[0];
-        if (process == null)
+        Process[] processes = Process.GetProcessesByName("MegaloEdit");
+        if (processes == null || processes.Length ==0)
         {
+            Debug.WriteLine("Process 'MegaloEdit' not found.");
             return 1;
         }
-        // Get the base address of the MegaloEdit.exe module
-        IntPtr baseAddress = process.MainModule.BaseAddress;
 
-        // Define PROCESS_ALL_ACCESS
-        const int PROCESS_ALL_ACCESS = 0x1F0FFF;
-
-        // Open the process with all access
+        Process process = processes[0];
+        const int PROCESS_ALL_ACCESS =0x1F0FFF;
         IntPtr processHandle = OpenProcess(PROCESS_ALL_ACCESS, false, process.Id);
 
-        // Define the byte sequence to search for
-        byte[] searchBytes = { 0x74, 0x6E, 0x48, 0x8B, 0x4D, 0x10, 0xE8 };
+        // AOB to search for
+        byte[] searchBytes = {0x75,0x53,0x48,0x8B,0x4D,0xE0,0xC7,0x41,0x38,0x07,0x00,0x00,0x00 };
+        byte[] replaceFirstByte = {0xEB }; // JNE(0x75) -> JMP(0xEB)
 
-        // Define the byte sequence to replace it with
-        byte[] replaceBytes = { 0xEB, 0x6E, 0x48, 0x8B, 0x4D, 0x10, 0xE8 };
-
-
-        // Define the size of the buffer
-        // Define the size of the buffer
-        const int bufferSize = 32768; // adjust this to the size you want
-
-        //7FFAAB173A70 
-
-        // Define the start and end addresses
-        IntPtr startAddress = new IntPtr(0x7FFA78D00000); // replace with your start address
-        IntPtr endAddress = new IntPtr(0x7FFF78DFFA40); // replace with your end address
-
-        // Create the buffer
+        const int bufferSize =32768;
         byte[] buffer = new byte[bufferSize];
 
-        // Loop over the memory
-        for (IntPtr p = startAddress; p.ToInt64() < endAddress.ToInt64(); p = IntPtr.Add(p, bufferSize))
-        {
-            // Read the memory at the current address
-            bool success = ReadProcessMemory(processHandle, p, buffer, (uint)buffer.Length, out int bytesRead);
+        IntPtr address = IntPtr.Zero;
+        IntPtr mbiSize = new IntPtr(Marshal.SizeOf(typeof(MEMORY_BASIC_INFORMATION)));
 
-            // Loop over the buffer
-            for (int i = 0; i < bytesRead - searchBytes.Length; i++)
+        while (true)
+        {
+            IntPtr result = VirtualQueryEx(processHandle, address, out MEMORY_BASIC_INFORMATION mbi, mbiSize);
+            if (result == IntPtr.Zero)
+                break;
+
+            long regionSize = (long)mbi.RegionSize;
+
+            bool isReadableCommitted = (mbi.State & MEM_COMMIT) !=0 && (mbi.Protect & PAGE_NOACCESS) ==0 && (mbi.Protect & PAGE_GUARD) ==0;
+
+            if (isReadableCommitted)
             {
-                // If the bytes match the search pattern
-                if (CompareData(buffer.Skip(i).Take(searchBytes.Length).ToArray(), searchBytes))
+                long offset =0;
+                while (offset < regionSize)
                 {
-                    // Write the replacement bytes
-                    WriteProcessMemory(processHandle, IntPtr.Add(p, i), replaceBytes, replaceBytes.Length, out int bytesWritten);
-                    Debug.WriteLine("Patched Successfully");
-                    return 2;
+                    IntPtr readAddr = new IntPtr(mbi.BaseAddress.ToInt64() + offset);
+                    int bytesToRead = (int)Math.Min(bufferSize, regionSize - offset);
+
+                    bool ok = ReadProcessMemory(processHandle, readAddr, buffer, (uint)bytesToRead, out int bytesRead);
+                    if (ok && bytesRead >0)
+                    {
+                        int scanLimit = bytesRead - searchBytes.Length;
+                        for (int i =0; i <= scanLimit; i++)
+                        {
+                            if (CompareAt(buffer, i, searchBytes))
+                            {
+                                IntPtr patchAddr = new IntPtr(readAddr.ToInt64() + i);
+                                WriteProcessMemory(processHandle, patchAddr, replaceFirstByte, replaceFirstByte.Length, out int bytesWritten);
+                                Debug.WriteLine($"Patched Successfully at {patchAddr}");
+                                return 2; // patched
+                            }
+                        }
+                    }
+
+                    offset += bytesToRead;
                 }
             }
-            
+
+            // Move to next region
+            address = new IntPtr(mbi.BaseAddress.ToInt64() + regionSize);
         }
-        return 3;
+
         Debug.WriteLine("No match found");
+        return 3;
     }
 
     public static void WriteBytes(IntPtr addressToWrite, byte[] bytesToWrite)
     {
-        // Get the process handle
         Process process = MemoryScanner.process;
+        if (process == null)
+        {
+            Debug.WriteLine("Target process not set in MemoryScanner.");
+            return;
+        }
+
         IntPtr processHandle = process.Handle;
 
-        // Write the byte array to the specified memory address
-        int bytesWritten;
-        bool success = WriteProcessMemory(processHandle, addressToWrite, bytesToWrite, bytesToWrite.Length, out bytesWritten);
+        bool success = WriteProcessMemory(processHandle, addressToWrite, bytesToWrite, bytesToWrite.Length, out int bytesWritten);
 
         if (success)
-        {
             Debug.WriteLine($"Successfully wrote {bytesWritten} bytes to address {addressToWrite}.");
-        }
         else
-        {
             Debug.WriteLine($"Failed to write bytes to address {addressToWrite}. Error code: {Marshal.GetLastWin32Error()}");
-        }
     }
-
 
     static bool CompareData(byte[] data1, byte[] data2)
     {
         if (data1.Length != data2.Length)
             return false;
 
-        for (int i = 0; i < data1.Length; i++)
+        for (int i =0; i < data1.Length; i++)
         {
             if (data1[i] != data2[i])
                 return false;
@@ -184,6 +193,16 @@ public static class MemoryWriter
         return true;
     }
 
+    // New helper that compares a pattern at a specific offset without allocations
+    static bool CompareAt(byte[] buffer, int offset, byte[] pattern)
+    {
+        for (int j =0; j < pattern.Length; j++)
+        {
+            if (buffer[offset + j] != pattern[j])
+                return false;
+        }
+        return true;
+    }
 
 
 
