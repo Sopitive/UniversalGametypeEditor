@@ -739,7 +739,7 @@
                     </MenuItem>
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" Header="Help" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="ShowTut" Header="Tutorial" ToolTip="Show tutorial" Click="ShowTutorial" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
-                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="About" Header="v2.1.1.2" ToolTip="Version" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" IsEnabled="False"/>
+                        <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="About" Header="v2.1.1.3" ToolTip="Version" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" IsEnabled="False"/>
                     </MenuItem>
                     <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="Tools"  Header="Tools" Foreground="{StaticResource TextColor}" Background="#333333">
                         <MenuItem Style="{DynamicResource MenuItemStyle1}" x:Name="PlaylistEditor" Header="Edit CGB Playlist..." ToolTip="Edit The Playlist For The Cutom Games Browser" Click="EditPlaylist" Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"/>
@@ -870,9 +870,9 @@
 
             </StackPanel>
 
-            <!--<StackPanel Grid.Row="1" Grid.ColumnSpan="1">
+            <StackPanel Grid.Row="1" Grid.ColumnSpan="1" Grid.Column="1">
                 <Button x:Name="Pause" Content="Focus Game" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Click="FocusWindow" Style="{DynamicResource ButtonsStyle}"></Button>
-            </StackPanel>-->
+            </StackPanel>
             <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Grid.Column="2" MaxWidth="600">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -1068,7 +1068,7 @@
             <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Background="Transparent">
                 <Button Click="HandleLoadClick" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Hidden" Margin="0,0,50,0" Width="130" HorizontalAlignment="Right"></Button>
                 <Button Click="CompileGametype" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="Compile" Content="Compile" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0" Width="130"/>
-                <Button Click="CompileScript_Click" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="CompileScriptBtn" Content="Compile Script" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0" Width="130"/>
+                <!--<Button Click="CompileScript_Click" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="CompileScriptBtn" Content="Compile Script" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0" Width="130"/>-->
             </StackPanel>
 
         </Grid>
