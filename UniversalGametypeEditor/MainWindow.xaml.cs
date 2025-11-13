@@ -88,24 +88,68 @@ namespace UniversalGametypeEditor
         }
 
 
-        public static string? GetSteamPath()
+        private static string GetSteamPath()
         {
-            const string steamRegistryKey = @"Software\Valve\Steam";
-            const string steamRegistryValue = "SteamPath";
-
-            using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(steamRegistryKey))
+            // Get default steam directory from registry
+            List<string> steamDirectories = new List<string>();
+            try
             {
-                if (key != null)
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam"))
                 {
-                    object? value = key.GetValue(steamRegistryValue);
-                    if (value != null)
+                    if (key != null)
                     {
-                        return value.ToString();
+                        var steamPath = key.GetValue("SteamPath") as string;
+                        if (!string.IsNullOrEmpty(steamPath) && Directory.Exists(steamPath))
+                        {
+                            steamDirectories.Add(steamPath);
+                        }
+                    }
+                }
+
+                // If we found a registry path, attempt to parse libraryfolders.vdf for additional libraries
+                if (steamDirectories.Count > 0)
+                {
+                    string libraryFoldersVdfPath = Path.Combine(steamDirectories[0], "steamapps", "libraryfolders.vdf");
+                    if (File.Exists(libraryFoldersVdfPath))
+                    {
+                        try
+                        {
+                            string content = File.ReadAllText(libraryFoldersVdfPath);
+                            // Match lines like: "path"    "C:\\Program Files (x86)\\Steam" or "path" "E:\SteamLibrary"
+                            var matches = System.Text.RegularExpressions.Regex.Matches(content, "\"path\"\\s*\"([^\"]+)\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                            foreach (System.Text.RegularExpressions.Match match in matches)
+                            {
+                                if (match.Success && match.Groups.Count > 1)
+                                {
+                                    var rawPath = match.Groups[1].Value;
+                                    // Unescape double backslashes if present
+                                    var pathPart = rawPath.Replace(@"\\", @"\").Trim();
+                                    if (!string.IsNullOrEmpty(pathPart) && Directory.Exists(pathPart) && !steamDirectories.Any(d => string.Equals(d, pathPart, StringComparison.OrdinalIgnoreCase)))
+                                    {
+                                        steamDirectories.Add(pathPart);
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine("Error reading libraryfolders.vdf: " + ex.Message);
+                        }
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Error retrieving Steam directories: " + ex.Message);
+            }
 
-            return null;
+            //Remove the first one in the list
+            steamDirectories.RemoveAt(0);
+
+            //Find the directories that contain "steamapps\common\Halo The Master Chief Collection"
+            var haloMCCDirs = steamDirectories.Where(d => Directory.Exists(Path.Combine(d, "steamapps", "common", "Halo The Master Chief Collection"))).ToList();
+            //Return the first one found
+            return haloMCCDirs.FirstOrDefault() ?? null;
         }
 
 

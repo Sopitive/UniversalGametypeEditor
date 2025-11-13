@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Windows.Documents;
 
 namespace UniversalGametypeEditor
 {
@@ -15,6 +16,70 @@ namespace UniversalGametypeEditor
         private static List<string> gametypeTitles = new List<string>();
         private static List<string> gametypeHashes = new List<string>();
         private static List<DateTime> gametypeModificationDates = new List<DateTime>();
+
+
+        private static List<string> GetAllSteamDirectories()
+        {
+            // Get default steam directory from registry
+            List<string> steamDirectories = new List<string>();
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam"))
+                {
+                    if (key != null)
+                    {
+                        var steamPath = key.GetValue("SteamPath") as string;
+                        if (!string.IsNullOrEmpty(steamPath) && Directory.Exists(steamPath))
+                        {
+                            steamDirectories.Add(steamPath);
+                        }
+                    }
+                }
+
+                // If we found a registry path, attempt to parse libraryfolders.vdf for additional libraries
+                if (steamDirectories.Count > 0)
+                {
+                    string libraryFoldersVdfPath = Path.Combine(steamDirectories[0], "steamapps", "libraryfolders.vdf");
+                    if (File.Exists(libraryFoldersVdfPath))
+                    {
+                        try
+                        {
+                            string content = File.ReadAllText(libraryFoldersVdfPath);
+                            // Match lines like: "path"    "C:\\Program Files (x86)\\Steam" or "path" "E:\SteamLibrary"
+                            var matches = System.Text.RegularExpressions.Regex.Matches(content, "\"path\"\\s*\"([^\"]+)\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                            foreach (System.Text.RegularExpressions.Match match in matches)
+                            {
+                                if (match.Success && match.Groups.Count > 1)
+                                {
+                                    var rawPath = match.Groups[1].Value;
+                                    // Unescape double backslashes if present
+                                    var pathPart = rawPath.Replace(@"\\", @"\").Trim();
+                                    if (!string.IsNullOrEmpty(pathPart) && Directory.Exists(pathPart) && !steamDirectories.Any(d => string.Equals(d, pathPart, StringComparison.OrdinalIgnoreCase)))
+                                    {
+                                        steamDirectories.Add(pathPart);
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine("Error reading libraryfolders.vdf: " + ex.Message);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Error retrieving Steam directories: " + ex.Message);
+            }
+
+            //Remove the first one in the list
+            steamDirectories.RemoveAt(0);
+
+
+            // Ensure at least the registry path is returned (may be empty if registry wasn't present)
+            return steamDirectories;
+        }
 
         public static (List<string> mapVariantTitles, List<string> mapVariantHashes, List<string> gametypeTitles, List<string> gametypeHashes, List<string> mapFolderNames, List<string> gametypeFolderNames) GetUUID()
         {
@@ -27,10 +92,20 @@ namespace UniversalGametypeEditor
             List<string> mapFolderNames = new List<string>();
             List<string> gametypeFolderNames = new List<string>();
 
+
+
             // Existing functionality
-            string baseDirectoryPath = @"C:\Program Files (x86)\Steam\steamapps\common\Halo The Master Chief Collection\haloreach";
-            ProcessDirectory(Path.Combine(baseDirectoryPath, "game_variants"), "haloreach\\game_variants\\", alwaysGenerateHash: true, mapFolderNames, gametypeFolderNames);
-            ProcessDirectory(Path.Combine(baseDirectoryPath, "map_variants"), "haloreach\\map_variants\\", alwaysGenerateHash: true, mapFolderNames, gametypeFolderNames);
+            //string baseDirectoryPath = @"C:\Program Files (x86)\Steam\steamapps\common\Halo The Master Chief Collection\haloreach";
+            List<string> baseDirectoryPaths = GetAllSteamDirectories();
+            string haloreachPath = baseDirectoryPaths
+                .Select(dir => Path.Combine(dir, "steamapps", "common", "Halo The Master Chief Collection", "haloreach"))
+                .FirstOrDefault(Directory.Exists);
+
+            if (!string.IsNullOrEmpty(haloreachPath))
+            {
+                ProcessDirectory(Path.Combine(haloreachPath, "game_variants"), "haloreach\\game_variants\\", alwaysGenerateHash: true, mapFolderNames, gametypeFolderNames);
+                ProcessDirectory(Path.Combine(haloreachPath, "map_variants"), "haloreach\\map_variants\\", alwaysGenerateHash: true, mapFolderNames, gametypeFolderNames);
+            }
 
             // New functionality to process LocalFiles directories
             string localLowPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @"AppData\LocalLow\MCC\LocalFiles");
