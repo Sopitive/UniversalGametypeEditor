@@ -41,7 +41,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
-    release:
+  release:
     needs: build
     runs-on: ubuntu-latest
     if: >-
