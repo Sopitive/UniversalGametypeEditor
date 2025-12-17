@@ -9,24 +9,57 @@ on:
     branches:
       - master
 
+# Needed so the workflow can create a Release in the repo
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+
       - name: Setup .NET
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 6.0.x
+
       - name: Restore dependencies
         run: dotnet restore
+
       - name: Build
         run: dotnet build --configuration Release --no-restore
+
       - name: Test
         run: dotnet test --no-build --verbosity normal
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: UniversalGametypeEditor
           path: UniversalGametypeEditor/bin/Release/net6.0-windows
           retention-days: 90
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    # Only run on pushes (not PRs) and only when the commit message contains the trigger string.
+    if: >-
+      github.event_name == 'push' &&
+      contains(github.event.head_commit.message, '[release]')
+
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: UniversalGametypeEditor
+          path: UniversalGametypeEditor
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: release-${{ github.run_number }}
+          name: Release ${{ github.run_number }}
+          generate_release_notes: true
+          files: |
+            UniversalGametypeEditor/**
