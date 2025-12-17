@@ -1,6 +1,7 @@
 ﻿
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
+using Microsoft.CodeAnalysis;
 using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -831,10 +832,40 @@ namespace UniversalGametypeEditor
 
         private void CompileScript(int bitOffset, string script)
         {
-
-           
+            // Compile first. Do NOT touch the file unless we succeed.
             ScriptCompiler sc = new();
-            string binaryOutput = sc.CompileScript(script);
+
+            var result = sc.TryCompileScript(script);
+            if (!result.Success || string.IsNullOrWhiteSpace(result.BinaryString))
+            {
+                var sb = new StringBuilder();
+
+                var errors = result.Diagnostics
+                    .Where(d => d.Severity == CompilerDiagnosticSeverity.Error)
+                    .ToList();
+
+                if (errors.Count == 0)
+                {
+                    sb.AppendLine("Compilation failed (no specific errors were reported).");
+                }
+                else
+                {
+                    sb.AppendLine("Compilation failed:");
+                    foreach (var d in errors.Take(25))
+                    {
+                        // If your diagnostics are 0-based, +1 them here for user friendliness
+                        sb.AppendLine($"Line {d.Line}, Col {d.Column}: {d.Message}");
+                    }
+
+                    if (errors.Count > 25)
+                        sb.AppendLine($"...and {errors.Count - 25} more error(s).");
+                }
+
+                UpdateLastEvent(sb.ToString());
+                return;
+            }
+
+            string binaryOutput = result.BinaryString;
 
             // Read the file at offset 0x2F0
             string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
@@ -842,32 +873,48 @@ namespace UniversalGametypeEditor
             int offset = 0x2F0;
             byte[] scriptBytes = fileBytes.Skip(offset).ToArray();
 
-            // Convert the read bytes to a binary string
+            // Convert read bytes to a binary string
             string fileBinaryString = string.Join("", scriptBytes.Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
 
-            // Get the bit position from rg.gt.scriptOffset
+            // Where to write (you already had this)
             int scriptBitOffset = rg.gt.scriptOffset;
 
-            // Set a breakpoint here to inspect the binary string at the scriptOffset
+            // Bounds checks
+            if (scriptBitOffset < 0 || scriptBitOffset > fileBinaryString.Length)
+            {
+                UpdateLastEvent($"Compilation succeeded, but scriptOffset is out of range: {scriptBitOffset} (max {fileBinaryString.Length}).");
+                return;
+            }
+            if (scriptBitOffset + binaryOutput.Length > fileBinaryString.Length)
+            {
+                UpdateLastEvent($"Compilation succeeded, but compiled script ({binaryOutput.Length} bits) doesn't fit at offset {scriptBitOffset} (max {fileBinaryString.Length}).");
+                return;
+            }
+
+            // Debug peek
             string binaryStringAtOffset = fileBinaryString.Substring(scriptBitOffset, binaryOutput.Length);
             Debug.WriteLine($"Binary string at scriptOffset: {binaryStringAtOffset}");
 
-            // Insert the binary output at the specified bit position
-            string modifiedBinaryString = fileBinaryString.Substring(0, scriptBitOffset) +
-                                          binaryOutput +
-                                          fileBinaryString.Substring(scriptBitOffset + binaryOutput.Length);
+            // Insert compiled script bits
+            string modifiedBinaryString =
+                fileBinaryString.Substring(0, scriptBitOffset) +
+                binaryOutput +
+                fileBinaryString.Substring(scriptBitOffset + binaryOutput.Length);
 
-            // Convert the modified binary string back to bytes
+            // Convert back to bytes
             byte[] modifiedBytes = Enumerable.Range(0, modifiedBinaryString.Length / 8)
-                                             .Select(i => Convert.ToByte(modifiedBinaryString.Substring(i * 8, 8), 2))
-                                             .ToArray();
+                .Select(i => Convert.ToByte(modifiedBinaryString.Substring(i * 8, 8), 2))
+                .ToArray();
 
             // Write the modified bytes back to the file
             byte[] newFileBytes = new byte[offset + modifiedBytes.Length];
             Array.Copy(fileBytes, 0, newFileBytes, 0, offset);
             Array.Copy(modifiedBytes, 0, newFileBytes, offset, modifiedBytes.Length);
             File.WriteAllBytes(filePath, newFileBytes);
+
+            UpdateLastEvent("Compilation succeeded and script was written to the file.");
         }
+
 
 
         List<ReadGametype.Gametype> gametypeItems = new();

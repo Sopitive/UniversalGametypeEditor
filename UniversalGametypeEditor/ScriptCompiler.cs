@@ -11,22 +11,44 @@ using static UniversalGametypeEditor.ReadGametype;
 using static UniversalGametypeEditor.ScriptCompiler;
 using static UniversalGametypeEditor.Enums.Enums;
 using System.Diagnostics;
+using UniversalGametypeEditor.Megalo;
 
 
 namespace UniversalGametypeEditor
 {
 
+
+
+
+    // ------------------------------------------------------------
+    // Diagnostics + transactional compile API (used by the UI)
+    // ------------------------------------------------------------
+    public enum CompilerDiagnosticSeverity { Info, Warning, Error }
+
+    public sealed record CompilerDiagnostic(
+        CompilerDiagnosticSeverity Severity,
+        string Message,
+        int Line,
+        int Column
+    );
+
+    public sealed record CompileResult(
+        bool Success,
+        string? BinaryString,
+        List<CompilerDiagnostic> Diagnostics
+    );
+
     public class Player
     {
-        
+
         public string Name { get; set; }
 
         public Player(string name)
         {
             Name = name;
         }
-        
-        
+
+
     }
 
 
@@ -200,13 +222,419 @@ namespace UniversalGametypeEditor
 
     internal class ScriptCompiler
     {
+
+
+        // ------------------------------------------------------------
+        // Public compile entry used by MainWindow.xaml.cs
+        // - Returns diagnostics and does NOT throw for script errors.
+        // - UI should only write the file when Success == true.
+        // ------------------------------------------------------------
+        public CompileResult TryCompileScript(string script)
+        {
+            var diags = new List<CompilerDiagnostic>();
+
+            // 1) Syntax (parse) diagnostics from Roslyn
+            var tree = CSharpSyntaxTree.ParseText(script);
+            foreach (var d in tree.GetDiagnostics())
+            {
+                if (d.Severity != Microsoft.CodeAnalysis.DiagnosticSeverity.Error)
+                    continue;
+
+                var span = d.Location.GetLineSpan();
+                diags.Add(new CompilerDiagnostic(
+                    CompilerDiagnosticSeverity.Error,
+                    d.GetMessage(),
+                    span.StartLinePosition.Line + 1,
+                    span.StartLinePosition.Character + 1
+                ));
+            }
+
+            if (diags.Count > 0)
+                return new CompileResult(false, null, diags);
+
+            // 2) Semantic/encoding errors inside the compiler:
+            //    catch and surface as a diagnostic (best-effort line/col if available).
+            try
+            {
+                Compile(script);
+                string bin = GetBinaryString();
+                if (string.IsNullOrWhiteSpace(bin))
+                {
+                    diags.Add(new CompilerDiagnostic(
+                        CompilerDiagnosticSeverity.Error,
+                        "Compilation produced no output.",
+                        1, 1
+                    ));
+                    return new CompileResult(false, null, diags);
+                }
+
+                return new CompileResult(true, bin, diags);
+            }
+            catch (Exception ex)
+            {
+                diags.Add(new CompilerDiagnostic(
+                    CompilerDiagnosticSeverity.Error,
+                    ex.Message,
+                    1, 1
+                ));
+                return new CompileResult(false, null, diags);
+            }
+        }
+
+        // Convenience overload (older call style)
+        public bool TryCompileScript(string script, out string binaryString, out List<CompilerDiagnostic> diagnostics)
+        {
+            var r = TryCompileScript(script);
+            diagnostics = r.Diagnostics;
+            binaryString = r.BinaryString ?? "";
+            return r.Success;
+        }
+
         private EntityManager _entityManager = new EntityManager();
         private Dictionary<string, VariableInfo> _variableToIndexMap = new Dictionary<string, VariableInfo>();
         private Stack<Dictionary<string, VariableInfo>> _scopeStack = new Stack<Dictionary<string, VariableInfo>>();
         private List<ActionObject> _actions = new List<ActionObject>();
         private List<ConditionObject> _conditions = new List<ConditionObject>();
         private List<TriggerObject> _triggers = new List<TriggerObject>();
+
+        private readonly record struct PendingTrigger(LocalFunctionStatementSyntax Syntax, int Index, string DefaultAttribute);
+
+        // Triggers can be declared inside other triggers (local functions returning Trigger).
+        // We reserve an index immediately (so RunTrigger can reference it), then compile later.
+        private readonly Queue<PendingTrigger> _pendingTriggers = new();
+
+        // Best-effort guard: only one wrapper per event attribute.
+        private readonly HashSet<string> _eventWrapperAttributes = new(StringComparer.OrdinalIgnoreCase);
+
         private Dictionary<string, VariableInfo> _allDeclaredVariables = new Dictionary<string, VariableInfo>();
+
+        // ============================================================
+        // MegaloTables integration (IDs + canonical names)
+        // ============================================================
+
+        // ============================================================
+        // MegaloTables integration (IDs + canonical names)
+        //   - Accept any canonical action/condition name from MegaloTables
+        //   - Provide a few friendly aliases (CreateObject, Delete, etc.)
+        //   - Encode parameters from the MegaloTables schema
+        // ============================================================
+
+        private sealed class InlinePatch
+        {
+            public int InlineActionIndex;                 // where the placeholder Inline lives in _actions
+            public List<ConditionObject> Conditions = new();
+            public List<ActionObject> Actions = new();
+        }
+
+        private string BuildInlineBinary(int conditionOffset, int conditionCount, int actionOffset, int actionCount)
+        {
+            string idBits = ConvertToBinary(99, 7); // Inline
+            return idBits
+                + ConvertToBinary(conditionOffset, 9)
+                + ConvertToBinary(conditionCount, 10)
+                + ConvertToBinary(actionOffset, 10)
+                + ConvertToBinary(actionCount, 11);
+        }
+
+        // Per-trigger deferred storage
+        private readonly List<InlinePatch> _deferredInlines = new();
+
+        // Condition.actionOffset is LOCAL within the current container (trigger or inline).
+        // We track a global base (startActionOffset / inline action start) so we can encode local offsets.
+        private readonly Stack<int> _actionBaseStack = new();
+        private int CurrentActionBase => _actionBaseStack.Count > 0 ? _actionBaseStack.Peek() : 0;
+        private int GetLocalActionOffset(int globalActionOffset)
+            => globalActionOffset <= CurrentActionBase ? 0 : (globalActionOffset - CurrentActionBase);
+
+        private static readonly Dictionary<string, MegaloAction> _megaloActionsByName =
+            MegaloTables.Actions
+                .Where(a => !string.IsNullOrWhiteSpace(a.Name))
+                .GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        private static readonly Dictionary<string, MegaloCondition> _megaloConditionsByName =
+            MegaloTables.Conditions
+                .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+                .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        // Script-friendly aliases -> canonical Megalo name
+        private static readonly Dictionary<string, string[]> _actionAliases =
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        // Friendly / short names -> possible table names (first match wins)
+                        ["CreateObject"] = new[] { "CreateObject", "Create", "Megl.Create" },
+                        ["Create"] = new[] { "Create", "CreateObject", "Megl.Create" },
+
+                        ["SetVar"] = new[] { "SetVar", "Set", "Megl.SET" },
+                        ["Set"] = new[] { "Set", "SetVar", "Megl.SET" },
+
+                        ["Attach"] = new[] { "Attach", "Obj.Attach" },
+                        ["Detach"] = new[] { "Detach", "Obj.Detach" },
+
+                        ["Delete"] = new[] { "Delete", "Obj.Delete" },
+                        ["Kill"] = new[] { "Kill", "Obj.Kill", "Obj.kill" },
+
+                        ["GetSpeed"] = new[] { "GetSpeed", "Obj.Speed_GET" },
+                        ["DropWeapon"] = new[] { "DropWeapon", "Obj.DropWeapon" },
+
+                        ["GetWeapon"] = new[] { "GetWeapon", "Player.Weapon_GET" },
+                        ["SetBiped"] = new[] { "SetBiped", "Player.Biped_SET" },
+
+                        // Back-compat: old full names -> likely short names
+                        ["Megl.Create"] = new[] { "CreateObject", "Create", "Megl.Create" },
+                        ["Megl.SET"] = new[] { "SetVar", "Set", "Megl.SET" },
+                        ["Obj.Attach"] = new[] { "Attach", "Obj.Attach" },
+                        ["Obj.Detach"] = new[] { "Detach", "Obj.Detach" },
+                        ["Obj.Delete"] = new[] { "Delete", "Obj.Delete" },
+                        ["Obj.kill"] = new[] { "Kill", "Obj.kill", "Obj.Kill" },
+                        ["Obj.Speed_GET"] = new[] { "GetSpeed", "Obj.Speed_GET" },
+                        ["Obj.DropWeapon"] = new[] { "DropWeapon", "Obj.DropWeapon" },
+                        ["Player.Weapon_GET"] = new[] { "GetWeapon", "Player.Weapon_GET" },
+                        ["Player.Biped_SET"] = new[] { "SetBiped", "Player.Biped_SET" },
+                    };
+
+
+        private static readonly Dictionary<string, string[]> _conditionAliases =
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        // Friendly / short names -> possible table names
+                        ["IsOfType"] = new[] { "IsOfType", "Obj.IsOfType" },
+                        ["IsElite"] = new[] { "IsElite", "Player.IsElite" },
+                        ["IsSpartan"] = new[] { "IsSpartan", "Player.IsSpartan" },
+                        ["IsAlive"] = new[] { "IsAlive", "Player.IsAlive" },
+
+                        // Back-compat
+                        ["Obj.IsOfType"] = new[] { "IsOfType", "Obj.IsOfType" },
+                        ["Player.IsElite"] = new[] { "IsElite", "Player.IsElite" },
+                        ["Player.IsSpartan"] = new[] { "IsSpartan", "Player.IsSpartan" },
+                        ["Player.IsAlive"] = new[] { "IsAlive", "Player.IsAlive" },
+                    };
+
+
+        private static string CanonicalizeActionName(string scriptName)
+        {
+            // For display/debug only: prefer the actual table name if we can resolve it.
+            try
+            {
+                return ResolveActionByName(scriptName).Name;
+            }
+            catch
+            {
+                return scriptName;
+            }
+        }
+
+        private static string CanonicalizeConditionName(string scriptName)
+        {
+            try
+            {
+                return ResolveConditionByName(scriptName).Name;
+            }
+            catch
+            {
+                return scriptName;
+            }
+        }
+
+        private static string TitleCaseFirst(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            return char.ToUpperInvariant(s[0]) + s.Substring(1);
+        }
+
+        private static IEnumerable<string> BuildActionCandidates(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                yield break;
+
+            // 1) Exact
+            yield return name;
+
+            // 2) Common sanitization (tables sometimes had '·' you can't type)
+            var noDot = name.Replace("·", "");
+            if (!string.Equals(noDot, name, StringComparison.OrdinalIgnoreCase))
+                yield return noDot;
+
+            // 3) Alias table
+            if (_actionAliases.TryGetValue(name, out var aliasList))
+            {
+                foreach (var a in aliasList)
+                    if (!string.IsNullOrWhiteSpace(a))
+                        yield return a;
+            }
+
+            // 4) Derived from dotted name (Obj.Attach -> Attach, Player.Biped_SET -> SetBiped)
+            var lastDot = name.LastIndexOf('.');
+            var suffix = lastDot >= 0 ? name.Substring(lastDot + 1) : null;
+            if (!string.IsNullOrWhiteSpace(suffix))
+            {
+                yield return suffix;
+
+                var suffixNoDot = suffix.Replace("·", "");
+                if (!string.Equals(suffixNoDot, suffix, StringComparison.OrdinalIgnoreCase))
+                    yield return suffixNoDot;
+
+                if (suffix.EndsWith("_SET", StringComparison.OrdinalIgnoreCase))
+                {
+                    var baseName = suffix.Substring(0, suffix.Length - 4);
+                    yield return "Set" + TitleCaseFirst(baseName);
+                }
+                if (suffix.EndsWith("_GET", StringComparison.OrdinalIgnoreCase))
+                {
+                    var baseName = suffix.Substring(0, suffix.Length - 4);
+                    yield return "Get" + TitleCaseFirst(baseName);
+                }
+            }
+
+            // 5) Special cases
+            if (string.Equals(name, "Megl.Create", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(suffix, "Create", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return "CreateObject";
+                yield return "Create";
+            }
+
+            if (string.Equals(name, "Megl.SET", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(suffix, "SET", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return "SetVar";
+                yield return "Set";
+                yield return "Assign";
+            }
+
+            if (string.Equals(name, "Obj.kill", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(suffix, "kill", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return "Kill";
+            }
+        }
+
+        private static IEnumerable<string> BuildConditionCandidates(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                yield break;
+
+            yield return name;
+
+            var noDot = name.Replace("·", "");
+            if (!string.Equals(noDot, name, StringComparison.OrdinalIgnoreCase))
+                yield return noDot;
+
+            if (_conditionAliases.TryGetValue(name, out var aliasList))
+            {
+                foreach (var a in aliasList)
+                    if (!string.IsNullOrWhiteSpace(a))
+                        yield return a;
+            }
+
+            var lastDot = name.LastIndexOf('.');
+            var suffix = lastDot >= 0 ? name.Substring(lastDot + 1) : null;
+            if (!string.IsNullOrWhiteSpace(suffix))
+            {
+                yield return suffix;
+
+                var suffixNoDot = suffix.Replace("·", "");
+                if (!string.Equals(suffixNoDot, suffix, StringComparison.OrdinalIgnoreCase))
+                    yield return suffixNoDot;
+            }
+        }
+
+        private static MegaloAction ResolveActionByName(string name)
+        {
+            var tried = new List<string>();
+
+            foreach (var cand in BuildActionCandidates(name))
+            {
+                var key = cand.Trim();
+                if (string.IsNullOrWhiteSpace(key)) continue;
+
+                // De-dup (case-insensitive) while preserving order
+                if (tried.Any(t => string.Equals(t, key, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                tried.Add(key);
+
+                if (_megaloActionsByName.TryGetValue(key, out var action))
+                    return action;
+            }
+
+            throw new InvalidOperationException(
+                $"Action '{name}' not found. Tried: {string.Join(", ", tried)}");
+        }
+
+        private static MegaloCondition ResolveConditionByName(string name)
+        {
+            var tried = new List<string>();
+
+            foreach (var cand in BuildConditionCandidates(name))
+            {
+                var key = cand.Trim();
+                if (string.IsNullOrWhiteSpace(key)) continue;
+
+                if (tried.Any(t => string.Equals(t, key, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                tried.Add(key);
+
+                if (_megaloConditionsByName.TryGetValue(key, out var cond))
+                    return cond;
+            }
+
+            throw new InvalidOperationException(
+                $"Condition '{name}' not found. Tried: {string.Join(", ", tried)}");
+        }
+
+
+        private static string TrimArg(ExpressionSyntax expr)
+                    => expr.ToString().Trim().Trim('"');
+
+        private static bool TryParseBoolLoose(string s, out bool value)
+        {
+            s = (s ?? string.Empty).Trim();
+            if (s.Equals("1", StringComparison.OrdinalIgnoreCase) || s.Equals("true", StringComparison.OrdinalIgnoreCase))
+            {
+                value = true;
+                return true;
+            }
+            if (s.Equals("0", StringComparison.OrdinalIgnoreCase) || s.Equals("false", StringComparison.OrdinalIgnoreCase))
+            {
+                value = false;
+                return true;
+            }
+            value = false;
+            return false;
+        }
+        private static string? GetInvokedName(ExpressionSyntax expr)
+        {
+            // Supports both:
+            //   CreateObject(...)
+            //   Obj.Delete(...)
+            //   Megl.Create(...)
+            return expr switch
+            {
+                IdentifierNameSyntax id => id.Identifier.Text,
+                MemberAccessExpressionSyntax ma => ma.ToString(),
+                QualifiedNameSyntax qn => qn.ToString(),
+                _ => null
+            };
+        }
+
+
+
+        private static string ToSigned8Binary(int v)
+        {
+            // Two's complement 8-bit
+            int b = v & 0xFF;
+            return Convert.ToString(b, 2).PadLeft(8, '0');
+        }
+
+        private string ConvertVector3ToBinary(int x, int y, int z)
+        {
+            return ToSigned8Binary(x) + ToSigned8Binary(y) + ToSigned8Binary(z);
+        }
+
+
         private HashSet<StatementSyntax> _processedStatements = new HashSet<StatementSyntax>();
 
         public ScriptCompiler() { }
@@ -239,6 +667,10 @@ namespace UniversalGametypeEditor
             {
                 ProcessMember(member);
             }
+
+            // Compile any nested triggers reserved during statement processing.
+            DrainPendingTriggers();
+
         }
 
         private void RunAnalyzer(SyntaxTree tree)
@@ -360,8 +792,10 @@ namespace UniversalGametypeEditor
                         }
                         else if (accessor.ExpressionBody != null)
                         {
-                            ProcessExpression(accessor.ExpressionBody.Expression, ref actionCount, actionCount);
+                            int actionOffset = 0;
+                            ProcessExpression(accessor.ExpressionBody.Expression, ref actionCount, ref actionOffset);
                         }
+
                     }
                 }
                 EndScope();
@@ -433,31 +867,27 @@ namespace UniversalGametypeEditor
             }
         }
 
-        private void ProcessExpression(ExpressionSyntax expression, ref int actionCount, int actionOffset)
+        private void ProcessExpression(ExpressionSyntax expression, ref int actionCount, ref int actionOffset)
         {
             if (expression is AssignmentExpressionSyntax assignment)
             {
-                // Handle assignment expressions
                 Debug.WriteLine($"Assignment: {assignment}");
                 ProcessAssignment(assignment, ref actionOffset);
-                actionCount++;
             }
             else if (expression is InvocationExpressionSyntax invocation)
             {
-                // Handle method invocations
                 Debug.WriteLine($"Invocation: {invocation}");
                 ProcessInvocation(invocation, ref actionOffset);
                 actionCount++;
             }
             else if (expression is BinaryExpressionSyntax binaryExpression)
             {
-                // Handle binary expressions (conditions)
                 Debug.WriteLine($"Binary Expression: {binaryExpression}");
-                int conditionCount = 0; // Initialize conditionCount
+                int conditionCount = 0;
                 ProcessCondition(binaryExpression, ref conditionCount, ref actionOffset, ref actionCount);
             }
-            // Add more cases for other expression types if needed
         }
+
         private int triggerActionOffset = 0;
         private (int, int) CompileInlineAction(int conditionOffset, int conditionCount, int actionOffset, int actionCount)
         {
@@ -478,44 +908,107 @@ namespace UniversalGametypeEditor
         }
 
         // Add this method to the ScriptCompiler class
-        private void ProcessIfStatement(IfStatementSyntax ifStatement, ref int actionCount, ref int conditionCount, ref int actionOffset, ref int conditionOffset)
+        private void ProcessIfStatement(
+    IfStatementSyntax ifStatement,
+    ref int actionCount,
+    ref int conditionCount,
+    ref int actionOffset,
+    ref int conditionOffset,
+    bool isTopLevel,
+    bool forceInline)
         {
             Debug.WriteLine($"Processing If Statement: {ifStatement.Condition}");
 
-            // Process the condition
-            int ifStartActionCount = _actions.Count;
-            int ifConditionCount = 0;
-            int originalConditionOffset = conditionOffset;
-
-            // Process the condition (adds to _conditions)
-            ProcessCondition(ifStatement.Condition, ref ifConditionCount, ref actionOffset, ref conditionOffset, 0);
-            conditionCount += ifConditionCount;
-
-            // Remember the state before processing the body
-            int beforeBodyActionCount = _actions.Count;
-
-            // Process the body of the if statement
-            int bodyActionCount = 0;
-            int bodyConditionCount = 0;
-
-            if (ifStatement.Statement is BlockSyntax block)
+            // If this is a top-level "if", compile it as an Inline action
+            if (forceInline)
             {
-                foreach (var blockStatement in block.Statements)
+                // Remember the start indices before compiling this if
+                int condStart = _conditions.Count;
+                int actStart = _actions.Count;
+
+
+                // Base for LOCAL condition action offsets inside this inline.
+                _actionBaseStack.Push(actStart);
+                try
                 {
-                    ProcessStatement(blockStatement, ref bodyActionCount, ref bodyConditionCount, ref actionOffset, ref conditionOffset, false);
+                    int ifCondCount = 0;
+                    int bodyActionCount = 0;
+                    int bodyConditionCount = 0;
+
+                    // Compile condition into the global pool (temporarily)
+                    ProcessCondition(ifStatement.Condition, ref ifCondCount, ref actionOffset, ref conditionOffset, 0);
+
+                    // Compile body into the global pool (temporarily)
+                    if (ifStatement.Statement is BlockSyntax block)
+                    {
+                        ProcessStatementList(block.Statements, ref bodyActionCount, ref bodyConditionCount, ref actionOffset, ref conditionOffset, false);
+                    }
+                    else
+                    {
+                        // Single statement body counts as last-in-block by definition.
+                        ProcessStatement(ifStatement.Statement, ref bodyActionCount, ref bodyConditionCount, ref actionOffset, ref conditionOffset, false, true);
+                    }
                 }
+                finally
+                {
+                    _actionBaseStack.Pop();
+                }
+
+
+
+                // Extract the newly-added conditions/actions from the pools
+                var extractedConds = _conditions.GetRange(condStart, _conditions.Count - condStart);
+                _conditions.RemoveRange(condStart, _conditions.Count - condStart);
+
+                var extractedActs = _actions.GetRange(actStart, _actions.Count - actStart);
+                _actions.RemoveRange(actStart, _actions.Count - actStart);
+
+                // Roll back cursors because we removed what we just compiled
+                conditionOffset = condStart;
+                actionOffset = actStart;
+
+                // Insert a placeholder Inline action into the TOP-LEVEL action stream
+                // (we'll patch offsets after we append the extracted pools later)
+                string placeholder = BuildInlineBinary(0, 0, 0, 0);
+                _actions.Insert(actStart, new ActionObject("Inline", new List<string> { placeholder }));
+
+                int inlineIndex = actStart;
+
+                // This Inline is one top-level action
+                actionCount += 1;
+                actionOffset += 1;
+
+                // Stash the extracted pools for later, and remember where to patch the Inline
+                _deferredInlines.Add(new InlinePatch
+                {
+                    InlineActionIndex = inlineIndex,
+                    Conditions = extractedConds,
+                    Actions = extractedActs
+                });
+
+                Debug.WriteLine($"Top-level if compiled as Inline placeholder at action index {inlineIndex}");
+                return;
+            }
+
+            // ---- Non-top-level if: keep your existing behavior (nested-if semantics) ----
+            int nestedIfCondCount = 0;
+            ProcessCondition(ifStatement.Condition, ref nestedIfCondCount, ref actionOffset, ref conditionOffset, 0);
+            conditionCount += nestedIfCondCount;
+
+            int nestedBodyActions = 0;
+            int nestedBodyConds = 0;
+
+            if (ifStatement.Statement is BlockSyntax nestedBlock)
+            {
+                ProcessStatementList(nestedBlock.Statements, ref nestedBodyActions, ref nestedBodyConds, ref actionOffset, ref conditionOffset, false);
             }
             else
             {
-                ProcessStatement(ifStatement.Statement, ref bodyActionCount, ref bodyConditionCount, ref actionOffset, ref conditionOffset, false);
+                ProcessStatement(ifStatement.Statement, ref nestedBodyActions, ref nestedBodyConds, ref actionOffset, ref conditionOffset, false, true);
             }
 
-            // Update the action count
-            actionCount += bodyActionCount;
-            conditionCount += bodyConditionCount;
-
-            // Debugging
-            Debug.WriteLine($"If statement processed with {bodyActionCount} actions and {bodyConditionCount} conditions");
+            actionCount += nestedBodyActions;
+            conditionCount += nestedBodyConds;
         }
 
 
@@ -525,7 +1018,32 @@ namespace UniversalGametypeEditor
         private int inlineActionOffset = 1;
         private int inlineActionsOffsetDiff = 0;
         // Replace the ProcessStatement method with this improved version
-        private void ProcessStatement(StatementSyntax statement, ref int actionCount, ref int conditionCount, ref int actionOffset, ref int conditionOffset, bool isTopLevel = true)
+
+        /// <summary>
+        /// Compile a list of statements while knowing which statement is the last in its block.
+        /// This enables the rule: compile an if as a plain condition only if it is the last statement in its block;
+        /// otherwise compile it as an Inline to prevent it from swallowing subsequent statements.
+        /// </summary>
+        private void ProcessStatementList(
+            SyntaxList<StatementSyntax> statements,
+            ref int actionCount,
+            ref int conditionCount,
+            ref int actionOffset,
+            ref int conditionOffset,
+            bool isTopLevel)
+        {
+            for (int i = 0; i < statements.Count; i++)
+            {
+                int a = 0;
+                int c = 0;
+                bool isLast = (i == statements.Count - 1);
+                ProcessStatement(statements[i], ref a, ref c, ref actionOffset, ref conditionOffset, isTopLevel, isLast);
+                actionCount += a;
+                conditionCount += c;
+            }
+        }
+
+        private void ProcessStatement(StatementSyntax statement, ref int actionCount, ref int conditionCount, ref int actionOffset, ref int conditionOffset, bool isTopLevel = true, bool isLastInBlock = true)
         {
             if (_scopeStack.Count == 0)
             {
@@ -551,16 +1069,42 @@ namespace UniversalGametypeEditor
 
                 case ExpressionStatementSyntax expressionStatement:
                     // Process expressions (assignments, method calls)
-                    ProcessExpression(expressionStatement.Expression, ref actionCount, actionOffset);
+                    ProcessExpression(expressionStatement.Expression, ref actionCount, ref actionOffset);
+
                     break;
 
                 case IfStatementSyntax ifStatement:
-                    // Use the specialized method for if statements
-                    ProcessIfStatement(ifStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset);
-                    break;
+                    {
+                        // IMPORTANT RULE:
+                        // - Plain (non-inline) if conditions in this format will keep gating actions that follow them
+                        //   in the same container, because there is no explicit "end if".
+                        // - Therefore: only emit a plain if when it is the LAST statement in its block.
+                        //   Otherwise emit an Inline.
+                        bool mustInline = !isLastInBlock || ifStatement.Else != null;
+                        ProcessIfStatement(ifStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, isTopLevel, mustInline);
+                        break;
+                    }
+
 
                 case LocalFunctionStatementSyntax localFunction:
                     Debug.WriteLine($"Local Function: {localFunction.Identifier.Text}");
+                    if (IsTriggerLocalFunction(localFunction))
+                    {
+                        // Nested trigger declaration inside another trigger:
+                        // Reserve a trigger slot, enqueue compilation, and emit RunTrigger(<index>) here.
+                        int trigIndex = ReservePendingTrigger(localFunction, defaultAttribute: "OnCall");
+                        var inv = SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.IdentifierName("RunTrigger"),
+                            SyntaxFactory.ArgumentList(
+                                SyntaxFactory.SingletonSeparatedList(
+                                    SyntaxFactory.Argument(SyntaxFactory.IdentifierName($"Trigger{trigIndex}"))
+                                )
+                            )
+                        );
+                        ProcessInvocation(inv, ref actionOffset);
+                        break;
+                    }
+
                     // Process local function statements
                     _scopeStack.Push(new Dictionary<string, VariableInfo>());
                     int localFunctionActionCount = 0;
@@ -581,14 +1125,7 @@ namespace UniversalGametypeEditor
 
                 case BlockSyntax blockStmt:
                     // Process all statements in a block
-                    foreach (var blockStatement in blockStmt.Statements)
-                    {
-                        int blockActionCount = 0;
-                        int blockConditionCount = 0;
-                        ProcessStatement(blockStatement, ref blockActionCount, ref blockConditionCount, ref actionOffset, ref conditionOffset, false);
-                        actionCount += blockActionCount;
-                        conditionCount += blockConditionCount;
-                    }
+                    ProcessStatementList(blockStmt.Statements, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
                     break;
 
                 default:
@@ -646,7 +1183,7 @@ namespace UniversalGametypeEditor
             }
         }
 
-        
+
 
 
 
@@ -832,180 +1369,794 @@ namespace UniversalGametypeEditor
         }
 
 
-        
 
 
-        private void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffset)
+
+        private
+void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffset)
         {
-            var left = assignment.Left as IdentifierNameSyntax;
-            var right = assignment.Right as InvocationExpressionSyntax;
-
-            if (left != null && right != null)
+            // Support: var = SomeActionThatHasOutParam(...)
+            // Example: weap = GetWeapon(current_player, GetPrimary);
+            if (assignment.Left is IdentifierNameSyntax leftId &&
+                assignment.Right is InvocationExpressionSyntax rightInv)
             {
-                string varName = left.Identifier.Text;
-                Debug.WriteLine($"Processing assignment: {varName} = {right}");
-                ProcessInvocation(right, ref actionOffset, varName);
-                Debug.WriteLine($"Assignment result: {varName} = {right}");
-                actionOffset++;
+                string varName = leftId.Identifier.Text;
+                Debug.WriteLine($"Processing assignment-as-out: {varName} = {rightInv}");
+                ProcessInvocation(rightInv, ref actionOffset, varName);
+                return;
             }
+
+            // Support: var = some_var_type_expression;
+            // Example: newBip = current_player.biped;
+            // This compiles to the Megalo "Set" action (formerly Megl.SET):
+            //   Set(Base=<left>, Operand=<right>, Operator=Set)
+            if (assignment.Left is IdentifierNameSyntax leftVar)
+            {
+                string baseTok = leftVar.ToString();
+                string operandTok = assignment.Right.ToString();
+
+                // Map assignment operators to SetterOperator tokens (must match enum names)
+                string opTok = assignment.Kind() switch
+                {
+                    SyntaxKind.SimpleAssignmentExpression => "Set",
+                    SyntaxKind.AddAssignmentExpression => "Add",
+                    SyntaxKind.SubtractAssignmentExpression => "Subtract",
+                    SyntaxKind.MultiplyAssignmentExpression => "Multiply",
+                    SyntaxKind.DivideAssignmentExpression => "Divide",
+                    SyntaxKind.ModuloAssignmentExpression => "Modulo",
+                    SyntaxKind.AndAssignmentExpression => "BinaryAND",
+                    SyntaxKind.OrAssignmentExpression => "BinaryOR",
+                    SyntaxKind.ExclusiveOrAssignmentExpression => "BinaryXOR",
+                    SyntaxKind.LeftShiftAssignmentExpression => "LeftShift",
+                    SyntaxKind.RightShiftAssignmentExpression => "RightShift",
+                    _ => "Set",
+                };
+
+                try
+                {
+                    MegaloAction setAction = ResolveActionByName("Set");
+                    var args = new List<string> { baseTok, operandTok, opTok };
+
+                    List<string> paramBits = EncodeMegaloActionParams(setAction, args, varOut: null);
+                    string actionIdBits = ConvertToBinary(setAction.Id, 7);
+                    string binaryAction = actionIdBits + string.Join("", paramBits);
+
+                    _actions.Add(new ActionObject(setAction.Name, new List<string> { binaryAction }));
+                    actionOffset++;
+
+                    Debug.WriteLine($"Compiled assignment via Set(): {baseTok} {assignment.OperatorToken} {operandTok}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to compile assignment '{assignment}': {ex.Message}");
+                }
+                return;
+            }
+
+            Debug.WriteLine($"Unhandled assignment form: {assignment}");
         }
 
-        private void ProcessInvocation(InvocationExpressionSyntax invocation, ref int actionOffset, string? varOut = "NoObject", int inlineActionOffset2 = -1)
+
+
+
+
+        private void ProcessInvocation(
+            InvocationExpressionSyntax invocation,
+            ref int actionOffset,
+            string? varOut = "NoObject",
+            int inlineActionOffset2 = -1)
         {
-            var identifier = invocation.Expression as IdentifierNameSyntax;
-            if (identifier != null)
+            string? scriptName = GetInvokedName(invocation.Expression);
+            if (string.IsNullOrWhiteSpace(scriptName))
             {
-                string actionName = identifier.Identifier.Text;
-                Debug.WriteLine($"Processing invocation: {actionName} with parameters: {string.Join(", ", invocation.ArgumentList.Arguments)}");
-                var actionDefinition = ActionDefinitions.ValidActions.FirstOrDefault(a => a.Name == actionName);
-                if (actionDefinition != null)
+                Debug.WriteLine("Unsupported invocation form.");
+                return;
+            }
+
+            var args = invocation.ArgumentList.Arguments.Select(a => TrimArg(a.Expression)).ToList();
+
+            MegaloAction action;
+            try
+            {
+                action = ResolveActionByName(scriptName);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+                return;
+            }
+
+            // Encode action id + params based on MegaloTables schema
+            var paramBits = EncodeMegaloActionParams(action, args, varOut);
+            string actionNumberBinary = ConvertToBinary(action.Id, 7);
+            string binaryAction = actionNumberBinary + string.Join("", paramBits);
+
+            _actions.Add(new ActionObject(action.Name, new List<string> { binaryAction }));
+            Debug.WriteLine($"Added action: {scriptName}({binaryAction})");
+            actionOffset++;
+        }
+
+        private List<string> EncodeMegaloActionParams(MegaloAction action, List<string> args, string? varOut)
+        {
+            var bits = new List<string>();
+            int i = 0;
+
+            foreach (var p in action.Params)
+            {
+                string? token;
+
+                if (p.Name.StartsWith("OUT", StringComparison.OrdinalIgnoreCase))
                 {
-                    var arguments = invocation.ArgumentList.Arguments;
-                    List<string> parameters = new List<string>();
-                    int hasVarOut = 0;
-                    for (int i = 0; i < actionDefinition.Parameters.Count; i++)
-                    {
-                        var param = actionDefinition.Parameters[i];
-                        int bitSize = param.Bits; // Use the Bits property from ActionParameter
-
-                        if (param.Name == "var_out")
-                        {
-                            hasVarOut = 1;
-                            if (param.ParameterType == typeof(ObjectTypeRef))
-                            {
-                                if (varOut != null && _variableToIndexMap.TryGetValue(varOut, out VariableInfo varInfo))
-                                {
-                                    // Translate the index to a global number and then to ObjectRef
-                                    string varOutValue = $"GlobalObject{varInfo.Index}";
-                                    string binaryRepresentation = ConvertObjectTypeRefToBinary(varOutValue, bitSize, varInfo.Priority);
-                                    parameters.Add(binaryRepresentation);
-                                }
-                                else
-                                {
-                                    //use the default
-                                    parameters.Add(ConvertObjectTypeRefToBinary(param.DefaultValue?.ToString() ?? string.Empty, bitSize, 1));
-                                }
-                            } else if (param.ParameterType == typeof(NumericTypeRef))
-                            {
-                                if (varOut != null && _variableToIndexMap.TryGetValue(varOut, out VariableInfo varInfo))
-                                {
-                                    // Translate the index to a global number and then to ObjectRef
-                                    string varOutValue = $"GlobalNumber{varInfo.Index}";
-                                    string binaryRepresentation = ConvertNumericTypeRefToBinary(varOutValue, bitSize);
-                                    parameters.Add(binaryRepresentation);
-                                }
-                                else
-                                {
-                                    //use the default
-                                    parameters.Add(ConvertNumericTypeRefToBinary(param.DefaultValue?.ToString() ?? string.Empty, bitSize));
-                                }
-                            }
-                            else
-                            {
-                                parameters.Add(ConvertToBinary(varOut ?? string.Empty, bitSize));
-                            }
-                        }
-                        else if (i < arguments.Count + hasVarOut)
-                        {
-                            string? argumentValue = arguments[i - hasVarOut].ToString().Trim('"');
-                            if (argumentValue != null && _variableToIndexMap.TryGetValue(argumentValue, out VariableInfo varInfo))
-                            {
-                                // Translate the variable to its corresponding ObjectTypeRef
-                                argumentValue = $"GlobalObject{varInfo.Index}";
-                            }
-
-                            if (param.ParameterType == typeof(ObjectTypeRef))
-                            {
-                                string binaryRepresentation = ConvertObjectTypeRefToBinary(argumentValue ?? string.Empty, bitSize, 1);
-                                parameters.Add(binaryRepresentation);
-                            }
-                            else if (param.ParameterType == typeof(PlayerTypeRef))
-                            {
-                                string binaryRepresentation = ConvertPlayerTypeRefToBinary(argumentValue ?? string.Empty, bitSize);
-                                parameters.Add(binaryRepresentation);
-                            }
-                            else if (param.ParameterType == typeof(NumericTypeRef))
-                            {
-                                string binaryRepresentation = ConvertNumericTypeRefToBinary(argumentValue ?? string.Empty, bitSize);
-                                parameters.Add(binaryRepresentation);
-                            }
-                            else if (param.Name == "type")
-                            {
-                                int typeValue = ConvertToObjectType(argumentValue ?? string.Empty);
-                                parameters.Add(ConvertToBinary(typeValue, bitSize));
-                            }
-                            else if (param.Name == "label")
-                            {
-                                if (string.IsNullOrEmpty(argumentValue) || argumentValue.Equals("none", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    parameters.Add(ConvertToBinary(1, 1)); // Default to 1
-                                }
-                                else
-                                {
-                                    parameters.Add(ConvertToBinary(0, 1)); // Indicate that a label is specified
-                                    parameters.Add(ConvertToBinary(15, 4)); // Convert the label to a 4-bit number
-                                }
-                            }
-                            else if (param.ParameterType == typeof(bool))
-                            {
-                                bool boolValue = argumentValue == "1" ? true : argumentValue == "0" ? false : bool.Parse(argumentValue ?? "false");
-                                parameters.Add(ConvertToBinary(boolValue, bitSize));
-                            }
-                            else
-                            {
-                                parameters.Add(ConvertToBinary(argumentValue ?? string.Empty, bitSize));
-                            }
-                        }
-                        else
-                        {
-                            parameters.Add(ConvertToBinary(param.DefaultValue, bitSize));
-                        }
-                    }
-
-                    // Convert the action number to a 7-bit binary string
-                    string actionNumberBinary = ConvertToBinary(actionDefinition.Id, 7);
-
-                    // Concatenate the action number and all binary parameters into a single binary string
-                    string binaryAction = actionNumberBinary + string.Join("", parameters);
-
-                    // Check if the action already exists in the actions list
-                    if (!_actions.Any(a => a.Parameters.Contains(binaryAction)))
-                    {
-                        _actions.Add(new ActionObject(actionName, new List<string> { binaryAction }));
-                        Debug.WriteLine($"Added action: {actionName}({binaryAction})");
-                        inlineActionOffset++;
-                    }
+                    token = ResolveOutToken(varOut, p.TypeRef);
+                }
+                else if (IsVector3Type(p.TypeRef))
+                {
+                    token = ConsumeVector3Token(args, ref i);
                 }
                 else
                 {
-                    Debug.WriteLine($"Action definition not found for: {actionName}");
+                    token = i < args.Count ? args[i++] : null;
                 }
+
+                token = RemapVariableTokenForTypeRef(token, p.TypeRef);
+
+                bits.Add(EncodeParamByTypeRef(p.TypeRef, token));
+            }
+
+            return bits;
+        }
+
+        private List<string> EncodeMegaloConditionParams(MegaloCondition cond, List<string> args)
+        {
+            var bits = new List<string>();
+            int i = 0;
+
+            foreach (var p in cond.Params)
+            {
+                string? token;
+
+                if (IsVector3Type(p.TypeRef))
+                    token = ConsumeVector3Token(args, ref i);
+                else
+                    token = i < args.Count ? args[i++] : null;
+
+                token = RemapVariableTokenForTypeRef(token, p.TypeRef);
+                bits.Add(EncodeParamByTypeRef(p.TypeRef, token));
+            }
+
+            return bits;
+        }
+
+        private static bool IsVector3Type(string typeRef)
+            => typeRef.Equals("Enumref:Vector3", StringComparison.OrdinalIgnoreCase);
+
+        private static string? ConsumeVector3Token(List<string> args, ref int i)
+        {
+            // Accept:
+            //   (x, y, z) as 3 separate args
+            //   "x,y,z" as one arg
+            if (i < args.Count)
+            {
+                string one = args[i];
+                if (one.Contains(","))
+                {
+                    i++;
+                    return one;
+                }
+            }
+
+            if (i + 2 < args.Count
+                && int.TryParse(args[i], out _)
+                && int.TryParse(args[i + 1], out _)
+                && int.TryParse(args[i + 2], out _))
+            {
+                string tok = $"{args[i]},{args[i + 1]},{args[i + 2]}";
+                i += 3;
+                return tok;
+            }
+
+            return null;
+        }
+
+        private string? ResolveOutToken(string? varOut, string typeRef)
+        {
+            if (string.IsNullOrWhiteSpace(varOut) || varOut.Equals("NoObject", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            // If user explicitly passed a constant, allow it
+            if (!_variableToIndexMap.TryGetValue(varOut!, out var info))
+                return varOut;
+
+            // Map declared variables to the appropriate "GlobalX" token the encoders understand.
+            // Note: indices here are *your* allocation indices, not the engine's "NoX" slot.
+            if (typeRef.Equals("Enumref:ObjectTypeRef", StringComparison.OrdinalIgnoreCase) && info.Type.Equals("Object", StringComparison.OrdinalIgnoreCase))
+                return $"GlobalObject{info.Index}";
+            if (typeRef.Equals("Enumref:NumericTypeRef", StringComparison.OrdinalIgnoreCase) && info.Type.Equals("Number", StringComparison.OrdinalIgnoreCase))
+                return $"GlobalNumber{info.Index}";
+            if (typeRef.Equals("Enumref:PlayerTypeRef", StringComparison.OrdinalIgnoreCase) && info.Type.Equals("Player", StringComparison.OrdinalIgnoreCase))
+                return $"GlobalPlayer{info.Index}";
+            if (typeRef.Equals("Enumref:TeamTypeRef", StringComparison.OrdinalIgnoreCase) && info.Type.Equals("Team", StringComparison.OrdinalIgnoreCase))
+                return $"GlobalTeam{info.Index}";
+            if (typeRef.Equals("Enumref:TimerTypeRef", StringComparison.OrdinalIgnoreCase) && info.Type.Equals("Timer", StringComparison.OrdinalIgnoreCase))
+                return $"GlobalTimer{info.Index}";
+
+            // VarType OUT can be anything: pass the original name and let EncodeVarType resolve by declared type
+            if (typeRef.Equals("Enumref:VarType", StringComparison.OrdinalIgnoreCase))
+                return varOut;
+
+            return varOut;
+        }
+
+        private string? RemapVariableTokenForTypeRef(string? token, string typeRef)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return token;
+
+            // Remap "weap" -> GlobalObjectN if action expects ObjectTypeRef, etc.
+            if (_variableToIndexMap.TryGetValue(token, out var info))
+            {
+                if (typeRef.Equals("Enumref:ObjectTypeRef", StringComparison.OrdinalIgnoreCase) && info.Type.Equals("Object", StringComparison.OrdinalIgnoreCase))
+                    return $"GlobalObject{info.Index}";
+
+                if (typeRef.Equals("Enumref:NumericTypeRef", StringComparison.OrdinalIgnoreCase) && info.Type.Equals("Number", StringComparison.OrdinalIgnoreCase))
+                    return $"GlobalNumber{info.Index}";
+
+                if (typeRef.Equals("Enumref:PlayerTypeRef", StringComparison.OrdinalIgnoreCase) && info.Type.Equals("Player", StringComparison.OrdinalIgnoreCase))
+                    return $"GlobalPlayer{info.Index}";
+
+                if (typeRef.Equals("Enumref:VarType", StringComparison.OrdinalIgnoreCase))
+                    return token; // EncodeVarType resolves using _variableToIndexMap
+
+                // Fallthrough: return original token for other Enumrefs
+            }
+
+            // Normalize common spellings
+            if (token.Equals("current_player", StringComparison.OrdinalIgnoreCase))
+                return "current_player";
+            if (token.Equals("current_object", StringComparison.OrdinalIgnoreCase))
+                return "current_object";
+
+            return token;
+        }
+
+        private string EncodeParamByTypeRef(string typeRef, string? token)
+        {
+            // Handle known composite encodings first
+            if (typeRef.Equals("Enumref:Bool", StringComparison.OrdinalIgnoreCase))
+            {
+                if (token != null && TryParseBoolLoose(token, out bool b))
+                    return ConvertToBinary(b ? 1 : 0, 1);
+                return ConvertToBinary(0, 1);
+            }
+
+            if (typeRef.Equals("Enumref:Vector3", StringComparison.OrdinalIgnoreCase))
+            {
+                if (token == null) return ConvertVector3ToBinary(0, 0, 0);
+
+                // "x,y,z"
+                var parts = token.Split(',');
+                if (parts.Length == 3
+                    && int.TryParse(parts[0].Trim(), out int x)
+                    && int.TryParse(parts[1].Trim(), out int y)
+                    && int.TryParse(parts[2].Trim(), out int z))
+                {
+                    return ConvertVector3ToBinary(x, y, z);
+                }
+                return ConvertVector3ToBinary(0, 0, 0);
+            }
+
+            if (typeRef.Equals("Enumref:ObjectTypeRef", StringComparison.OrdinalIgnoreCase))
+            {
+                return ConvertObjectTypeRefToBinary(token ?? "NoObject", 0, 1);
+            }
+
+            if (typeRef.Equals("Enumref:PlayerTypeRef", StringComparison.OrdinalIgnoreCase))
+            {
+                return ConvertPlayerTypeRefToBinary(token ?? "current_player", 0);
+            }
+
+            if (typeRef.Equals("Enumref:TeamTypeRef", StringComparison.OrdinalIgnoreCase))
+            {
+                return ConvertTeamTypeRefToBinary(token ?? "NoTeam", 0);
+            }
+
+            if (typeRef.Equals("Enumref:TimerTypeRef", StringComparison.OrdinalIgnoreCase))
+            {
+                return ConvertTimerTypeRefToBinary(token ?? "NoTimer", 0);
+            }
+
+            if (typeRef.Equals("Enumref:NumericTypeRef", StringComparison.OrdinalIgnoreCase))
+            {
+                return ConvertNumericTypeRefToBinary(token ?? "0", 0);
+            }
+
+            if (typeRef.Equals("Enumref:VarType", StringComparison.OrdinalIgnoreCase))
+            {
+                return ConvertVarTypeToBinary(token ?? "0", 0);
+            }
+
+            if (typeRef.Equals("Enumref:ObjectType", StringComparison.OrdinalIgnoreCase))
+            {
+                // This project historically encodes ObjectType as 12 bits.
+                if (token == null) return ConvertToBinary(0, 12);
+                if (Enum.TryParse(typeof(ObjectType), token, true, out var objEnum) && objEnum != null)
+                    return ConvertToBinary((int)objEnum, 12);
+                if (int.TryParse(token, out int n))
+                    return ConvertToBinary(n, 12);
+                return ConvertToBinary(0, 12);
+            }
+
+            if (typeRef.Equals("Enumref:LabelRef", StringComparison.OrdinalIgnoreCase))
+            {
+                // Keep your existing label encoding (1-bit "no label" flag + optional 4-bit label id)
+                return EncodeLabelRef(token);
+            }
+
+            // Fallback: encode as plain enum (bit-width inferred from max value)
+            if (typeRef.StartsWith("Enumref:", StringComparison.OrdinalIgnoreCase))
+            {
+                string enumName = typeRef.Substring("Enumref:".Length);
+                return EncodeEnumByName(enumName, token);
+            }
+
+            throw new InvalidOperationException($"Unsupported param typeRef: '{typeRef}'.");
+        }
+
+        private string EncodeEnumByName(string enumName, string? token)
+        {
+            // Special-case: TriggerRef is a Var (bits=9 in your XML) but is referenced as Enumref:TriggerRef in action tables.
+            // Allow both TriggerN identifiers (e.g. Trigger3) and raw integers (e.g. 3).
+            if (enumName.Equals("TriggerRef", StringComparison.OrdinalIgnoreCase))
+            {
+                var t = (token ?? "").Trim();
+                if (t.StartsWith("Trigger", StringComparison.OrdinalIgnoreCase))
+                    t = t.Substring("Trigger".Length);
+
+                if (!int.TryParse(t, out var trigIndex) || trigIndex < 0)
+                    throw new Exception($"Invalid TriggerRef literal: '{token}'");
+
+                return ConvertToBinary(trigIndex, 9);
+            }
+
+            // Try to locate the enum type by short name across loaded assemblies.
+            Type? enumType = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a =>
+                {
+                    try { return a.GetTypes(); } catch { return Array.Empty<Type>(); }
+                })
+                .FirstOrDefault(t => t.IsEnum && t.Name.Equals(enumName, StringComparison.OrdinalIgnoreCase));
+
+            if (enumType == null)
+            {
+                // Unknown enum: safest is zero-width -> return empty
+                // but we must still emit something. Use 0 bits (empty) so we don't silently corrupt layouts.
+                // If this trips, add a concrete encoder for this TypeRef.
+                throw new InvalidOperationException($"Enum type '{enumName}' not found. Add it or add a custom encoder for '{enumName}'.");
+            }
+
+            int bits = BitsNeededForEnum(enumType);
+            if (bits <= 0) bits = 1;
+
+            if (string.IsNullOrWhiteSpace(token))
+                return ConvertToBinary(0, bits);
+
+            try
+            {
+                object value;
+                if (int.TryParse(token, out int asInt))
+                {
+                    value = Enum.ToObject(enumType, asInt);
+                }
+                else
+                {
+                    // Allow tokens like "sound_emitter_alarm_2" or "needle_rifle"
+                    value = Enum.Parse(enumType, token, ignoreCase: true);
+                }
+
+                int intVal = Convert.ToInt32(value);
+                return ConvertToBinary(intVal, bits);
+            }
+            catch
+            {
+                // Unknown token -> default 0 (safer than throwing for non-critical enums)
+                return ConvertToBinary(0, bits);
             }
         }
 
-
-        private void ProcessTrigger(LocalFunctionStatementSyntax method)
+        private static int BitsNeededForEnum(Type enumType)
         {
-            // Default trigger type and attribute
-            string triggerType = "Do";
-            string triggerAttribute = "OnTick";
+            try
+            {
+                var values = Enum.GetValues(enumType).Cast<object>().Select(Convert.ToInt64).ToArray();
+                long max = values.Length == 0 ? 0 : values.Max();
+                if (max <= 0) return 1;
+                int bits = 0;
+                while (max > 0) { bits++; max >>= 1; }
+                return Math.Max(bits, 1);
+            }
+            catch
+            {
+                return 1;
+            }
+        }
 
-            // Use the identifier to set the trigger type
-            triggerType = method.Identifier.Text;
+        private static bool ParseGetPrimaryToken(string token, bool defaultValue)
+        {
+            token = (token ?? string.Empty).Trim();
+
+            // allow plain bools
+            if (TryParseBoolLoose(token, out bool b))
+                return b;
+
+            // allow Megalo-ish tokens
+            if (token.Equals("GetPrimary", StringComparison.OrdinalIgnoreCase) ||
+                token.Equals("Primary", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (token.Equals("GetSecondary", StringComparison.OrdinalIgnoreCase) ||
+                token.Equals("Secondary", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            return defaultValue;
+        }
+
+        private List<string> EncodeAction_PlayerWeaponGet(List<string> args, string? varOut)
+        {
+            // Player.Weapon_GET(Player, GetPrimary, OUTWeapon)
+
+            string player = args.Count > 0 ? args[0] : "current_player";
+
+            bool getPrimary = true;
+            if (args.Count > 1)
+                getPrimary = ParseGetPrimaryToken(args[1], defaultValue: true);
+
+            // OUT param inferred from assignment/declaration name (varOut)
+            string outObj = "NoObject";
+            if (!string.IsNullOrWhiteSpace(varOut))
+                outObj = RemapVariableToObjectRef(varOut);
+
+            // Encode params
+            return new List<string>
+    {
+        ConvertPlayerTypeRefToBinary(player, 7),      // 2+5 bits (as your converter builds)
+        ConvertToBinary(getPrimary, 1),               // Bool
+        ConvertObjectTypeRefToBinary(outObj, 0, 1)    // ObjectTypeRef
+    };
+        }
+
+
+
+        // ============================================================
+        // Action encoders (canonical Megalo layout for supported subset)
+        // ============================================================
+
+        // Megl.Create(Type1, OUTObject, PlaceAt, Label, SpawnFlags, LocationOffset, Variant)
+        private List<string> EncodeAction_Create(List<string> args, string? varOut)
+        {
+            // Args (script alias): CreateObject(type, placeAt [, label])
+            string typeStr = args.Count > 0 ? args[0] : "none";
+            string placeAt = args.Count > 1 ? args[1] : "current_object";
+            string label = args.Count > 2 ? args[2] : "none";
+
+            // Resolve OUTObject from varOut (same behavior as old compiler's var_out handling)
+            string outObj = "NoObject";
+            int outPriority = 1;
+            if (!string.IsNullOrWhiteSpace(varOut) && _variableToIndexMap.TryGetValue(varOut, out VariableInfo varInfo))
+            {
+                outObj = $"GlobalObject{varInfo.Index}";
+                outPriority = varInfo.Priority;
+            }
+
+            var p = new List<string>();
+
+            // Type1: ObjectType (12 bits in existing compiler)
+            int typeValue = ConvertToObjectType(typeStr);
+            p.Add(ConvertToBinary(typeValue, 12));
+
+            // OUTObject: ObjectTypeRef
+            p.Add(ConvertObjectTypeRefToBinary(outObj, 0, outPriority));
+
+            // PlaceAt: ObjectTypeRef
+            placeAt = RemapVariableToObjectRef(placeAt);
+            p.Add(ConvertObjectTypeRefToBinary(placeAt, 0, 1));
+
+            // Label: LabelRef (keep existing "none vs specified" framing used previously)
+            p.Add(EncodeLabelRef(label));
+
+            // SpawnFlags: default 0 (best-effort; bits are schema-driven but not currently embedded here)
+            p.Add(ConvertToBinary(0, 3));
+
+            // LocationOffset: default (0,0,0) unless user gave 3 extra ints after placeAt/label
+            int x = 0, y = 0, z = 0;
+            if (args.Count >= 5 && int.TryParse(args[args.Count - 3], out int px) && int.TryParse(args[args.Count - 2], out int py) && int.TryParse(args[args.Count - 1], out int pz))
+            {
+                x = px; y = py; z = pz;
+            }
+            p.Add(ConvertVector3ToBinary(x, y, z));
+
+            // Variant: NameIndex (best-effort 8 bits; "none" => 0)
+            string variant = "none";
+            p.Add(EncodeNameIndex(variant, 8));
+
+            return p;
+        }
+
+        // Obj.Attach(Base, Attach, LocationOffset, Relative)
+        // Script alias: Attach(child, parent, x, y, z [, relative])
+        private List<string> EncodeAction_Attach(List<string> args)
+        {
+            string child = args.Count > 0 ? args[0] : "NoObject";
+            string parent = args.Count > 1 ? args[1] : "NoObject";
+
+            int x = 0, y = 0, z = 0;
+            if (args.Count > 2) int.TryParse(args[2], out x);
+            if (args.Count > 3) int.TryParse(args[3], out y);
+            if (args.Count > 4) int.TryParse(args[4], out z);
+
+            bool relative = true;
+            if (args.Count > 5 && TryParseBoolLoose(args[5], out bool rel))
+                relative = rel;
+
+            // Megalo expects Base=parent, Attach=child
+            parent = RemapVariableToObjectRef(parent);
+            child = RemapVariableToObjectRef(child);
+
+            var p = new List<string>
+            {
+                ConvertObjectTypeRefToBinary(parent, 0, 1),
+                ConvertObjectTypeRefToBinary(child, 0, 1),
+                ConvertVector3ToBinary(x, y, z),
+                ConvertToBinary(relative, 1)
+            };
+            return p;
+        }
+
+        // Obj.Speed_GET(Object, OUTSpeed)
+        // Script alias: GetSpeed(object)
+        private List<string> EncodeAction_SpeedGet(List<string> args, string? varOut)
+        {
+            string obj = args.Count > 0 ? args[0] : "current_object";
+            obj = RemapVariableToObjectRef(obj);
+
+            string outNum = "Int16";
+            if (!string.IsNullOrWhiteSpace(varOut) && _variableToIndexMap.TryGetValue(varOut, out VariableInfo varInfo))
+                outNum = $"GlobalNumber{varInfo.Index}";
+
+            var p = new List<string>
+            {
+                ConvertObjectTypeRefToBinary(obj, 0, 1),
+                ConvertNumericTypeRefToBinary(outNum, 0)
+            };
+            return p;
+        }
+
+        // Obj.DropWeapon(Object, Mode, DeleteOnDrop)
+        // Script alias: DropWeapon(object)
+        private List<string> EncodeAction_DropWeapon(List<string> args)
+        {
+            string obj = args.Count > 0 ? args[0] : "current_object";
+            obj = RemapVariableToObjectRef(obj);
+
+            // Best-effort defaults
+            int mode = 0;
+            bool deleteOnDrop = false;
+
+            // Allow optional args: DropWeapon(obj, mode, delete)
+            if (args.Count > 1) int.TryParse(args[1], out mode);
+            if (args.Count > 2 && TryParseBoolLoose(args[2], out bool del)) deleteOnDrop = del;
+
+            var p = new List<string>
+            {
+                ConvertObjectTypeRefToBinary(obj, 0, 1),
+                ConvertToBinary(mode, 1),            // DropWeaponMode bits per XML appear small; keep 1 for now
+                ConvertToBinary(deleteOnDrop, 1)
+            };
+            return p;
+        }
+
+        // Obj.kill(Object, SuppressStats)
+        // Script alias: Kill(object [, suppressStats])
+        private List<string> EncodeAction_Kill(List<string> args)
+        {
+            string obj = args.Count > 0 ? args[0] : "current_object";
+            obj = RemapVariableToObjectRef(obj);
+
+            bool suppress = false;
+            if (args.Count > 1 && TryParseBoolLoose(args[1], out bool sup))
+                suppress = sup;
+
+            var p = new List<string>
+            {
+                ConvertObjectTypeRefToBinary(obj, 0, 1),
+                ConvertToBinary(suppress, 1)
+            };
+            return p;
+        }
+
+        // Obj.Delete(Object)
+        // Script alias: Delete(object)
+        private List<string> EncodeAction_Delete(List<string> args)
+        {
+            string obj = args.Count > 0 ? args[0] : "current_object";
+            obj = RemapVariableToObjectRef(obj);
+
+            return new List<string>
+            {
+                ConvertObjectTypeRefToBinary(obj, 0, 1)
+            };
+        }
+
+        private string RemapVariableToObjectRef(string maybeVar)
+        {
+            if (!string.IsNullOrWhiteSpace(maybeVar) && _variableToIndexMap.TryGetValue(maybeVar, out VariableInfo varInfo))
+                return $"GlobalObject{varInfo.Index}";
+            return maybeVar;
+        }
+
+        private string EncodeLabelRef(string label)
+        {
+            // Preserve prior behavior: 1 bit meaning "none/default", otherwise 0 + 4 bits label
+            if (string.IsNullOrWhiteSpace(label) || label.Equals("none", StringComparison.OrdinalIgnoreCase))
+                return ConvertToBinary(1, 1);
+
+            if (int.TryParse(label, out int labelId))
+                return ConvertToBinary(0, 1) + ConvertToBinary(labelId, 4);
+
+            // Without the LabelRef enum table embedded here yet, fallback to 15.
+            return ConvertToBinary(0, 1) + ConvertToBinary(15, 4);
+        }
+
+
+
+        // ============================================================
+        // Condition encoders
+        // ============================================================
+
+        // Obj.IsOfType(Object, Type1)
+        // Script alias: ObjectIsType(object, type)
+        private List<string> EncodeCondition_IsOfType(List<string> args)
+        {
+            string obj = args.Count > 0 ? args[0] : "current_object";
+            string typeStr = args.Count > 1 ? args[1] : "none";
+
+            int priority = 1;
+            if (!string.IsNullOrWhiteSpace(obj) && _variableToIndexMap.TryGetValue(obj, out VariableInfo vi))
+            {
+                obj = $"GlobalObject{vi.Index}";
+                priority = vi.Priority;
+            }
+
+            var p = new List<string>
+            {
+                ConvertObjectTypeRefToBinary(obj, 0, priority),
+                ConvertToBinary((ObjectType)Enum.Parse(typeof(ObjectType), typeStr, true), 12),
+            };
+            return p;
+        }
+        private string EncodeNameIndex(string name, int bits)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Equals("none", StringComparison.OrdinalIgnoreCase))
+                return ConvertToBinary(0, bits);
+
+            // If your project defines NameIndex enum, ConvertToBinary(string, bits) will try to parse it.
+            return ConvertToBinary(name, bits);
+        }
+
+        private static bool StatementMayEmitMegalo(StatementSyntax st)
+        {
+            // Keep this conservative: return true unless you're confident it emits nothing.
+            return st switch
+            {
+                EmptyStatementSyntax => false,
+
+                // These definitely emit code:
+                IfStatementSyntax => true,
+                ExpressionStatementSyntax => true,
+                ForStatementSyntax => true,
+                WhileStatementSyntax => true,
+                DoStatementSyntax => true,
+                SwitchStatementSyntax => true,
+                ReturnStatementSyntax => true,
+
+                // Locals: only emit if initializer exists (e.g. Object x = Player.Weapon_GET(...);)
+                LocalDeclarationStatementSyntax lds => lds.Declaration.Variables.Any(v => v.Initializer != null),
+
+                // Default: assume it might emit
+                _ => true
+            };
+        }
+
+        private static bool HasFollowingMegaloEmittingStatements(IReadOnlyList<StatementSyntax> list, int index)
+        {
+            for (int i = index + 1; i < list.Count; i++)
+            {
+                if (StatementMayEmitMegalo(list[i]))
+                    return true;
+            }
+            return false;
+        }
+
+
+
+
+
+        private static bool TryMapEventWrapper(string name, out string attribute)
+        {
+            switch (name)
+            {
+                case "Local": attribute = "OnLocal"; return true;
+                case "Init": attribute = "OnInit"; return true;
+                case "LocalInit": attribute = "OnLocalInit"; return true;
+                case "HostMigration": attribute = "OnHostMigration"; return true;
+                case "ObjectDeath": attribute = "OnObjectDeath"; return true;
+                case "Pregame": attribute = "OnPregame"; return true;
+                case "Call": attribute = "OnCall"; return true;
+                default: attribute = ""; return false;
+            }
+        }
+
+        private static bool IsTriggerLocalFunction(LocalFunctionStatementSyntax lf)
+            => lf.ReturnType.ToString() == "Trigger";
+
+        private int ReservePendingTrigger(LocalFunctionStatementSyntax lf, string defaultAttribute)
+        {
+            int idx = _triggers.Count;
+
+            // Placeholder; replaced when we compile this trigger in DrainPendingTriggers()
+            _triggers.Add(new TriggerObject(lf.Identifier.Text, new List<string> { "" }));
+
+            _pendingTriggers.Enqueue(new PendingTrigger(lf, idx, defaultAttribute));
+            return idx;
+        }
+
+        private void DrainPendingTriggers()
+        {
+            while (_pendingTriggers.Count > 0)
+            {
+                var p = _pendingTriggers.Dequeue();
+                ProcessTrigger(p.Syntax, fixedIndex: p.Index, defaultAttribute: p.DefaultAttribute);
+            }
+        }
+
+        private void ProcessTrigger(LocalFunctionStatementSyntax method, int? fixedIndex = null, string? defaultAttribute = null)
+        {
+            _deferredInlines.Clear();
+
+            // Default trigger type and attribute
+            string triggerType = method.Identifier.Text;
+            string triggerAttribute = defaultAttribute ?? "OnTick";
+
+            // Wrapper triggers (Local/Init/etc) compile as Do + mapped attribute.
+            if (TryMapEventWrapper(method.Identifier.Text, out var wrapperAttr))
+            {
+                triggerType = "Do";
+                triggerAttribute = wrapperAttr;
+
+                if (!_eventWrapperAttributes.Add(wrapperAttr))
+                    throw new InvalidOperationException($"Only one root trigger is allowed for event '{wrapperAttr}'.");
+            }
+
 
             // Check for specific trigger attribute
             if (method.AttributeLists.Count > 0)
             {
                 var attribute = method.AttributeLists[0].Attributes[0];
                 if (attribute.ArgumentList != null && attribute.ArgumentList.Arguments.Count > 0)
-                {
                     triggerAttribute = attribute.ArgumentList.Arguments[0].ToString().Trim('"');
-                }
             }
 
-            // Count the number of conditions and actions for this trigger
-            int conditionOffset = _conditions.Count;
-            int actionOffset = _actions.Count;
+            // IMPORTANT:
+            // These are the start offsets that the trigger must reference.
+            int startConditionOffset = _conditions.Count;
+            int startActionOffset = _actions.Count;
+
+
+            // Base for LOCAL condition action offsets in this trigger
+            _actionBaseStack.Push(startActionOffset);
+            // These are cursors that move while we compile statements.
+            int conditionOffsetCursor = startConditionOffset;
+            int actionOffsetCursor = startActionOffset;
+
             int conditionCount = 0;
             int actionCount = 0;
 
@@ -1014,39 +2165,67 @@ namespace UniversalGametypeEditor
 
             if (method.Body != null)
             {
-                // Process all statements in the trigger method body
-                foreach (var statement in method.Body.Statements)
-                {
-                    int statementActionCount = 0;
-                    int statementConditionCount = 0;
-                    ProcessStatement(statement, ref statementActionCount, ref statementConditionCount, ref actionOffset, ref conditionOffset);
-
-                    actionCount += statementActionCount;
-                    conditionCount += statementConditionCount;
-                }
+                ProcessStatementList(method.Body.Statements, ref actionCount, ref conditionCount, ref actionOffsetCursor, ref conditionOffsetCursor, true);
             }
 
-            // Get the final counts after processing
-            int finalConditionCount = _conditions.Count - conditionOffset;
-            int finalActionCount = _actions.Count - actionOffset;
+            // Compute counts from the *start offsets*, not the mutated cursors
+            int finalConditionCount = _conditions.Count - startConditionOffset;
+            int finalActionCount = _actions.Count - startActionOffset;
 
             EndScope();
 
             // Create the trigger binary representation
-            string conditionOffsetBinary = ConvertToBinary(conditionOffset, 9);
+            string conditionOffsetBinary = ConvertToBinary(startConditionOffset, 9);
             string conditionCountBinary = ConvertToBinary(finalConditionCount, 10);
-            string actionOffsetBinary = ConvertToBinary(actionOffset, 10);
+            string actionOffsetBinary = ConvertToBinary(startActionOffset, 10);
             string actionCountBinary = ConvertToBinary(finalActionCount, 11);
 
-            string triggerTypeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerTypeEnum), triggerType), 3);
-            string triggerAttributeBinary = ConvertToBinary((int)Enum.Parse(typeof(TriggerAttributeEnum), triggerAttribute), 3);
+            string triggerTypeBinary = ConvertToBinary(Enum.Parse(typeof(TriggerTypeEnum), triggerType), 3);
+            string triggerAttributeBinary = ConvertToBinary(Enum.Parse(typeof(TriggerAttributeEnum), triggerAttribute), 3);
 
-            string binaryTrigger = triggerTypeBinary + triggerAttributeBinary + conditionOffsetBinary + conditionCountBinary + actionOffsetBinary + actionCountBinary;
-            _triggers.Add(new TriggerObject(triggerType, new List<string> { binaryTrigger }));
+            string binaryTrigger =
+                triggerTypeBinary +
+                triggerAttributeBinary +
+                conditionOffsetBinary +
+                conditionCountBinary +
+                actionOffsetBinary +
+                actionCountBinary;
+
+            var triggerObj = new TriggerObject(triggerType, new List<string> { binaryTrigger });
+
+            if (fixedIndex.HasValue)
+                _triggers[fixedIndex.Value] = triggerObj;
+            else
+                _triggers.Add(triggerObj);
+
+
+            // After _triggers.Add(...)
+            foreach (var patch in _deferredInlines)
+            {
+                int condOffset = _conditions.Count;
+                int condCount = patch.Conditions.Count;
+
+                // Append conditions
+                _conditions.AddRange(patch.Conditions);
+
+                int actOffset = _actions.Count;
+                int actCount = patch.Actions.Count;
+
+                // Append actions
+                _actions.AddRange(patch.Actions);
+
+                // Patch the Inline action now that we know final offsets
+                string fixedInline = BuildInlineBinary(condOffset, condCount, actOffset, actCount);
+                _actions[patch.InlineActionIndex].Parameters[0] = fixedInline;
+
+                Debug.WriteLine($"Patched Inline at {patch.InlineActionIndex}: condOff={condOffset} condCount={condCount} actOff={actOffset} actCount={actCount}");
+            }
+            _actionBaseStack.Pop();
+
+
 
             Debug.WriteLine($"Created trigger: {triggerType}({triggerAttribute}) with {finalConditionCount} conditions and {finalActionCount} actions");
         }
-
 
 
 
@@ -1271,9 +2450,9 @@ namespace UniversalGametypeEditor
 
             // Use the current actions count as the target for this condition
             // This is critical for correctly pointing to the first action that should run if this condition is true
-            int currentActionOffset = _actions.Count;
-            string actionOffsetBinary = ConvertToBinary(currentActionOffset, 10);
-
+            int currentActionOffset = actionOffset; // global cursor (next action in this container)
+            int localActionOffset = GetLocalActionOffset(currentActionOffset);
+            string actionOffsetBinary = ConvertToBinary(localActionOffset, 10);
             // Construct the full binary condition
             string binaryCondition = conditionNumberBinary + notBinary + orSequenceBinary + actionOffsetBinary
                                    + leftVarType + leftVarBinary
@@ -1282,7 +2461,7 @@ namespace UniversalGametypeEditor
 
             // Add the condition to the conditions list
             _conditions.Add(new ConditionObject("Megl.If", new List<string> { binaryCondition }));
-            Debug.WriteLine($"Added binary condition: Megl.If({binaryCondition}) pointing to action at index {currentActionOffset}");
+            Debug.WriteLine($"Added binary condition: Megl.If({binaryCondition}) pointing to LOCAL action {localActionOffset} (base={CurrentActionBase}, global={currentActionOffset})");
 
             // Increment condition count
             conditionCount++;
@@ -1290,238 +2469,348 @@ namespace UniversalGametypeEditor
 
 
 
-        private void ProcessCondition(ExpressionSyntax condition, ref int conditionCount, ref int actionOffset, ref int conditionOffset, int orSequence = 0, bool isNot = false)
+
+        private void ProcessCondition(
+            ExpressionSyntax condition,
+            ref int conditionCount,
+            ref int actionOffset,
+            ref int conditionOffset,
+            int orSequence = 0,
+            bool isNot = false)
         {
-            if (condition is PrefixUnaryExpressionSyntax unaryExpression && unaryExpression.OperatorToken.IsKind(SyntaxKind.ExclamationToken))
+            // Parentheses
+            if (condition is ParenthesizedExpressionSyntax paren)
             {
-                // Handle negation (NOT operator)
-                ProcessCondition(unaryExpression.Operand, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, true);
+                ProcessCondition(paren.Expression, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
                 return;
             }
 
-            if (condition is BinaryExpressionSyntax binaryExpression)
+            // Handle NOT
+            if (condition is PrefixUnaryExpressionSyntax unary
+                && unary.OperatorToken.IsKind(SyntaxKind.ExclamationToken))
             {
-                // For binary expressions in the "OR" form (a || b)
-                if (binaryExpression.OperatorToken.IsKind(SyntaxKind.BarBarToken))
-                {
-                    // Process left side with current orSequence
-                    ProcessCondition(binaryExpression.Left, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
+                ProcessCondition(unary.Operand, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot: true);
+                return;
+            }
 
-                    // Process right side with incremented orSequence to create the OR chain
-                    ProcessCondition(binaryExpression.Right, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence + 1, isNot);
+            // Handle binary expressions
+            if (condition is BinaryExpressionSyntax bin)
+            {
+                if (bin.IsKind(SyntaxKind.LogicalOrExpression))
+                {
+                    // OR chains use ORSequence slots
+                    ProcessCondition(bin.Left, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
+                    ProcessCondition(bin.Right, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence + 1, isNot);
                     return;
                 }
 
-                // For comparison operators (==, !=, >, <, >=, <=)
-                ProcessBinaryCondition(binaryExpression, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
+                if (bin.IsKind(SyntaxKind.LogicalAndExpression))
+                {
+                    // AND is implicit: just emit both conditions with same ORSequence
+                    ProcessCondition(bin.Left, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
+                    ProcessCondition(bin.Right, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
+                    return;
+                }
+
+                // Comparison / arithmetic-based condition -> Megl.If
+                ProcessBinaryCondition(bin, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
                 return;
             }
 
+            // Invocation condition (e.g., Obj.IsOfType(obj, needle_rifle))
             if (condition is InvocationExpressionSyntax invocation)
             {
-                var identifier = invocation.Expression as IdentifierNameSyntax;
-                if (identifier != null)
+                string? scriptName = GetInvokedName(invocation.Expression);
+                if (string.IsNullOrWhiteSpace(scriptName))
                 {
-                    string conditionName = identifier.Identifier.Text;
-                    Debug.WriteLine($"Processing condition: {conditionName}");
-                    var conditionDefinition = ConditionDefinitions.ValidConditions.FirstOrDefault(c => c.Name == conditionName);
-                    if (conditionDefinition != null)
-                    {
-                        var arguments = invocation.ArgumentList.Arguments;
-                        List<string> parameters = new List<string>();
-
-                        // Process the condition parameters
-                        for (int i = 0; i < conditionDefinition.Parameters.Count; i++)
-                        {
-                            var param = conditionDefinition.Parameters[i];
-                            int bitSize = param.Bits;
-
-                            if (i < arguments.Count)
-                            {
-                                // Convert parameters to binary
-                                string paramValue = arguments[i].ToString().Trim('"');
-
-                                // Handle different parameter types
-                                if (param.ParameterType == typeof(ObjectTypeRef))
-                                {
-                                    int priority = 1; // Default to low priority
-                                    if (paramValue != null && _variableToIndexMap.TryGetValue(paramValue, out VariableInfo index))
-                                    {
-                                        paramValue = $"GlobalObject{index.Index}";
-                                        priority = index.Priority;
-                                    }
-                                    parameters.Add(ConvertObjectTypeRefToBinary(paramValue ?? string.Empty, bitSize, priority));
-                                }
-                                else if (param.ParameterType == typeof(PlayerTypeRef))
-                                {
-                                    parameters.Add(ConvertPlayerTypeRefToBinary(paramValue ?? string.Empty, bitSize));
-                                }
-                                else if (param.ParameterType == typeof(NumericTypeRef))
-                                {
-                                    parameters.Add(ConvertNumericTypeRefToBinary(paramValue ?? string.Empty, bitSize));
-                                }
-                                else if (param.ParameterType == typeof(ObjectType))
-                                {
-                                    ObjectType objectType = (ObjectType)Enum.Parse(typeof(ObjectType), paramValue, true);
-                                    parameters.Add(ConvertToBinary(objectType, bitSize));
-                                }
-                                else
-                                {
-                                    parameters.Add(ConvertToBinary(paramValue, bitSize));
-                                }
-                            }
-                            else
-                            {
-                                // Use default value if no argument is provided
-                                parameters.Add(ConvertToBinary(param.DefaultValue, bitSize));
-                            }
-                        }
-
-                        // Convert the condition number to a 5-bit binary string
-                        string conditionNumberBinary = ConvertToBinary(conditionDefinition.Id, 5);
-
-                        // Convert the NOT, ORSequence, and ActionOffset to binary strings
-                        string notBinary = ConvertToBinary(isNot ? 1 : 0, 1);
-                        string orSequenceBinary = ConvertToBinary(orSequence, 9);
-
-                        // Use the current action list count for the action offset
-                        string actionOffsetBinary = ConvertToBinary(_actions.Count, 10);
-
-                        // Concatenate all binary parts into a single binary string
-                        string binaryCondition = conditionNumberBinary + notBinary + orSequenceBinary + actionOffsetBinary + string.Join("", parameters);
-
-                        // Add the condition to the conditions list
-                        _conditions.Add(new ConditionObject(conditionName, new List<string> { binaryCondition }));
-                        Debug.WriteLine($"Added condition: {conditionName}({binaryCondition}) with action offset {_actions.Count}");
-
-                        // Increment the condition count
-                        conditionCount++;
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"Condition definition not found for: {conditionName}");
-                    }
+                    Debug.WriteLine("Unsupported condition invocation form.");
+                    return;
                 }
+
+                MegaloCondition cond;
+                try
+                {
+                    cond = ResolveConditionByName(scriptName);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(ex.Message);
+                    return;
+                }
+
+                var args = invocation.ArgumentList.Arguments.Select(a => TrimArg(a.Expression)).ToList();
+                var paramBits = EncodeMegaloConditionParams(cond, args);
+
+                string conditionNumberBinary = ConvertToBinary(cond.Id, 5);
+                string notBinary = ConvertToBinary(isNot ? 1 : 0, 1);
+                string orSequenceBinary = ConvertToBinary(orSequence, 9);
+
+                // LOCAL action offset in current container (trigger or inline)
+                int localActionOffset = GetLocalActionOffset(actionOffset);
+                string actionOffsetBinary = ConvertToBinary(localActionOffset, 10);
+
+                string binaryCondition = conditionNumberBinary
+                                       + notBinary
+                                       + orSequenceBinary
+                                       + actionOffsetBinary
+                                       + string.Join("", paramBits);
+
+                _conditions.Add(new ConditionObject(cond.Name, new List<string> { binaryCondition }));
+                Debug.WriteLine($"Added condition: {scriptName}({binaryCondition}) at conditionOffset={conditionOffset} (base={CurrentActionBase}, global={actionOffset})");
+                conditionOffset++;
+                conditionCount++;
+
+                return;
             }
-            else
-            {
-                Debug.WriteLine($"Unhandled condition type: {condition.GetType().Name}");
-            }
+
+            Debug.WriteLine($"Unsupported condition type: {condition.Kind()}");
+        }
+
+
+        private static string ToSigned16Binary(int v)
+        {
+            int b = v & 0xFFFF; // two's complement
+            return Convert.ToString(b, 2).PadLeft(16, '0');
         }
 
         private string ConvertNumericTypeRefToBinary(string value, int bitSize)
         {
-            // Define a dictionary to map input strings to their corresponding NumericTypeRef values
-            var numericTypeRefMap = new Dictionary<string, NumericTypeRefEnum>
+            value = (value ?? string.Empty).Trim();
+
+            // Allow literals directly: NumericTypeRef(Int16) + 16-bit payload
+            if (int.TryParse(value, out int literal))
+            {
+                string typeBits = Convert.ToString((int)NumericTypeRefEnum.Int16, 2).PadLeft(6, '0');
+                string payload = ToSigned16Binary(literal);
+                string finalLit = typeBits + payload;
+                return bitSize > 0 ? finalLit.PadLeft(bitSize, '0') : finalLit;
+            }
+
+            // Define a dictionary to map input strings to their corresponding NumericTypeRefEnum values
+            var numericTypeRefMap = new Dictionary<string, NumericTypeRefEnum>(StringComparer.OrdinalIgnoreCase)
     {
         { "Int16", NumericTypeRefEnum.Int16 },
-        { "Player.Number", NumericTypeRefEnum.PlayerNumber },
-        { "Object.Number", NumericTypeRefEnum.ObjectNumber },
-        { "Team.Number", NumericTypeRefEnum.TeamNumber },
-        { "Global.Number", NumericTypeRefEnum.GlobalNumber },
-        { "ScriptOption", NumericTypeRefEnum.ScriptOption },
-        { "Object.SpawnSeq", NumericTypeRefEnum .ObjectSpawnSeq },
-        { "Team.Score", NumericTypeRefEnum.TeamScore },
-        { "Player.Score", NumericTypeRefEnum.PlayerScore },
-        { "Player.Money", NumericTypeRefEnum.PlayerMoney },
-        { "Player.Rating", NumericTypeRefEnum.PlayerRating },
-        { "Player.Stat", NumericTypeRefEnum.PlayerStat },
-        { "Team.Stat", NumericTypeRefEnum.TeamStat },
-        { "CurrentRound", NumericTypeRefEnum.CurrentRound },
-        { "SymmetricMode", NumericTypeRefEnum.SymmetricMode },
-        { "SymmetricModeWritable", NumericTypeRefEnum.SymmetricModeWritable },
-        { "ScoreToWin", NumericTypeRefEnum.ScoreToWin },
-        { "Fireteams Enabled", NumericTypeRefEnum.FireteamsEnabled },
-        { "Teams Enabled", NumericTypeRefEnum.TeamsEnabled },
-        { "Round Time Limit", NumericTypeRefEnum.RoundTimeLimit },
-        { "Round Limit", NumericTypeRefEnum.RoundLimit },
-        { "Perfection Enabled", NumericTypeRefEnum.PerfectionEnabled },
-        { "Early Victory Win Count", NumericTypeRefEnum.EarlyVictoryWinCount },
-        { "Sudden Death Time Limit", NumericTypeRefEnum.SuddenDeathTimeLimit },
-        { "Grace Period Time Limit", NumericTypeRefEnum.GracePeriodTimeLimit },
-        { "Player.Lives", NumericTypeRefEnum.PlayerLives },
-        { "Team.Lives", NumericTypeRefEnum.TeamLives },
-        { "RespawnTime", NumericTypeRefEnum.RespawnTime },
-        { "Suicide Respawn Penalty", NumericTypeRefEnum.SuicideRespawnPenalty },
-        { "Betrayal Respawn Penalty", NumericTypeRefEnum.BetrayalRespawnPenalty },
-        { "Respawn Growth Time", NumericTypeRefEnum.RespawnGrowthTime },
-        { "Initial Loadout Selection Time", NumericTypeRefEnum.InitialLoadoutSelectionTime },
-        { "Respawn Traits Duration", NumericTypeRefEnum.RespawnTraitsDuration },
-        { "Friendly Fire Enabled", NumericTypeRefEnum.FriendlyFireEnabled },
-        { "Betrayal Booting Enabled", NumericTypeRefEnum.BetrayalBootingEnabled },
-        { "Enemy Voice Enabled", NumericTypeRefEnum.EnemyVoiceEnabled },
-        { "Open Channel Voice Enabled", NumericTypeRefEnum.OpenChannelVoiceEnabled },
-        { "Dead Player Voice Enabled", NumericTypeRefEnum.DeadPlayerVoiceEnabled },
-        { "Grenades on Map", NumericTypeRefEnum.GrenadesOnMap },
-        { "Indestructible Vehicles Enabled", NumericTypeRefEnum.IndestructibleVehiclesEnabled },
-        { "Red Traits Duration", NumericTypeRefEnum.RedTraitsDuration },
-        { "Blue Traits Duration", NumericTypeRefEnum.BlueTraitsDuration },
-        { "Yellow Traits Duration", NumericTypeRefEnum.YellowTraitsDuration },
-        { "Object Death Damage Type", NumericTypeRefEnum.ObjectDeathDamageType },
-        // Add more as needed
+        { "NoNumber", NumericTypeRefEnum.Int16 },
+        // You can add more explicit mappings here if you have "RoundTime" etc.
     };
-            if (value.StartsWith("GlobalNumber"))
+
+            // Check if the input value is a GlobalNumber
+            if (value.StartsWith("GlobalNumber", StringComparison.OrdinalIgnoreCase))
             {
                 int globalNumberIndex = int.Parse(value.Replace("GlobalNumber", ""));
-                //globalNumberIndex += 1; // Increment the index by 1 to account for the NoObject case
+                // Index 0 maps to GlobalNumber0, etc.
                 if (globalNumberIndex < 0 || globalNumberIndex > 15)
-                {
                     throw new ArgumentException($"Invalid GlobalNumber index: {globalNumberIndex}");
-                }
-                // Convert the NumericTypeRef to its binary representation
-                string numericTypeRefBinary = Convert.ToString((int)NumericTypeRefEnum.GlobalNumber, 2).PadLeft(6, '0');
-                // Convert the global number index to its binary representation
-                string globalNumberIndexBinary = Convert.ToString(globalNumberIndex, 2).PadLeft(4, '0');
-                // Concatenate the binary representations to form the final binary string
-                string finalBinaryString1 = numericTypeRefBinary + globalNumberIndexBinary;
-                return finalBinaryString1;
-            }
-            else if (numericTypeRefMap.TryGetValue(value, out var numericTypeRefEnumValue))
-            {
-                // Convert the NumericTypeRef to its binary representation
-                string numericTypeRefBinary = Convert.ToString((int)numericTypeRefEnumValue, 2).PadLeft(6, '0');
-                // Ensure the final binary string is padded to the specified bit size
-                return numericTypeRefBinary.PadLeft(bitSize, '0');
-            }
-            else
-            {
-                throw new ArgumentException($"Unsupported NumericTypeRef: {value}");
-            }
-        }
 
+                string numericTypeRefBinary = Convert.ToString((int)NumericTypeRefEnum.GlobalNumber, 2).PadLeft(6, '0');
+                string globalNumberIndexBinary = Convert.ToString(globalNumberIndex, 2).PadLeft(4, '0');
+                string finalBinaryString = numericTypeRefBinary + globalNumberIndexBinary;
+                return bitSize > 0 ? finalBinaryString.PadLeft(bitSize, '0') : finalBinaryString;
+            }
+
+            // Convert NumericTypeRef to its binary representation
+            if (numericTypeRefMap.TryGetValue(value, out var numericTypeRefEnum))
+            {
+                string numericTypeRefBinary = Convert.ToString((int)numericTypeRefEnum, 2).PadLeft(6, '0');
+            }
+
+            throw new ArgumentException($"Unsupported NumericTypeRef: {value}");
+        }
 
         private string ConvertPlayerTypeRefToBinary(string value, int bitSize)
         {
-            // Define a dictionary to map input strings to their corresponding PlayerTypeRefEnum values
-            var playerTypeRefMap = new Dictionary<string, PlayerTypeRefEnum>
+            value = (value ?? string.Empty).Trim();
+
+            // Support GlobalPlayerN (similar to GlobalObject)
+            if (value.StartsWith("GlobalPlayer", StringComparison.OrdinalIgnoreCase))
             {
-                { "Player", PlayerTypeRefEnum.Player },
-                { "Player.Player", PlayerTypeRefEnum.PlayerPlayer },
-                { "Object.Player", PlayerTypeRefEnum.ObjectPlayer },
-                { "Team.Player", PlayerTypeRefEnum.TeamPlayer },
-                { "current_player", PlayerTypeRefEnum.Player }
-            };
+                int idx = int.Parse(value.Replace("GlobalPlayer", ""));
+                idx += 1; // reserve 0 for NoPlayer
+                if (idx < 0 || idx > 31) throw new ArgumentException($"Invalid GlobalPlayer index: {idx}");
 
-            // Split the value to handle nested structures
-            var parts = value.Split('.');
+                string typeBits = Convert.ToString((int)PlayerTypeRefEnum.Player, 2).PadLeft(2, '0');
+                string refBits = Convert.ToString(idx, 2).PadLeft(5, '0');
+                string final = typeBits + refBits;
+                return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+            }
 
-            // Initialize the final binary string
-            string finalBinaryString = "";
-
-            //Convert PlayerTypeRef to its binary representation
-            if (playerTypeRefMap.TryGetValue(parts[0], out var playerTypeRefEnum))
+            if (value.Equals("NoPlayer", StringComparison.OrdinalIgnoreCase))
             {
-                finalBinaryString += Convert.ToString((int)playerTypeRefEnum, 2).PadLeft(2, '0');
-                finalBinaryString += Convert.ToString((int)PlayerRefEnum.CurrentPlayer, 2).PadLeft(5, '0');
+                string typeBits = Convert.ToString((int)PlayerTypeRefEnum.Player, 2).PadLeft(2, '0');
+                string refBits = Convert.ToString(0, 2).PadLeft(5, '0');
+                string final = typeBits + refBits;
+                return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+            }
+
+            // Existing support: current_player
+            if (value.Equals("current_player", StringComparison.OrdinalIgnoreCase))
+            {
+                string typeBits = Convert.ToString((int)PlayerTypeRefEnum.Player, 2).PadLeft(2, '0');
+                string refBits = Convert.ToString((int)PlayerRefEnum.CurrentPlayer, 2).PadLeft(5, '0');
+                string final = typeBits + refBits;
+                return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+            }
+
+            // Try parsing as an enum directly (if you have names like "SomePlayerRef")
+            try
+            {
+                string typeBits = Convert.ToString((int)PlayerTypeRefEnum.Player, 2).PadLeft(2, '0');
+                int refVal = (int)Enum.Parse(typeof(PlayerRefEnum), value, ignoreCase: true);
+                string refBits = Convert.ToString(refVal, 2).PadLeft(5, '0');
+                string final = typeBits + refBits;
+                return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+            }
+            catch
+            {
+                throw new ArgumentException($"Unsupported PlayerTypeRef: {value}");
+            }
+        }
+
+        private string ConvertTeamTypeRefToBinary(string value, int bitSize)
+        {
+            value = (value ?? string.Empty).Trim();
+
+            // Fallback encoding: [2-bit type][5-bit ref]
+            // If your real schema differs, adjust this and/or wire into your Enums.Enums definitions.
+            int typeVal = 0;
+            int refVal = 0;
+
+            if (value.StartsWith("GlobalTeam", StringComparison.OrdinalIgnoreCase))
+            {
+                int idx = int.Parse(value.Replace("GlobalTeam", ""));
+                refVal = idx + 1;
+            }
+            else if (value.Equals("current_team", StringComparison.OrdinalIgnoreCase))
+            {
+                // Best-effort: treat as Team0 for now (adjust if you have an enum)
+                refVal = 1;
+            }
+            else if (value.Equals("NoTeam", StringComparison.OrdinalIgnoreCase))
+            {
+                refVal = 0;
+            }
+            else if (value.StartsWith("Team", StringComparison.OrdinalIgnoreCase) && int.TryParse(value.Replace("Team", ""), out int t))
+            {
+                refVal = t + 1;
             }
             else
             {
-                throw new ArgumentException($"Unsupported PlayerTypeRef: {parts[0]}");
+                // Try parsing against a TeamRefEnum if present; otherwise 0
+                try
+                {
+                    refVal = (int)Enum.Parse(typeof(TeamRef), value, ignoreCase: true);
+                }
+                catch { refVal = 0; }
             }
 
+            string typeBits = ConvertToBinary(typeVal, 2);
+            string refBits = ConvertToBinary(refVal, 5);
+            string final = typeBits + refBits;
+            return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+        }
 
-            // Ensure the final binary string is padded to the specified bit size
-            return finalBinaryString.PadLeft(bitSize, '0');
+        private string ConvertTimerTypeRefToBinary(string value, int bitSize)
+        {
+            value = (value ?? string.Empty).Trim();
+
+            // Fallback encoding: [2-bit type][5-bit ref]
+            int typeVal = 0;
+            int refVal = 0;
+
+            if (value.StartsWith("GlobalTimer", StringComparison.OrdinalIgnoreCase))
+            {
+                int idx = int.Parse(value.Replace("GlobalTimer", ""));
+                refVal = idx + 1;
+            }
+            else if (value.Equals("NoTimer", StringComparison.OrdinalIgnoreCase))
+            {
+                refVal = 0;
+            }
+            else
+            {
+                // Try numeric token
+                if (int.TryParse(value, out int n))
+                    refVal = n;
+            }
+
+            string typeBits = ConvertToBinary(typeVal, 2);
+            string refBits = ConvertToBinary(refVal, 5);
+            string final = typeBits + refBits;
+            return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+        }
+
+        private string ConvertVarTypeToBinary(string token, int bitSize)
+        {
+            token = (token ?? string.Empty).Trim();
+
+            // VarType header is 3 bits in your existing Megl.If encoding.
+            // 000 = numeric, 001 = player, 010 = object, 011 = team, 100 = timer (best-effort).
+            string kindBits;
+            string payloadBits;
+
+            if (int.TryParse(token, out int literal))
+            {
+                kindBits = ConvertToBinary(0, 3);
+                payloadBits = ConvertNumericTypeRefToBinary(literal.ToString(), 0);
+            }
+            else if (_variableToIndexMap.TryGetValue(token, out var info))
+            {
+                if (info.Type.Equals("Number", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(0, 3);
+                    payloadBits = ConvertNumericTypeRefToBinary($"GlobalNumber{info.Index}", 0);
+                }
+                else if (info.Type.Equals("Object", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(2, 3);
+                    payloadBits = ConvertObjectTypeRefToBinary($"GlobalObject{info.Index}", 0, 1);
+                }
+                else if (info.Type.Equals("Player", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(1, 3);
+                    payloadBits = ConvertPlayerTypeRefToBinary($"GlobalPlayer{info.Index}", 0);
+                }
+                else if (info.Type.Equals("Team", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(3, 3);
+                    payloadBits = ConvertTeamTypeRefToBinary($"GlobalTeam{info.Index}", 0);
+                }
+                else if (info.Type.Equals("Timer", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(4, 3);
+                    payloadBits = ConvertTimerTypeRefToBinary($"GlobalTimer{info.Index}", 0);
+                }
+                else
+                {
+                    kindBits = ConvertToBinary(0, 3);
+                    payloadBits = ConvertNumericTypeRefToBinary("0", 0);
+                }
+            }
+            else
+            {
+                // Support direct object/player tokens for VarType:
+                // - current_player.biped -> object
+                // - current_player -> player
+                if (token.Equals("current_player", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(1, 3);
+                    payloadBits = ConvertPlayerTypeRefToBinary("current_player", 0);
+                }
+                else if (token.Equals("current_player.biped", StringComparison.OrdinalIgnoreCase)
+                      || token.Equals("current_object", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(2, 3);
+                    payloadBits = ConvertObjectTypeRefToBinary(token, 0, 1);
+                }
+                else
+                {
+                    kindBits = ConvertToBinary(0, 3);
+                    payloadBits = ConvertNumericTypeRefToBinary("0", 0);
+                }
+            }
+
+            string final = kindBits + payloadBits;
+            return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
         }
 
         private string ConvertObjectTypeRefToBinary(string value, int bitSize, int locality)
@@ -1584,35 +2873,38 @@ namespace UniversalGametypeEditor
 
         private string ConvertToBinary(object value, int bitSize)
         {
+            if (value is Enum e)
+            {
+                // Convert any enum (byte/short/int/etc) safely to an int
+                int n = Convert.ToInt32(e);
+                return Convert.ToString(n, 2).PadLeft(bitSize, '0');
+            }
+
             if (value is int intValue)
-            {
                 return Convert.ToString(intValue, 2).PadLeft(bitSize, '0');
-            }
-            else if (value is bool boolValue)
+
+            if (value is bool boolValue)
+                return (boolValue ? "1" : "0").PadLeft(bitSize, '0');
+
+            if (value is string strValue)
             {
-                return boolValue ? "1".PadLeft(bitSize, '0') : "0".PadLeft(bitSize, '0');
-            }
-            else if (value is string strValue)
-            {
-                // Assuming string values are converted to their corresponding enum values
                 if (Enum.TryParse(typeof(NameIndex), strValue, true, out var enumValue) && enumValue != null)
-                {
-                    return Convert.ToString((int)enumValue, 2).PadLeft(bitSize, '0');
-                }
+                    return Convert.ToString(Convert.ToInt32(enumValue), 2).PadLeft(bitSize, '0');
+
                 return string.Join("", strValue.Select(c => Convert.ToString(c, 2).PadLeft(8, '0')));
             }
-            else if (value is ObjectRef objectRefValue)
-            {
+
+            if (value is ObjectRef objectRefValue)
                 return Convert.ToString((int)objectRefValue, 2).PadLeft(bitSize, '0');
-            }
-            else if (value is ObjectType objectTypeValue)
-            {
+
+            if (value is ObjectType objectTypeValue)
                 return Convert.ToString((int)objectTypeValue, 2).PadLeft(bitSize, '0');
-            }
-            throw new InvalidOperationException("Unsupported type for binary conversion.");
+
+            throw new InvalidOperationException($"Unsupported type for binary conversion: {value?.GetType().FullName}");
         }
 
-        
+
+
 
         private void EndScope()
         {
@@ -1639,7 +2931,7 @@ namespace UniversalGametypeEditor
         }
 
 
-        
+
     }
 
 
@@ -1772,7 +3064,7 @@ namespace UniversalGametypeEditor
         }
     }
 
-    public class  PlayerTypeRefParameter 
+    public class PlayerTypeRefParameter
     {
         public string Name { get; set; }
         public Type ParameterType { get; set; }

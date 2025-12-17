@@ -774,7 +774,7 @@
 
         <Grid Grid.Row="2" Grid.Column="0" Background="{StaticResource AccentColor}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="62.465"/>
+                <ColumnDefinition Width="0"/>
                 <ColumnDefinition Width="167.535"/>
                 <ColumnDefinition Width="430"/>
                 <ColumnDefinition Width="Auto" />
@@ -789,14 +789,14 @@
             </Grid.RowDefinitions>
 
             <!-- Script input area -->
-            <StackPanel x:Name="ScriptEditor" Grid.Column="3" Grid.Row="0" Margin="20,100,20,20" Orientation="Vertical" Visibility="Hidden">
+            <StackPanel x:Name="ScriptEditor" Grid.Column="3" Grid.Row="0" Margin="10,100,20,20" Orientation="Vertical" Visibility="Visible">
                 <TextBlock Text="Script Input: EXPERIMENTAL" Foreground="{StaticResource TextColor}" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
                 <avalonedit:TextEditor x:Name="ScriptInputTextEditor" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" 
-                           Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" FontSize="15" Height="300" Width="400" WordWrap="True" BorderBrush="{StaticResource TextColor}" BorderThickness="1"/>
+                           Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" FontSize="15" Height="300" Width="500" WordWrap="True" BorderBrush="{StaticResource TextColor}" BorderThickness="1"/>
             </StackPanel>
 
 
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Left" MaxWidth="400" Grid.Column="1" Margin="7,0,0,0">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Left" MaxWidth="500" Grid.Column="1" Margin="7,0,0,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
@@ -1068,7 +1068,7 @@
             <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Background="Transparent">
                 <Button Click="HandleLoadClick" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Hidden" Margin="0,0,50,0" Width="130" HorizontalAlignment="Right"></Button>
                 <Button Click="CompileGametype" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="Compile" Content="Compile" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0" Width="130"/>
-                <!--<Button Click="CompileScript_Click" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="CompileScriptBtn" Content="Compile Script" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0" Width="130"/>-->
+                <Button Click="CompileScript_Click" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="CompileScriptBtn" Content="Compile Script" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0" Width="130"/>
             </StackPanel>
 
         </Grid>
