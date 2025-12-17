@@ -41,7 +41,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
-  release:
+    release:
     needs: build
     runs-on: ubuntu-latest
     if: >-
@@ -54,7 +54,6 @@ jobs:
         shell: bash
         run: |
           msg="${{ github.event.head_commit.message }}"
-          # Expect pattern like: "[release] v2.2.0.0"
           if [[ "$msg" =~ \[release\][[:space:]]+v([0-9]+(\.[0-9]+)*) ]]; then
             ver="v${BASH_REMATCH[1]}"
             echo "version=$ver" >> "$GITHUB_OUTPUT"
@@ -69,11 +68,17 @@ jobs:
           name: UniversalGametypeEditor
           path: UniversalGametypeEditor
 
-      - name: Create GitHub Release
+      - name: Zip release contents
+        shell: bash
+        run: |
+          cd UniversalGametypeEditor
+          zip -r "../UniversalGametypeEditor-${{ steps.version.outputs.version }}.zip" .
+
+      - name: Create GitHub Release (single asset)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: ${{ steps.version.outputs.version }}
           generate_release_notes: true
           files: |
-            UniversalGametypeEditor/**
+            UniversalGametypeEditor-${{ steps.version.outputs.version }}.zip
