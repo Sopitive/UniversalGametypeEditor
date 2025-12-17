@@ -2,12 +2,9 @@ name: .NET
 
 on:
   push:
-    branches:
-      - master
-      - dev
+    branches: [ master, dev ]
   pull_request:
-    branches:
-      - master
+    branches: [ master ]
 
 permissions:
   contents: write
@@ -23,21 +20,26 @@ jobs:
         with:
           dotnet-version: 6.0.x
 
-      - name: Restore dependencies
+      - name: Restore
         run: dotnet restore
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test --no-build --verbosity normal
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      # Ensure there is always a deterministic output directory to upload
+      - name: Publish
+        run: dotnet publish --configuration Release --no-build -o artifacts/publish
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: UniversalGametypeEditor
-          path: UniversalGametypeEditor/bin/Release/net6.0-windows
+          path: artifacts/publish/**
           retention-days: 90
+          if-no-files-found: error
 
   release:
     needs: build
@@ -52,11 +54,10 @@ jobs:
         shell: bash
         run: |
           msg="${{ github.event.head_commit.message }}"
-          # Expect pattern like: "[release] v2.2.0.0" anywhere in the message
+          # Expect pattern like: "[release] v2.2.0.0"
           if [[ "$msg" =~ \[release\][[:space:]]+v([0-9]+(\.[0-9]+)*) ]]; then
             ver="v${BASH_REMATCH[1]}"
             echo "version=$ver" >> "$GITHUB_OUTPUT"
-            echo "Release version: $ver"
           else
             echo "No version found in commit message. Expected '[release] v<version>'" >&2
             exit 1
