@@ -1,90 +1,119 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net6.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <UseWPF>true</UseWPF>
-    <Platforms>AnyCPU;x64</Platforms>
-  </PropertyGroup>
-
-    <PropertyGroup>
-	    <TargetFramework>net6.0-windows</TargetFramework>
-	    <UseWPF>true</UseWPF>
-	    <UseWindowsForms>true</UseWindowsForms>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWPF>true</UseWPF>
+		<UseWindowsForms>true</UseWindowsForms>
+		<Platforms>AnyCPU;x64</Platforms>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<ApplicationIcon>UGE.ico</ApplicationIcon>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 		<AppConfig>app.config</AppConfig>
-    </PropertyGroup>
+	</PropertyGroup>
 
+	<ItemGroup>
+		<EditorConfigFiles Remove="C:\Users\wyatt\source\repos\UniversalGametypeEditor\UniversalGametypeEditor\.editorconfig" />
+	</ItemGroup>
 
-    <ItemGroup>
-      <EditorConfigFiles Remove="C:\Users\wyatt\source\repos\UniversalGametypeEditor\UniversalGametypeEditor\.editorconfig" />
-    </ItemGroup>
+	<ItemGroup>
+		<None Remove=".editorconfig" />
+		<None Remove="Csharp-Mode.xshd" />
+	</ItemGroup>
 
-    <ItemGroup>
-      <None Remove=".editorconfig" />
-      <None Remove="Csharp-Mode.xshd" />
-    </ItemGroup>
+	<ItemGroup>
+		<EditorConfigFiles Remove="C:\Users\wyatt\source\repos\UniversalGametypeEditor\UniversalGametypeEditor\.editorconfig" />
+	</ItemGroup>
 
-    <ItemGroup>
-      <EditorConfigFiles Remove="C:\Users\wyatt\source\repos\UniversalGametypeEditor\UniversalGametypeEditor\.editorconfig" />
-    </ItemGroup>
+	<ItemGroup>
+		<Content Include="UGE.ico" />
+	</ItemGroup>
 
-    <ItemGroup>
-      <Content Include="UGE.ico" />
-    </ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="Csharp-Mode.xshd" />
+	</ItemGroup>
 
-    <ItemGroup>
-      <EmbeddedResource Include="Csharp-Mode.xshd" />
-    </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="AvalonEdit" Version="6.3.0.90" />
+		<PackageReference Include="Extended.Wpf.Toolkit" Version="4.6.1" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="SharpZipLib" Version="1.4.2" />
+		<PackageReference Include="System.Management" Version="8.0.0" />
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
+		<PackageReference Include="System.Xml.ReaderWriter" Version="4.3.1" />
+	</ItemGroup>
 
-    <ItemGroup>
-      <PackageReference Include="AvalonEdit" Version="6.3.0.90" />
-      <PackageReference Include="Extended.Wpf.Toolkit" Version="4.6.1" />
-      <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4">
-        <PrivateAssets>all</PrivateAssets>
-        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      </PackageReference>
-      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
-      <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
-      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-      <PackageReference Include="SharpZipLib" Version="1.4.2" />
-      <PackageReference Include="System.Management" Version="8.0.0" />
-      <PackageReference Include="System.Xml.ReaderWriter" Version="4.3.1" />
-    </ItemGroup>
+	<ItemGroup>
+		<Compile Update="Properties\Settings.Designer.cs">
+			<DesignTimeSharedInput>True</DesignTimeSharedInput>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>Settings.settings</DependentUpon>
+		</Compile>
+	</ItemGroup>
 
-    <ItemGroup>
-      <Compile Update="Properties\Settings.Designer.cs">
-        <DesignTimeSharedInput>True</DesignTimeSharedInput>
-        <AutoGen>True</AutoGen>
-        <DependentUpon>Settings.settings</DependentUpon>
-      </Compile>
-    </ItemGroup>
+	<ItemGroup>
+		<None Update="cleanup.bat">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="mpvr.xml">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Properties\Settings.settings">
+			<Generator>PublicSettingsSingleFileGenerator</Generator>
+			<LastGenOutput>Settings.Designer.cs</LastGenOutput>
+		</None>
+		<None Update="script.txt">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="unzip.bat">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
 
-    <ItemGroup>
-      <None Update="cleanup.bat">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Update="mpvr.xml">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Update="Properties\Settings.settings">
-        <Generator>PublicSettingsSingleFileGenerator</Generator>
-        <LastGenOutput>Settings.Designer.cs</LastGenOutput>
-      </None>
-      <None Update="script.txt">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Update="unzip.bat">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
-    </ItemGroup>
+	<ItemGroup>
+		<Folder Include="Helpers\" />
+	</ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Helpers\" />
-    </ItemGroup>
+	<!-- Build updater but do not embed it -->
+	<ItemGroup>
+		<ProjectReference Include="..\Updater\Updater.csproj" ReferenceOutputAssembly="false" />
+	</ItemGroup>
+
+	<!-- Copy entire updater output one folder above the app exe and rename to UGE.Updater.exe -->
+	<Target Name="CopyUpdaterForLocalRun" AfterTargets="Build">
+		<PropertyGroup>
+			<!-- Prefer RID dir; fallback to TFM dir -->
+			<UpdaterOutDirRID>$(SolutionDir)Updater\bin\$(Configuration)\net10.0-windows\win-x64\</UpdaterOutDirRID>
+			<UpdaterOutDirTFM>$(SolutionDir)Updater\bin\$(Configuration)\net10.0-windows\</UpdaterOutDirTFM>
+			<ExeOut>$(TargetDir)</ExeOut>
+			<ParentOfExe>$(ExeOut)..\</ParentOfExe>
+		</PropertyGroup>
+
+		<ItemGroup Condition="Exists('$(UpdaterOutDirRID)')">
+			<UpdaterFiles Include="$(UpdaterOutDirRID)**\*.*" />
+		</ItemGroup>
+		<ItemGroup Condition="!Exists('$(UpdaterOutDirRID)') and Exists('$(UpdaterOutDirTFM)')">
+			<UpdaterFiles Include="$(UpdaterOutDirTFM)**\*.*" />
+		</ItemGroup>
+
+		<Message Text="Copying Updater from '$(UpdaterOutDirRID)' or '$(UpdaterOutDirTFM)' to '$(ParentOfExe)'" Importance="high" Condition="@(UpdaterFiles) != ''" />
+
+		<Copy SourceFiles="@(UpdaterFiles)"
+			  DestinationFolder="$(ParentOfExe)"
+			  SkipUnchangedFiles="true"
+			  Condition="@(UpdaterFiles) != ''" />
+
+		<Copy SourceFiles="$(ParentOfExe)Updater.exe"
+			  DestinationFiles="$(ParentOfExe)UGE.Updater.exe"
+			  Condition="Exists('$(ParentOfExe)Updater.exe')" />
+	</Target>
 
 </Project>

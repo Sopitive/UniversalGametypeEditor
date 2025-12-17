@@ -1,6 +1,6 @@
 ﻿using System.Windows;
 
-namespace UniversalGametypeEditor
+namespace Updater
 {
     public partial class App : Application
     {

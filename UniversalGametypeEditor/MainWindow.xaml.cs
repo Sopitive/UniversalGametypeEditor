@@ -2565,152 +2565,152 @@ namespace UniversalGametypeEditor
 
 
 
-        public void CheckForUpdates(object sender, RoutedEventArgs e)
-        {
-            //Check for recent commits on GitHub
-            //If there are recent commits, display a message box asking if the user would like to download the latest version
-            //If the user clicks yes, open the link to the GitHub repo and download the latest version
+        //public void CheckForUpdates(object sender, RoutedEventArgs e)
+        //{
+        //    //Check for recent commits on GitHub
+        //    //If there are recent commits, display a message box asking if the user would like to download the latest version
+        //    //If the user clicks yes, open the link to the GitHub repo and download the latest version
 
-            //Get recent commits from GitHub
-            string commits = "";
-            string node_id;
-            string date;
-            try
-            {
+        //    //Get recent commits from GitHub
+        //    string commits = "";
+        //    string node_id;
+        //    string date;
+        //    try
+        //    {
 
-                using (WebClient client = new WebClient())
-                {
-                    client.Headers.Add("user-agent", "request");
-                    commits = client.DownloadString("https://api.github.com/repos/Sopitive/UniversalGametypeEditor/commits/master");
-                    Debug.WriteLine("Commits: " + commits);
-                    //parse the json and set node_id to the value of the node_id field
-                    JObject json = JObject.Parse(commits);
-                    node_id = (string)json["node_id"];
-                    date = (string)json["commit"]["author"]["date"];
-                    Debug.WriteLine(DateTime.Parse(date));
-                    if (DateTime.Parse(date) > DateTime.UtcNow.AddMinutes(-15))
-                    {
-                        Debug.WriteLine("Update Available, Still Proceessing...");
-                        UpdateLastEvent("Update Available, but is still building. Try again later.");
-                        return;
-                    }
-                    Debug.WriteLine("Node ID: " + node_id);
-                }
-                if (Settings.Default.Version == "")
-                {
-                    Settings.Default.Version = node_id;
-                    Settings.Default.Save();
-                    return;
-                }
-            }
-            catch (Exception)
-            {
-                Debug.WriteLine("API Fail");
-                UpdateLastEvent("Unable to check for updates. Please check your internet connection.");
-                return;
-            }
-            string storedVersion;
-            try
-            {
-                //Get the stored version number from the settings file
-                storedVersion = Settings.Default.Version;
-                Debug.WriteLine("Stored version: " + storedVersion);
-            }
-            catch (Exception)
-            {
-                UpdateLastEvent("Unable to check for updates. Please check your internet connection.");
-                return;
-            }
-            //Compare the two and if the stored version is less than the current version, display a message box asking if the user would like to download the latest version
-            if (storedVersion != node_id)
+        //        using (WebClient client = new WebClient())
+        //        {
+        //            client.Headers.Add("user-agent", "request");
+        //            commits = client.DownloadString("https://api.github.com/repos/Sopitive/UniversalGametypeEditor/commits/master");
+        //            Debug.WriteLine("Commits: " + commits);
+        //            //parse the json and set node_id to the value of the node_id field
+        //            JObject json = JObject.Parse(commits);
+        //            node_id = (string)json["node_id"];
+        //            date = (string)json["commit"]["author"]["date"];
+        //            Debug.WriteLine(DateTime.Parse(date));
+        //            if (DateTime.Parse(date) > DateTime.UtcNow.AddMinutes(-15))
+        //            {
+        //                Debug.WriteLine("Update Available, Still Proceessing...");
+        //                UpdateLastEvent("Update Available, but is still building. Try again later.");
+        //                return;
+        //            }
+        //            Debug.WriteLine("Node ID: " + node_id);
+        //        }
+        //        if (Settings.Default.Version == "")
+        //        {
+        //            Settings.Default.Version = node_id;
+        //            Settings.Default.Save();
+        //            return;
+        //        }
+        //    }
+        //    catch (Exception)
+        //    {
+        //        Debug.WriteLine("API Fail");
+        //        UpdateLastEvent("Unable to check for updates. Please check your internet connection.");
+        //        return;
+        //    }
+        //    string storedVersion;
+        //    try
+        //    {
+        //        //Get the stored version number from the settings file
+        //        storedVersion = Settings.Default.Version;
+        //        Debug.WriteLine("Stored version: " + storedVersion);
+        //    }
+        //    catch (Exception)
+        //    {
+        //        UpdateLastEvent("Unable to check for updates. Please check your internet connection.");
+        //        return;
+        //    }
+        //    //Compare the two and if the stored version is less than the current version, display a message box asking if the user would like to download the latest version
+        //    if (storedVersion != node_id)
 
                 
-            {
-                DialogResult result = System.Windows.Forms.MessageBox.Show("A new version is available. Would you like to download the latest version?", "Update Available", MessageBoxButtons.YesNoCancel);
-                if (result == System.Windows.Forms.DialogResult.Yes)
-                {
-                    UpdateLastEvent("Downloading latest version...");
-                    //Download the file
-                    try
-                    {
-                        using (WebClient client = new WebClient())
-                        {
-                            sw.Start();
-                            UpdateLastEvent("Discovering File Size...");
-                            client.DownloadProgressChanged += (s, e) =>
-                            {
-                                string downloadedMBs = Math.Round(e.BytesReceived / 1024.0 / 1024.0) + " MB";
-                                string downloadSpeed = string.Format("{0} MB/s", (e.BytesReceived / 1024.0 / 1024.0 / sw.Elapsed.TotalSeconds).ToString("0.00"));
-                                UpdateLastEvent($"Downloading... {downloadedMBs} @ {downloadSpeed}");
-                            };
-                            client.DownloadFileCompleted += (s, e) =>
-                            {
-                                sw.Stop();
-                                UpdateLastEvent("Download Complete");
-                                // any other code to process the file
-                                // Write the node id to the settings file
-                                Settings.Default.Version = node_id;
-                                Settings.Default.Save();
-                                // Move the zip file and the bat file up one directory and overwrite the existing files
-                                File.Copy("UniversalGametypeEditor.zip", "..\\UniversalGametypeEditor.zip", true);
-                                File.Copy("unzip.bat", "..\\unzip.bat", true);
-                                Thread.Sleep(1000);
+        //    {
+        //        DialogResult result = System.Windows.Forms.MessageBox.Show("A new version is available. Would you like to download the latest version?", "Update Available", MessageBoxButtons.YesNoCancel);
+        //        if (result == System.Windows.Forms.DialogResult.Yes)
+        //        {
+        //            UpdateLastEvent("Downloading latest version...");
+        //            //Download the file
+        //            try
+        //            {
+        //                using (WebClient client = new WebClient())
+        //                {
+        //                    sw.Start();
+        //                    UpdateLastEvent("Discovering File Size...");
+        //                    client.DownloadProgressChanged += (s, e) =>
+        //                    {
+        //                        string downloadedMBs = Math.Round(e.BytesReceived / 1024.0 / 1024.0) + " MB";
+        //                        string downloadSpeed = string.Format("{0} MB/s", (e.BytesReceived / 1024.0 / 1024.0 / sw.Elapsed.TotalSeconds).ToString("0.00"));
+        //                        UpdateLastEvent($"Downloading... {downloadedMBs} @ {downloadSpeed}");
+        //                    };
+        //                    client.DownloadFileCompleted += (s, e) =>
+        //                    {
+        //                        sw.Stop();
+        //                        UpdateLastEvent("Download Complete");
+        //                        // any other code to process the file
+        //                        // Write the node id to the settings file
+        //                        Settings.Default.Version = node_id;
+        //                        Settings.Default.Save();
+        //                        // Move the zip file and the bat file up one directory and overwrite the existing files
+        //                        File.Copy("UniversalGametypeEditor.zip", "..\\UniversalGametypeEditor.zip", true);
+        //                        File.Copy("unzip.bat", "..\\unzip.bat", true);
+        //                        Thread.Sleep(1000);
 
-                                // Check if the batch file exists
-                                string batchFilePath = Path.GetFullPath("..\\unzip.bat");
-                                if (File.Exists(batchFilePath))
-                                {
-                                    UpdateLastEvent("unzip.bat file found. Starting the process...");
+        //                        // Check if the batch file exists
+        //                        string batchFilePath = Path.GetFullPath("..\\unzip.bat");
+        //                        if (File.Exists(batchFilePath))
+        //                        {
+        //                            UpdateLastEvent("unzip.bat file found. Starting the process...");
 
-                                    // Start the unzip.bat file
-                                    ProcessStartInfo startInfo = new()
-                                    {
-                                        FileName = batchFilePath,
-                                        WorkingDirectory = Path.GetFullPath("..") // Set the working directory to the parent directory
-                                                                                  // Arguments = "UniversalGametypeEditor.zip"
-                                    };
+        //                            // Start the unzip.bat file
+        //                            ProcessStartInfo startInfo = new()
+        //                            {
+        //                                FileName = batchFilePath,
+        //                                WorkingDirectory = Path.GetFullPath("..") // Set the working directory to the parent directory
+        //                                                                          // Arguments = "UniversalGametypeEditor.zip"
+        //                            };
 
-                                    Process process = Process.Start(startInfo);
+        //                            Process process = Process.Start(startInfo);
 
-                                    if (process != null)
-                                    {
-                                        UpdateLastEvent("unzip.bat started successfully. Exiting the application...");
-                                        // Close the current process
-                                        Environment.Exit(0);
-                                    }
-                                    else
-                                    {
-                                        UpdateLastEvent("Failed to start unzip.bat.");
-                                    }
-                                }
-                                else
-                                {
-                                    UpdateLastEvent("unzip.bat file not found.");
-                                }
+        //                            if (process != null)
+        //                            {
+        //                                UpdateLastEvent("unzip.bat started successfully. Exiting the application...");
+        //                                // Close the current process
+        //                                Environment.Exit(0);
+        //                            }
+        //                            else
+        //                            {
+        //                                UpdateLastEvent("Failed to start unzip.bat.");
+        //                            }
+        //                        }
+        //                        else
+        //                        {
+        //                            UpdateLastEvent("unzip.bat file not found.");
+        //                        }
 
 
-                            };
-                            //Download the file on a background thread
-                            client.DownloadFileAsync(new Uri("https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip"), "UniversalGametypeEditor.zip");
-                            while (client.IsBusy)
-                            {
-                                System.Windows.Forms.Application.DoEvents();
-                            }
+        //                    };
+        //                    //Download the file on a background thread
+        //                    client.DownloadFileAsync(new Uri("https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip"), "UniversalGametypeEditor.zip");
+        //                    while (client.IsBusy)
+        //                    {
+        //                        System.Windows.Forms.Application.DoEvents();
+        //                    }
 
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        UpdateLastEvent("Unable to download the latest version. Please check your internet connection.");
-                    }
-                }
-            }
-            else
-            {
-                UpdateLastEvent("Client up to date!");
-            }
-            return;
-        }
+        //                }
+        //            }
+        //            catch (Exception)
+        //            {
+        //                UpdateLastEvent("Unable to download the latest version. Please check your internet connection.");
+        //            }
+        //        }
+        //    }
+        //    else
+        //    {
+        //        UpdateLastEvent("Client up to date!");
+        //    }
+        //    return;
+        //}
 
         public void ConvertToBin(string directory, string name)
         {
