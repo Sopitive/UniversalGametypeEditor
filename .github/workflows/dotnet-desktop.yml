@@ -9,7 +9,6 @@ on:
     branches:
       - master
 
-# Needed so the workflow can create a Release in the repo
 permissions:
   contents: write
 
@@ -43,12 +42,26 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    # Only run on pushes (not PRs) and only when the commit message contains the trigger string.
     if: >-
       github.event_name == 'push' &&
       contains(github.event.head_commit.message, '[release]')
 
     steps:
+      - name: Extract version from commit message
+        id: version
+        shell: bash
+        run: |
+          msg="${{ github.event.head_commit.message }}"
+          # Expect pattern like: "[release] v2.2.0.0" anywhere in the message
+          if [[ "$msg" =~ \[release\][[:space:]]+v([0-9]+(\.[0-9]+)*) ]]; then
+            ver="v${BASH_REMATCH[1]}"
+            echo "version=$ver" >> "$GITHUB_OUTPUT"
+            echo "Release version: $ver"
+          else
+            echo "No version found in commit message. Expected '[release] v<version>'" >&2
+            exit 1
+          fi
+
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
@@ -58,8 +71,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: release-${{ github.run_number }}
-          name: Release ${{ github.run_number }}
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
           generate_release_notes: true
           files: |
             UniversalGametypeEditor/**
