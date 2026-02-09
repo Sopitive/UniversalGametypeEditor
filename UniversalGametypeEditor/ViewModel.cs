@@ -31,7 +31,7 @@ namespace UniversalGametypeEditor
         }
     }
 
-    
+
 
 
 
@@ -39,7 +39,7 @@ namespace UniversalGametypeEditor
     public class FileHeaderViewModel : INotifyPropertyChanged
     {
         private FileHeader data;
-        
+
 
 
         public FileHeaderViewModel(object data)
@@ -564,7 +564,7 @@ namespace UniversalGametypeEditor
         {
             this.data = data;
             Reach = new ReachSettingsViewModel(data.Reach);
-            H2AH4 = new H2AH4SettingsViewModel(data.H2AH4);
+            H2AH4 = (data.H2AH4 != null) ? new H2AH4SettingsViewModel(data.H2AH4) : null;
         }
         [BitSize(1)]
         public bool UnknownFlag2
@@ -741,7 +741,7 @@ namespace UniversalGametypeEditor
         {
             this.data = data;
             RespawnPlayerTraits = new PlayerTraitsViewModel(data.RespawnPlayerTraits);
-            H2AH4 = new SpawnH2AH4SettingsViewModel(data.H2AH4);
+            H2AH4 = (data.H2AH4 != null) ? new SpawnH2AH4SettingsViewModel(data.H2AH4) : null;
             Reach = new SpawnReachSettingsViewModel(data.Reach);
         }
 
@@ -903,7 +903,7 @@ namespace UniversalGametypeEditor
         public PlayerTraitsViewModel(PlayerTraits data)
         {
             this.data = data;
-            H2AH4 = new TraitsH2AH4SettingsViewModel(data.H2AH4);
+            H2AH4 = (data.H2AH4 != null) ? new TraitsH2AH4SettingsViewModel(data.H2AH4) : null;
 
         }
 
@@ -1461,6 +1461,8 @@ namespace UniversalGametypeEditor
         {
             this.data = data;
         }
+
+        public bool IsApplicable => data != null;
 
         public int ExplosiveDamageResistance
         {
@@ -3111,79 +3113,90 @@ namespace UniversalGametypeEditor
 
     public class PowerupTraitsViewModel : INotifyPropertyChanged
     {
-        private PowerupTraits powerupTraits;
+        private readonly PowerupTraits _data;
 
         public PowerupTraitsViewModel(PowerupTraits powerupTraits)
         {
-            this.powerupTraits = powerupTraits;
-            Reach = new ReachPowerupSettings(powerupTraits);
+            _data = powerupTraits ?? new PowerupTraits();
+
+            // Only construct the game-specific sub-sections if the backing data exists.
+            Reach = (_data.Reach != null) ? new ReachPowerupSettings(_data.Reach) : null;
+            H2AH4 = (_data.H2AH4 != null) ? new H2AH4PowerupSettings(_data.H2AH4) : null;
         }
 
-        public ReachPowerupSettings Reach { get; set; }
+        /// <summary>
+        /// Reach-only powerup settings (null for H2A/H4 gametypes).
+        /// </summary>
+        public ReachPowerupSettings? Reach { get; }
 
-
+        /// <summary>
+        /// H2A/H4-only powerup settings (null for Reach gametypes).
+        /// </summary>
+        public H2AH4PowerupSettings? H2AH4 { get; }
 
         // Implement INotifyPropertyChanged
-
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-
     }
 
     public class ReachPowerupSettings : INotifyPropertyChanged
     {
-        private PowerupTraits.ReachSettings powerupTraits;
+        private readonly PowerupTraits.ReachSettings _reach;
 
-        public ReachPowerupSettings(PowerupTraits reachPowerupSettings)
+        public ReachPowerupSettings(PowerupTraits.ReachSettings reachSettings)
         {
-            this.powerupTraits = reachPowerupSettings.Reach;
-            RedPlayerTraits = new PlayerTraitsViewModel(powerupTraits.RedPlayerTraits);
-            BluePlayerTraits = new PlayerTraitsViewModel(powerupTraits.BluePlayerTraits);
-            YellowPlayerTraits = new PlayerTraitsViewModel(powerupTraits.YellowPlayerTraits);
+            _reach = reachSettings ?? throw new ArgumentNullException(nameof(reachSettings));
+
+            RedPlayerTraits = (_reach.RedPlayerTraits != null) ? new PlayerTraitsViewModel(_reach.RedPlayerTraits) : null;
+            BluePlayerTraits = (_reach.BluePlayerTraits != null) ? new PlayerTraitsViewModel(_reach.BluePlayerTraits) : null;
+            YellowPlayerTraits = (_reach.YellowPlayerTraits != null) ? new PlayerTraitsViewModel(_reach.YellowPlayerTraits) : null;
         }
 
-        public PlayerTraitsViewModel RedPlayerTraits { get; set; }
-        public PlayerTraitsViewModel BluePlayerTraits { get; set; }
-        public PlayerTraitsViewModel YellowPlayerTraits { get; set; }
+        public PlayerTraitsViewModel? RedPlayerTraits { get; }
+        public PlayerTraitsViewModel? BluePlayerTraits { get; }
+        public PlayerTraitsViewModel? YellowPlayerTraits { get; }
+
         [BitSize(7)]
         public int? RedPowerupDuration
         {
-            get { return powerupTraits.RedPowerupDuration; }
+            get { return _reach.RedPowerupDuration; }
             set
             {
-                if (powerupTraits.RedPowerupDuration != value)
+                if (_reach.RedPowerupDuration != value)
                 {
-                    powerupTraits.RedPowerupDuration = value;
+                    _reach.RedPowerupDuration = value;
                     OnPropertyChanged(nameof(RedPowerupDuration));
                 }
             }
         }
+
         [BitSize(7)]
         public int? BluePowerupDuration
         {
-            get { return powerupTraits.BluePowerupDuration; }
+            get { return _reach.BluePowerupDuration; }
             set
             {
-                if (powerupTraits.BluePowerupDuration != value)
+                if (_reach.BluePowerupDuration != value)
                 {
-                    powerupTraits.BluePowerupDuration = value;
+                    _reach.BluePowerupDuration = value;
                     OnPropertyChanged(nameof(BluePowerupDuration));
                 }
             }
         }
+
         [BitSize(7)]
         public int? YellowPowerupDuration
         {
-            get { return powerupTraits.YellowPowerupDuration; }
+            get { return _reach.YellowPowerupDuration; }
             set
             {
-                if (powerupTraits.YellowPowerupDuration != value)
+                if (_reach.YellowPowerupDuration != value)
                 {
-                    powerupTraits.YellowPowerupDuration = value;
+                    _reach.YellowPowerupDuration = value;
                     OnPropertyChanged(nameof(YellowPowerupDuration));
                 }
             }
@@ -3195,8 +3208,92 @@ namespace UniversalGametypeEditor
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-
     }
+
+    public class H2AH4PowerupSettings : INotifyPropertyChanged
+    {
+        private readonly PowerupTraits.H2AH4Settings _h2a;
+
+        public H2AH4PowerupSettings(PowerupTraits.H2AH4Settings h2aSettings)
+        {
+            _h2a = h2aSettings ?? throw new ArgumentNullException(nameof(h2aSettings));
+
+            DamageTraits = (_h2a.DamageTraits != null) ? new PlayerTraitsViewModel(_h2a.DamageTraits) : null;
+            DamageTraitsRuntime = (_h2a.DamageTraitsRuntime != null) ? new PlayerTraitsViewModel(_h2a.DamageTraitsRuntime) : null;
+
+            SpeedTraits = (_h2a.SpeedTraits != null) ? new PlayerTraitsViewModel(_h2a.SpeedTraits) : null;
+            SpeedTraitsRuntime = (_h2a.SpeedTraitsRuntime != null) ? new PlayerTraitsViewModel(_h2a.SpeedTraitsRuntime) : null;
+
+            OverShieldTraits = (_h2a.OverShieldTraits != null) ? new PlayerTraitsViewModel(_h2a.OverShieldTraits) : null;
+            OverShieldTraitsRuntime = (_h2a.OverShieldTraitsRuntime != null) ? new PlayerTraitsViewModel(_h2a.OverShieldTraitsRuntime) : null;
+
+            CustomTraits = (_h2a.CustomTraits != null) ? new PlayerTraitsViewModel(_h2a.CustomTraits) : null;
+            CustomTraitsRuntime = (_h2a.CustomTraitsRuntime != null) ? new PlayerTraitsViewModel(_h2a.CustomTraitsRuntime) : null;
+        }
+
+        public PlayerTraitsViewModel? DamageTraits { get; }
+        public PlayerTraitsViewModel? DamageTraitsRuntime { get; }
+        public PlayerTraitsViewModel? SpeedTraits { get; }
+        public PlayerTraitsViewModel? SpeedTraitsRuntime { get; }
+        public PlayerTraitsViewModel? OverShieldTraits { get; }
+        public PlayerTraitsViewModel? OverShieldTraitsRuntime { get; }
+        public PlayerTraitsViewModel? CustomTraits { get; }
+        public PlayerTraitsViewModel? CustomTraitsRuntime { get; }
+
+        // Durations (bit-size differs by format; keep as nullable ints for UI and recompile step)
+        public int? DamageTraitsDuration
+        {
+            get => _h2a.DamageTraitsDuration;
+            set { if (_h2a.DamageTraitsDuration != value) { _h2a.DamageTraitsDuration = value; OnPropertyChanged(nameof(DamageTraitsDuration)); } }
+        }
+
+        public int? DamageTraitsRuntimeDuration
+        {
+            get => _h2a.DamageTraitsRuntimeDuration;
+            set { if (_h2a.DamageTraitsRuntimeDuration != value) { _h2a.DamageTraitsRuntimeDuration = value; OnPropertyChanged(nameof(DamageTraitsRuntimeDuration)); } }
+        }
+
+        public int? SpeedTraitsDuration
+        {
+            get => _h2a.SpeedTraitsDuration;
+            set { if (_h2a.SpeedTraitsDuration != value) { _h2a.SpeedTraitsDuration = value; OnPropertyChanged(nameof(SpeedTraitsDuration)); } }
+        }
+
+        public int? SpeedTraitsRuntimeDuration
+        {
+            get => _h2a.SpeedTraitsRuntimeDuration;
+            set { if (_h2a.SpeedTraitsRuntimeDuration != value) { _h2a.SpeedTraitsRuntimeDuration = value; OnPropertyChanged(nameof(SpeedTraitsRuntimeDuration)); } }
+        }
+
+        public int? OverShieldTraitsDuration
+        {
+            get => _h2a.OverShieldTraitsDuration;
+            set { if (_h2a.OverShieldTraitsDuration != value) { _h2a.OverShieldTraitsDuration = value; OnPropertyChanged(nameof(OverShieldTraitsDuration)); } }
+        }
+
+        public int? OverShieldTraitsRuntimeDuration
+        {
+            get => _h2a.OverShieldTraitsRuntimeDuration;
+            set { if (_h2a.OverShieldTraitsRuntimeDuration != value) { _h2a.OverShieldTraitsRuntimeDuration = value; OnPropertyChanged(nameof(OverShieldTraitsRuntimeDuration)); } }
+        }
+
+        public int? CustomTraitsDuration
+        {
+            get => _h2a.CustomTraitsDuration;
+            set { if (_h2a.CustomTraitsDuration != value) { _h2a.CustomTraitsDuration = value; OnPropertyChanged(nameof(CustomTraitsDuration)); } }
+        }
+
+        public int? CustomTraitsRuntimeDuration
+        {
+            get => _h2a.CustomTraitsRuntimeDuration;
+            set { if (_h2a.CustomTraitsRuntimeDuration != value) { _h2a.CustomTraitsRuntimeDuration = value; OnPropertyChanged(nameof(CustomTraitsRuntimeDuration)); } }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string propertyName) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
 
     public class TeamSettingsViewModel : INotifyPropertyChanged
     {
@@ -3270,7 +3367,8 @@ namespace UniversalGametypeEditor
 
         //Implement INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged(string propertyName) {
+        protected void OnPropertyChanged(string propertyName)
+        {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
@@ -3730,7 +3828,7 @@ namespace UniversalGametypeEditor
     }
 
 
-public class ScriptOptionsViewModel : INotifyPropertyChanged
+    public class ScriptOptionsViewModel : INotifyPropertyChanged
     {
         private int count;
 
@@ -3756,7 +3854,7 @@ public class ScriptOptionsViewModel : INotifyPropertyChanged
     }
 
 
-public class ScriptOptionItemViewModel : INotifyPropertyChanged
+    public class ScriptOptionItemViewModel : INotifyPropertyChanged
     {
         private ScriptOptions data;
 
@@ -3954,6 +4052,26 @@ public class ScriptOptionItemViewModel : INotifyPropertyChanged
         {
             get => _metaGroupStrings;
             set { _metaGroupStrings = value; OnPropertyChanged(nameof(MetaGroupStrings)); }
+        }
+
+
+
+        // ------------------------------------------------------------
+        // Structured (decoded) string tables
+        // These are meant for the UI. Populate them during decompile.
+        // The existing raw bit-string properties above are kept for
+        // backward-compat / round-trip until encode is updated.
+        // ------------------------------------------------------------
+        public ObservableCollection<LanguageStringsViewModel> StringTableEntries { get; } = new ObservableCollection<LanguageStringsViewModel>();
+        public ObservableCollection<LanguageStringsViewModel> MetaNameStringEntries { get; } = new ObservableCollection<LanguageStringsViewModel>();
+        public ObservableCollection<LanguageStringsViewModel> MetaDescStringEntries { get; } = new ObservableCollection<LanguageStringsViewModel>();
+        public ObservableCollection<LanguageStringsViewModel> MetaIntroStringEntries { get; } = new ObservableCollection<LanguageStringsViewModel>();
+        public ObservableCollection<LanguageStringsViewModel> MetaGroupStringEntries { get; } = new ObservableCollection<LanguageStringsViewModel>();
+
+        public LanguageStringsViewModel GetGametypeNameOrNull()
+        {
+            if (StringNameIndex < 0 || StringNameIndex >= StringTableEntries.Count) return null;
+            return StringTableEntries[StringNameIndex];
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -4477,6 +4595,145 @@ public class ScriptOptionItemViewModel : INotifyPropertyChanged
 
 
 
+
+
+
+    // ============================================================
+    // Decoded Language String ViewModels (Reach + H2A/H4)
+    // ============================================================
+    public class LanguageStringsViewModel : INotifyPropertyChanged
+    {
+        private LanguageStrings data;
+
+        public LanguageStringsViewModel(LanguageStrings data)
+        {
+            this.data = data ?? new LanguageStrings();
+            H2AH4 = new LanguageStringsH2AH4ViewModel(this.data.H2AH4 ?? new LanguageStrings.H2AH4Settings());
+        }
+
+        public string English { get => data.English; set { if (data.English != value) { data.English = value; OnPropertyChanged(nameof(English)); } } }
+        public string Japanese { get => data.Japanese; set { if (data.Japanese != value) { data.Japanese = value; OnPropertyChanged(nameof(Japanese)); } } }
+        public string German { get => data.German; set { if (data.German != value) { data.German = value; OnPropertyChanged(nameof(German)); } } }
+        public string French { get => data.French; set { if (data.French != value) { data.French = value; OnPropertyChanged(nameof(French)); } } }
+        public string Spanish { get => data.Spanish; set { if (data.Spanish != value) { data.Spanish = value; OnPropertyChanged(nameof(Spanish)); } } }
+        public string LatinAmericanSpanish { get => data.LatinAmericanSpanish; set { if (data.LatinAmericanSpanish != value) { data.LatinAmericanSpanish = value; OnPropertyChanged(nameof(LatinAmericanSpanish)); } } }
+        public string Italian { get => data.Italian; set { if (data.Italian != value) { data.Italian = value; OnPropertyChanged(nameof(Italian)); } } }
+        public string Korean { get => data.Korean; set { if (data.Korean != value) { data.Korean = value; OnPropertyChanged(nameof(Korean)); } } }
+        public string ChineseTraditional { get => data.ChineseTraditional; set { if (data.ChineseTraditional != value) { data.ChineseTraditional = value; OnPropertyChanged(nameof(ChineseTraditional)); } } }
+        public string ChineseSimplified { get => data.ChineseSimplified; set { if (data.ChineseSimplified != value) { data.ChineseSimplified = value; OnPropertyChanged(nameof(ChineseSimplified)); } } }
+        public string Portuguese { get => data.Portuguese; set { if (data.Portuguese != value) { data.Portuguese = value; OnPropertyChanged(nameof(Portuguese)); } } }
+        public string Polish { get => data.Polish; set { if (data.Polish != value) { data.Polish = value; OnPropertyChanged(nameof(Polish)); } } }
+
+        // Keep decoder bookkeeping fields (so your existing decode can still stash metadata)
+        public int m3 { get => data.m3; set { if (data.m3 != value) { data.m3 = value; OnPropertyChanged(nameof(m3)); } } }
+        public int d { get => data.d; set { if (data.d != value) { data.d = value; OnPropertyChanged(nameof(d)); } } }
+        public int m1 { get => data.m1; set { if (data.m1 != value) { data.m1 = value; OnPropertyChanged(nameof(m1)); } } }
+        public string oldbits { get => data.oldbits; set { if (data.oldbits != value) { data.oldbits = value; OnPropertyChanged(nameof(oldbits)); } } }
+        public string compressedChunk { get => data.compressedChunk; set { if (data.compressedChunk != value) { data.compressedChunk = value; OnPropertyChanged(nameof(compressedChunk)); } } }
+
+        public LanguageStringsH2AH4ViewModel H2AH4 { get; }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string propertyName)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    public class LanguageStringsH2AH4ViewModel : INotifyPropertyChanged
+    {
+        private LanguageStrings.H2AH4Settings data;
+
+        public LanguageStringsH2AH4ViewModel(LanguageStrings.H2AH4Settings data)
+        {
+            this.data = data ?? new LanguageStrings.H2AH4Settings();
+        }
+
+        public string Russian { get => data.Russian; set { if (data.Russian != value) { data.Russian = value; OnPropertyChanged(nameof(Russian)); } } }
+        public string Finnish { get => data.Finnish; set { if (data.Finnish != value) { data.Finnish = value; OnPropertyChanged(nameof(Finnish)); } } }
+        public string Norwegian { get => data.Norwegian; set { if (data.Norwegian != value) { data.Norwegian = value; OnPropertyChanged(nameof(Norwegian)); } } }
+        public string Dutch { get => data.Dutch; set { if (data.Dutch != value) { data.Dutch = value; OnPropertyChanged(nameof(Dutch)); } } }
+        public string Danish { get => data.Danish; set { if (data.Danish != value) { data.Danish = value; OnPropertyChanged(nameof(Danish)); } } }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string propertyName)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    // ============================================================
+    // H2A / H4 Ordinance ViewModels
+    // ============================================================
+    public class OrdnanceWeightsViewModel : INotifyPropertyChanged
+    {
+        private OrdnanceWeights data;
+
+        public OrdnanceWeightsViewModel(OrdnanceWeights data)
+        {
+            this.data = data ?? new OrdnanceWeights();
+        }
+
+        public string PosibilityName1 { get => data.PosibilityName1; set { if (data.PosibilityName1 != value) { data.PosibilityName1 = value; OnPropertyChanged(nameof(PosibilityName1)); } } }
+        public int PossibilityWeight1 { get => data.PossibilityWeight1; set { if (data.PossibilityWeight1 != value) { data.PossibilityWeight1 = value; OnPropertyChanged(nameof(PossibilityWeight1)); } } }
+        public string PosibilityName2 { get => data.PosibilityName2; set { if (data.PosibilityName2 != value) { data.PosibilityName2 = value; OnPropertyChanged(nameof(PosibilityName2)); } } }
+        public int PossibilityWeight2 { get => data.PossibilityWeight2; set { if (data.PossibilityWeight2 != value) { data.PossibilityWeight2 = value; OnPropertyChanged(nameof(PossibilityWeight2)); } } }
+        public string PosibilityName3 { get => data.PosibilityName3; set { if (data.PosibilityName3 != value) { data.PosibilityName3 = value; OnPropertyChanged(nameof(PosibilityName3)); } } }
+        public int PossibilityWeight3 { get => data.PossibilityWeight3; set { if (data.PossibilityWeight3 != value) { data.PossibilityWeight3 = value; OnPropertyChanged(nameof(PossibilityWeight3)); } } }
+        public string PosibilityName4 { get => data.PosibilityName4; set { if (data.PosibilityName4 != value) { data.PosibilityName4 = value; OnPropertyChanged(nameof(PosibilityName4)); } } }
+        public int PossibilityWeight4 { get => data.PossibilityWeight4; set { if (data.PossibilityWeight4 != value) { data.PossibilityWeight4 = value; OnPropertyChanged(nameof(PossibilityWeight4)); } } }
+        public string PosibilityName5 { get => data.PosibilityName5; set { if (data.PosibilityName5 != value) { data.PosibilityName5 = value; OnPropertyChanged(nameof(PosibilityName5)); } } }
+        public int PossibilityWeight5 { get => data.PossibilityWeight5; set { if (data.PossibilityWeight5 != value) { data.PossibilityWeight5 = value; OnPropertyChanged(nameof(PossibilityWeight5)); } } }
+        public string PosibilityName6 { get => data.PosibilityName6; set { if (data.PosibilityName6 != value) { data.PosibilityName6 = value; OnPropertyChanged(nameof(PosibilityName6)); } } }
+        public int PossibilityWeight6 { get => data.PossibilityWeight6; set { if (data.PossibilityWeight6 != value) { data.PossibilityWeight6 = value; OnPropertyChanged(nameof(PossibilityWeight6)); } } }
+        public string PosibilityName7 { get => data.PosibilityName7; set { if (data.PosibilityName7 != value) { data.PosibilityName7 = value; OnPropertyChanged(nameof(PosibilityName7)); } } }
+        public int PossibilityWeight7 { get => data.PossibilityWeight7; set { if (data.PossibilityWeight7 != value) { data.PossibilityWeight7 = value; OnPropertyChanged(nameof(PossibilityWeight7)); } } }
+        public string PosibilityName8 { get => data.PosibilityName8; set { if (data.PosibilityName8 != value) { data.PosibilityName8 = value; OnPropertyChanged(nameof(PosibilityName8)); } } }
+        public int PossibilityWeight8 { get => data.PossibilityWeight8; set { if (data.PossibilityWeight8 != value) { data.PossibilityWeight8 = value; OnPropertyChanged(nameof(PossibilityWeight8)); } } }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string propertyName)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    public class OrdinanceViewModel : INotifyPropertyChanged
+    {
+        private Ordinance data;
+
+        public OrdinanceViewModel(Ordinance data)
+        {
+            this.data = data ?? new Ordinance();
+            OrdnanceRight = new OrdnanceWeightsViewModel(this.data.OrdnanceRight ?? new OrdnanceWeights());
+            OrdnanceLeft = new OrdnanceWeightsViewModel(this.data.OrdnanceLeft ?? new OrdnanceWeights());
+            OrdnanceDown = new OrdnanceWeightsViewModel(this.data.OrdnanceDown ?? new OrdnanceWeights());
+            OrdnanceUnknown = new OrdnanceWeightsViewModel(this.data.OrdnanceUnknown ?? new OrdnanceWeights());
+        }
+
+        public int Ordinances2bit { get => data.Ordinances2bit; set { if (data.Ordinances2bit != value) { data.Ordinances2bit = value; OnPropertyChanged(nameof(Ordinances2bit)); } } }
+        public int InitialOrdinance { get => data.InitialOrdinance; set { if (data.InitialOrdinance != value) { data.InitialOrdinance = value; OnPropertyChanged(nameof(InitialOrdinance)); } } }
+        public int RandomOrdinance { get => data.RandomOrdinance; set { if (data.RandomOrdinance != value) { data.RandomOrdinance = value; OnPropertyChanged(nameof(RandomOrdinance)); } } }
+        public int PersonalOrdinance { get => data.PersonalOrdinance; set { if (data.PersonalOrdinance != value) { data.PersonalOrdinance = value; OnPropertyChanged(nameof(PersonalOrdinance)); } } }
+        public int OrdinancesEnabled { get => data.OrdinancesEnabled; set { if (data.OrdinancesEnabled != value) { data.OrdinancesEnabled = value; OnPropertyChanged(nameof(OrdinancesEnabled)); } } }
+        public int Ordinance8Bit { get => data.Ordinance8Bit; set { if (data.Ordinance8Bit != value) { data.Ordinance8Bit = value; OnPropertyChanged(nameof(Ordinance8Bit)); } } }
+        public int OrdResupplyTimeMin { get => data.OrdResupplyTimeMin; set { if (data.OrdResupplyTimeMin != value) { data.OrdResupplyTimeMin = value; OnPropertyChanged(nameof(OrdResupplyTimeMin)); } } }
+        public int OrdResupplyTimeMax { get => data.OrdResupplyTimeMax; set { if (data.OrdResupplyTimeMax != value) { data.OrdResupplyTimeMax = value; OnPropertyChanged(nameof(OrdResupplyTimeMax)); } } }
+        public int Ordinance16Bit1 { get => data.Ordinance16Bit1; set { if (data.Ordinance16Bit1 != value) { data.Ordinance16Bit1 = value; OnPropertyChanged(nameof(Ordinance16Bit1)); } } }
+        public string InitialDropsetName { get => data.InitialDropsetName; set { if (data.InitialDropsetName != value) { data.InitialDropsetName = value; OnPropertyChanged(nameof(InitialDropsetName)); } } }
+        public int Ordinance16Bit2 { get => data.Ordinance16Bit2; set { if (data.Ordinance16Bit2 != value) { data.Ordinance16Bit2 = value; OnPropertyChanged(nameof(Ordinance16Bit2)); } } }
+        public int Ordinance16Bit3 { get => data.Ordinance16Bit3; set { if (data.Ordinance16Bit3 != value) { data.Ordinance16Bit3 = value; OnPropertyChanged(nameof(Ordinance16Bit3)); } } }
+        public string RandomDropsetName { get => data.RandomDropsetName; set { if (data.RandomDropsetName != value) { data.RandomDropsetName = value; OnPropertyChanged(nameof(RandomDropsetName)); } } }
+        public string PersonalDropsetName { get => data.PersonalDropsetName; set { if (data.PersonalDropsetName != value) { data.PersonalDropsetName = value; OnPropertyChanged(nameof(PersonalDropsetName)); } } }
+        public string OrdinanceSubstitutionsName { get => data.OrdinanceSubstitutionsName; set { if (data.OrdinanceSubstitutionsName != value) { data.OrdinanceSubstitutionsName = value; OnPropertyChanged(nameof(OrdinanceSubstitutionsName)); } } }
+        public int CustomizePersonalOrdinance { get => data.CustomizePersonalOrdinance; set { if (data.CustomizePersonalOrdinance != value) { data.CustomizePersonalOrdinance = value; OnPropertyChanged(nameof(CustomizePersonalOrdinance)); } } }
+
+        public OrdnanceWeightsViewModel OrdnanceRight { get; }
+        public OrdnanceWeightsViewModel OrdnanceLeft { get; }
+        public OrdnanceWeightsViewModel OrdnanceDown { get; }
+        public OrdnanceWeightsViewModel OrdnanceUnknown { get; }
+
+        public string OrdnancePointsRequirement { get => data.OrdnancePointsRequirement; set { if (data.OrdnancePointsRequirement != value) { data.OrdnancePointsRequirement = value; OnPropertyChanged(nameof(OrdnancePointsRequirement)); } } }
+        public string OrdnanceIncreaseMultiplier { get => data.OrdnanceIncreaseMultiplier; set { if (data.OrdnanceIncreaseMultiplier != value) { data.OrdnanceIncreaseMultiplier = value; OnPropertyChanged(nameof(OrdnanceIncreaseMultiplier)); } } }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string propertyName)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 
 
 }

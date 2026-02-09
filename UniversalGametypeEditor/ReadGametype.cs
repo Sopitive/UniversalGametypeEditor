@@ -24,12 +24,13 @@ using System.Drawing.Text;
 
 namespace UniversalGametypeEditor
 {
-    
+
     public class ReadGametype
     {
 
         public class Gametype
         {
+            // Legacy JSON blobs (kept temporarily for backwards-compat while the UI migrates)
             public string? FileHeader;
             public string? GametypeHeader;
             public string? ModeSettings;
@@ -38,19 +39,35 @@ namespace UniversalGametypeEditor
             public string? PowerupTraits;
             public string? TeamSettings;
             public string? loadoutCluster;
-            public List<ScriptedPlayerTraits>? scriptedPlayerTraits; // Change to List
+
+            // New strongly-typed view-model surfaces (preferred)
+            public FileHeaderViewModel? FileHeaderVM;
+            public GametypeHeaderViewModel? GametypeHeaderVM;
+            public ModeSettingsViewModel? ModeSettingsVM;
+            public SpawnSettingsViewModel? SpawnSettingsVM;
+            public GameSettingsViewModel? GameSettingsVM;
+            public PowerupTraitsViewModel? PowerupTraitsVM;
+            public TeamSettingsViewModel? TeamSettingsVM;
+            public LoadoutClusterViewModel? LoadoutClusterVM;
+            public OrdinanceViewModel? OrdinanceVM;
+            public ScriptedPlayerTraitsViewModel? ScriptedPlayerTraitsVM;
+
+            // Data (still useful for encoding until encoder migrates)
+            public List<ScriptedPlayerTraits>? scriptedPlayerTraits;
+
+            // Existing VM-based sections (already used by the UI)
             public ScriptOptionsViewModel scriptOptions;
             public StringsViewModel Strings;
             public GameViewModel Game;
             public MapViewModel Map;
             public PlayerRatingsViewModel playerratings;
+
             public string Empty;
             public ObservableCollection<ConditionViewModel> conditions;
             public int scriptOffset;
-            
         }
 
-       
+
 
         public class FileHeader
         {
@@ -68,7 +85,7 @@ namespace UniversalGametypeEditor
             public int VariantType;
             public int Unknown0x31C;
 
-            
+
         }
 
 
@@ -180,9 +197,9 @@ namespace UniversalGametypeEditor
         }
 
 
-    public enum WeaponSetEnum
+        public enum WeaponSetEnum
         {
-            
+
             Human,
             Covenant,
             NoSnipers,
@@ -250,7 +267,7 @@ namespace UniversalGametypeEditor
             TwoHundredPercent,
             ThreeHundredPercent,
             FourHundredPercent,
-            
+
 
         }
 
@@ -577,11 +594,11 @@ namespace UniversalGametypeEditor
 
         public class SpawnSettings
         {
-            
+
 
             public int LivesPerround;
             public int TeamLivesPerround;
-            
+
             public int RespawnTime;
             public int Suicidepenalty;
             public int Betrayalpenalty;
@@ -608,7 +625,7 @@ namespace UniversalGametypeEditor
                 public int? RespawnSyncwithteam;
             }
 
-            
+
         }
 
 
@@ -617,13 +634,13 @@ namespace UniversalGametypeEditor
 
             public int Healthmultiplyer;
             public int Healthregenrate;
-            
+
 
             public int DamageResistance;
             public int ShieldRegenrate;
 
             public int ShieldMultiplyer;
-            
+
             public int Overshieldregenrate;
             public int HeadshotImmunity;
             public int shieldvampirism;
@@ -736,7 +753,7 @@ namespace UniversalGametypeEditor
                 public int Vaulting;
                 public int VisionMode;
             }
-            
+
 
 
 
@@ -778,7 +795,7 @@ namespace UniversalGametypeEditor
 
         }
 
-        
+
 
         public class GameSettings
         {
@@ -795,7 +812,7 @@ namespace UniversalGametypeEditor
             public int abilitiesonmap;
             public int shortcutsonmap;
             public int grenadesonmap;
-            public PlayerTraits BasePlayerTraits { get; set;}
+            public PlayerTraits BasePlayerTraits { get; set; }
             public int WeaponSet;
             public int VehicleSet;
             public H2AH4Settings H2AH4 { get; set; } // Fields exclusively for H2A+H4
@@ -807,26 +824,26 @@ namespace UniversalGametypeEditor
                 public int Unknown3;
                 public string Unknown4;
             }
-            
 
 
-            
+
+
 
         }
 
 
         public class PowerupTraits
         {
-            
-            
 
 
-        public H2AH4Settings H2AH4 { get; set; } // Fields exclusively for H2A+H4
 
 
-        public ReachSettings Reach { get; set; } // Fields for Reach
+            public H2AH4Settings H2AH4 { get; set; } // Fields exclusively for H2A+H4
 
-        public class ReachSettings
+
+            public ReachSettings Reach { get; set; } // Fields for Reach
+
+            public class ReachSettings
             {
                 public int? RedPowerupDuration;
                 public int? BluePowerupDuration;
@@ -858,7 +875,7 @@ namespace UniversalGametypeEditor
             }
         }
 
-        
+
         public class Ordinance
         {
             public int Ordinances2bit;
@@ -963,7 +980,7 @@ namespace UniversalGametypeEditor
                 public string Danish;
             }
 
-           
+
         }
 
 
@@ -1039,7 +1056,7 @@ namespace UniversalGametypeEditor
             {
                 public int hidden;
             }
-            
+
         }
 
 
@@ -1102,7 +1119,7 @@ namespace UniversalGametypeEditor
         public class Conditions
         {
             public List<string> conditions;
-            public int  ConditionCount;
+            public int ConditionCount;
             public int ConditionType;
             public string NOT;
             public int ORSequence;
@@ -1133,7 +1150,7 @@ namespace UniversalGametypeEditor
             public string Parameter11;
         }
 
- 
+
 
         public List<string> WaypointPriority = new List<string>
         {
@@ -1388,40 +1405,40 @@ namespace UniversalGametypeEditor
 
         };
 
- //       <Var name = "TeamRef" type="Enum" bits="5" >
-	//	<Var ID = "00000" name="NoTeam" />
-	//	<Var ID = "00001" name="Team0" />
-	//	<Var ID = "00010" name="Team1" />
-	//	<Var ID = "00011" name="Team2" />
-	//	<Var ID = "00100" name="Team3" />
-	//	<Var ID = "00101" name="Team4" />
-	//	<Var ID = "00110" name="Team5" />
-	//	<Var ID = "00111" name="Team6" />
-	//	<Var ID = "01000" name="Team7" />
-	//	<Var ID = "01001" name="NeutralTeam" />
-	//	<Var ID = "01010" name="GlobalTeam[0]" />
-	//	<Var ID = "01011" name="GlobalTeam[1]" />
-	//	<Var ID = "01100" name="GlobalTeam[2]" />
-	//	<Var ID = "01101" name="GlobalTeam[3]" />
-	//	<Var ID = "01110" name="GlobalTeam[4]" />
-	//	<Var ID = "01111" name="GlobalTeam[5]" />
-	//	<Var ID = "10000" name="GlobalTeam[6]" />
-	//	<Var ID = "10001" name="GlobalTeam[7]" />
-	//	<Var ID = "10010" name="ScratchTeam[0]" />
-	//	<Var ID = "10011" name="ScratchTeam[1]" />
-	//	<Var ID = "10100" name="ScratchTeam[2]" />
-	//	<Var ID = "10101" name="ScratchTeam[3]" />
-	//	<Var ID = "10110" name="ScratchTeam[4]" />
-	//	<Var ID = "10111" name="ScratchTeam[5]" />
-	//	<Var ID = "11000" name="ScratchTeam[6]" />
-	//	<Var ID = "11001" name="ScratchTeam[7]" />
-	//	<Var ID = "11010" name="CurrentTeam" />
-	//	<Var ID = "11011" name="HudPlayer.Team" />
-	//	<Var ID = "11100" name="HudTargetTeam·" />
-	//	<Var ID = "11101" name="UnkTeam29·" />
-	//	<Var ID = "11110" name="UnkTeam30·" />
-	//	<Var ID = "11111" name="Unlabelled·" />
-	//</Var>
+        //       <Var name = "TeamRef" type="Enum" bits="5" >
+        //	<Var ID = "00000" name="NoTeam" />
+        //	<Var ID = "00001" name="Team0" />
+        //	<Var ID = "00010" name="Team1" />
+        //	<Var ID = "00011" name="Team2" />
+        //	<Var ID = "00100" name="Team3" />
+        //	<Var ID = "00101" name="Team4" />
+        //	<Var ID = "00110" name="Team5" />
+        //	<Var ID = "00111" name="Team6" />
+        //	<Var ID = "01000" name="Team7" />
+        //	<Var ID = "01001" name="NeutralTeam" />
+        //	<Var ID = "01010" name="GlobalTeam[0]" />
+        //	<Var ID = "01011" name="GlobalTeam[1]" />
+        //	<Var ID = "01100" name="GlobalTeam[2]" />
+        //	<Var ID = "01101" name="GlobalTeam[3]" />
+        //	<Var ID = "01110" name="GlobalTeam[4]" />
+        //	<Var ID = "01111" name="GlobalTeam[5]" />
+        //	<Var ID = "10000" name="GlobalTeam[6]" />
+        //	<Var ID = "10001" name="GlobalTeam[7]" />
+        //	<Var ID = "10010" name="ScratchTeam[0]" />
+        //	<Var ID = "10011" name="ScratchTeam[1]" />
+        //	<Var ID = "10100" name="ScratchTeam[2]" />
+        //	<Var ID = "10101" name="ScratchTeam[3]" />
+        //	<Var ID = "10110" name="ScratchTeam[4]" />
+        //	<Var ID = "10111" name="ScratchTeam[5]" />
+        //	<Var ID = "11000" name="ScratchTeam[6]" />
+        //	<Var ID = "11001" name="ScratchTeam[7]" />
+        //	<Var ID = "11010" name="CurrentTeam" />
+        //	<Var ID = "11011" name="HudPlayer.Team" />
+        //	<Var ID = "11100" name="HudTargetTeam·" />
+        //	<Var ID = "11101" name="UnkTeam29·" />
+        //	<Var ID = "11110" name="UnkTeam30·" />
+        //	<Var ID = "11111" name="Unlabelled·" />
+        //</Var>
 
         public List<string> TeamTypeRef = new List<string>
         {
@@ -1459,24 +1476,24 @@ namespace UniversalGametypeEditor
             "Unlabelled"
         };
 
- //       <Var name = "ScratchNumericRef" type="Enum" bits="4" >
-	//	<Var ID = "0000" name="ScratchNum[0]" />
-	//	<Var ID = "0001" name="ScratchNum[1]" />
-	//	<Var ID = "0010" name="ScratchNum[2]" />
-	//	<Var ID = "0011" name="ScratchNum[3]" />
-	//	<Var ID = "0100" name="ScratchNum[4]" />
-	//	<Var ID = "0101" name="ScratchNum[5]" />
-	//	<Var ID = "0110" name="ScratchNum[6]" />
-	//	<Var ID = "0111" name="ScratchNum[7]" />
-	//	<Var ID = "1000" name="ScratchNum[8]" />
-	//	<Var ID = "1001" name="ScratchNum[9]" />
-	//	<Var ID = "1010" name="Unlabelled·" />
-	//	<Var ID = "1011" name="Unlabelled·" />
-	//	<Var ID = "1100" name="Unlabelled·" />
-	//	<Var ID = "1101" name="Unlabelled·" />
-	//	<Var ID = "1110" name="Unlabelled·" />
-	//	<Var ID = "1111" name="Unlabelled·" />
-	//</Var>
+        //       <Var name = "ScratchNumericRef" type="Enum" bits="4" >
+        //	<Var ID = "0000" name="ScratchNum[0]" />
+        //	<Var ID = "0001" name="ScratchNum[1]" />
+        //	<Var ID = "0010" name="ScratchNum[2]" />
+        //	<Var ID = "0011" name="ScratchNum[3]" />
+        //	<Var ID = "0100" name="ScratchNum[4]" />
+        //	<Var ID = "0101" name="ScratchNum[5]" />
+        //	<Var ID = "0110" name="ScratchNum[6]" />
+        //	<Var ID = "0111" name="ScratchNum[7]" />
+        //	<Var ID = "1000" name="ScratchNum[8]" />
+        //	<Var ID = "1001" name="ScratchNum[9]" />
+        //	<Var ID = "1010" name="Unlabelled·" />
+        //	<Var ID = "1011" name="Unlabelled·" />
+        //	<Var ID = "1100" name="Unlabelled·" />
+        //	<Var ID = "1101" name="Unlabelled·" />
+        //	<Var ID = "1110" name="Unlabelled·" />
+        //	<Var ID = "1111" name="Unlabelled·" />
+        //</Var>
 
         public List<string> ScratchNumbers = new List<string>
         {
@@ -1718,8 +1735,8 @@ namespace UniversalGametypeEditor
 
 
 
-      
-        
+
+
 
         public class Triggers
         {
@@ -1762,6 +1779,26 @@ namespace UniversalGametypeEditor
         {
             public int MapID;
             public int mappermsflip;
+        }
+
+
+        private static ScriptedPlayerTraitsViewModel BuildScriptedPlayerTraitsVM(List<ScriptedPlayerTraits> items)
+        {
+            var vm = new ScriptedPlayerTraitsViewModel();
+
+            if (items == null)
+            {
+                vm.Count = 0;
+                return vm;
+            }
+
+            // In the mpvr format the count is stored, but we can also just mirror the list count.
+            vm.Count = items.Count;
+
+            foreach (var it in items)
+                vm.PlayerTraitsItems.Add(new ScriptedPlayerTraitItemViewModel(it));
+
+            return vm;
         }
 
         private ScriptOptionsViewModel ReadScriptOptions()
@@ -1836,26 +1873,66 @@ namespace UniversalGametypeEditor
 
         public StringsViewModel ReadStrings()
         {
+            // Clear any previous decode results (important when reusing the same compiler instance)
+            StringsViewModel.StringTableEntries.Clear();
+            StringsViewModel.MetaNameStringEntries.Clear();
+            StringsViewModel.MetaDescStringEntries.Clear();
+            StringsViewModel.MetaIntroStringEntries.Clear();
+            StringsViewModel.MetaGroupStringEntries.Clear();
+
             if (Settings.Default.DecompiledVersion > 0)
             {
-                StringsViewModel.StringTable = ReadLangStrings(16, 8, false);
+                var stringTable = ReadLangStringsDecoded(16, 8, teamString: false);
+                StringsViewModel.StringTable = stringTable.RawBits;
+                FillLangEntries(StringsViewModel.StringTableEntries, stringTable.Entries);
+
                 StringsViewModel.StringNameIndex = ConvertToInt(GetValue(8));
-                StringsViewModel.MetaNameStrings = ReadLangStrings(11, 1, false);
-                StringsViewModel.MetaDescStrings = ReadLangStrings(13, 1, false);
-                StringsViewModel.MetaIntroStrings = ReadLangStrings(13, 1, false);
-                StringsViewModel.MetaGroupStrings = ReadLangStrings(10, 1, false);
+
+                var metaName = ReadLangStringsDecoded(11, 1, teamString: false);
+                StringsViewModel.MetaNameStrings = metaName.RawBits;
+                FillLangEntries(StringsViewModel.MetaNameStringEntries, metaName.Entries);
+
+                var metaDesc = ReadLangStringsDecoded(13, 1, teamString: false);
+                StringsViewModel.MetaDescStrings = metaDesc.RawBits;
+                FillLangEntries(StringsViewModel.MetaDescStringEntries, metaDesc.Entries);
+
+                var metaIntro = ReadLangStringsDecoded(13, 1, teamString: false);
+                StringsViewModel.MetaIntroStrings = metaIntro.RawBits;
+                FillLangEntries(StringsViewModel.MetaIntroStringEntries, metaIntro.Entries);
+
+                var metaGroup = ReadLangStringsDecoded(10, 1, teamString: false);
+                StringsViewModel.MetaGroupStrings = metaGroup.RawBits;
+                FillLangEntries(StringsViewModel.MetaGroupStringEntries, metaGroup.Entries);
+            }
+            else
+            {
+                // Reach / older format
+                var stringTable = ReadLangStringsDecoded(15, 7, teamString: false);
+                StringsViewModel.StringTable = stringTable.RawBits;
+                FillLangEntries(StringsViewModel.StringTableEntries, stringTable.Entries);
+
+                StringsViewModel.StringNameIndex = ConvertToInt(GetValue(7));
+
+                var metaName = ReadLangStringsDecoded(9, 1, teamString: false);
+                StringsViewModel.MetaNameStrings = metaName.RawBits;
+                FillLangEntries(StringsViewModel.MetaNameStringEntries, metaName.Entries);
+
+                var metaDesc = ReadLangStringsDecoded(12, 1, teamString: false);
+                StringsViewModel.MetaDescStrings = metaDesc.RawBits;
+                FillLangEntries(StringsViewModel.MetaDescStringEntries, metaDesc.Entries);
+
+                // Not present in Reach mpvr
+                StringsViewModel.MetaIntroStrings = "";
+                StringsViewModel.MetaIntroStringEntries.Clear();
+
+                var metaGroup = ReadLangStringsDecoded(9, 1, teamString: false);
+                StringsViewModel.MetaGroupStrings = metaGroup.RawBits;
+                FillLangEntries(StringsViewModel.MetaGroupStringEntries, metaGroup.Entries);
             }
 
-            if (Settings.Default.DecompiledVersion == 0)
-            {
-                StringsViewModel.StringTable = ReadLangStrings(15, 7, false);
-                StringsViewModel.StringNameIndex = ConvertToInt(GetValue(7));
-                StringsViewModel.MetaNameStrings = ReadLangStrings(9, 1, false);
-                StringsViewModel.MetaDescStrings = ReadLangStrings(12, 1, false);
-                StringsViewModel.MetaGroupStrings = ReadLangStrings(9, 1, false);
-            }
             return StringsViewModel;
         }
+
 
         public GameViewModel ReadGame()
         {
@@ -2339,8 +2416,7 @@ namespace UniversalGametypeEditor
 
 
 
-            gt.FileHeader = Newtonsoft.Json.JsonConvert.SerializeObject(fh);
-
+            gt.FileHeaderVM = new FileHeaderViewModel(fh);
             if (fh.Unknown0x2F8 == 54)
             {
                 Settings.Default.DecompiledVersion = 0; //Reach
@@ -2390,7 +2466,7 @@ namespace UniversalGametypeEditor
             gth.Description = ReadUStringFromBits(binaryString);
             Settings.Default.Description = gth.Description;
             gth.GameIcon = ConvertToInt(GetValue(8));
-            gt.GametypeHeader = Newtonsoft.Json.JsonConvert.SerializeObject(gth);
+            gt.GametypeHeaderVM = new GametypeHeaderViewModel(gth);
             //ConvertAndSaveToXml(gth, "gametype.xml");
 
             //Read ModeSettings
@@ -2441,8 +2517,7 @@ namespace UniversalGametypeEditor
                 };
             }
 
-            gt.ModeSettings = Newtonsoft.Json.JsonConvert.SerializeObject(ms);
-
+            gt.ModeSettingsVM = new ModeSettingsViewModel(ms);
             //ConvertAndSaveToXml(ms, "gametype.xml");
 
             //Read SpawnSettings
@@ -2477,8 +2552,7 @@ namespace UniversalGametypeEditor
             //GetValue(333);
             ss.RespawnPlayerTraits = ReadTraits(binaryString, ss.RespawnPlayerTraits);
             //GetValue(3);
-            gt.SpawnSettings = Newtonsoft.Json.JsonConvert.SerializeObject(ss);
-
+            gt.SpawnSettingsVM = new SpawnSettingsViewModel(ss);
             //ConvertAndSaveToXml(ss, "gametype.xml");
 
             //Read GameSettings
@@ -2528,14 +2602,15 @@ namespace UniversalGametypeEditor
                 if (Settings.Default.IsGvar)
                 {
                     gs.H2AH4.Unknown4 = GetValue(41);
-                } else
+                }
+                else
                 {
                     gs.H2AH4.Unknown4 = GetValue(55);
                 }
-                
+
             }
 
-            gt.GameSettings = Newtonsoft.Json.JsonConvert.SerializeObject(gs);
+            gt.GameSettingsVM = new GameSettingsViewModel(gs);
             //ConvertAndSaveToXml(gs, "gametype.xml");
 
             //Read PowerupTraits
@@ -2567,22 +2642,24 @@ namespace UniversalGametypeEditor
                 pt.H2AH4.CustomTraits = new();
                 pt.H2AH4.CustomTraitsRuntime = new();
                 pt.H2AH4.DamageTraits = ReadTraits(binaryString, pt.H2AH4.DamageTraits);
-                
-                
-                
+
+
+
                 if (Settings.Default.IsGvar)
                 {
                     pt.H2AH4.DamageTraitsDuration = ConvertToInt(GetValue(7));
-                } else
+                }
+                else
                 {
                     pt.H2AH4.DamageTraitsDuration = ConvertToInt(GetValue(6));
                 }
                 pt.H2AH4.DamageTraitsRuntime = ReadTraits(binaryString, pt.H2AH4.DamageTraitsRuntime);
-                
+
                 if (Settings.Default.IsGvar)
                 {
                     pt.H2AH4.DamageTraitsRuntimeDuration = ConvertToInt(GetValue(7));
-                } else
+                }
+                else
                 {
                     pt.H2AH4.DamageTraitsRuntimeDuration = ConvertToInt(GetValue(6));
                 }
@@ -2591,27 +2668,30 @@ namespace UniversalGametypeEditor
                 if (Settings.Default.IsGvar)
                 {
                     pt.H2AH4.SpeedTraitsDuration = ConvertToInt(GetValue(7));
-                } else
+                }
+                else
                 {
                     pt.H2AH4.SpeedTraitsDuration = ConvertToInt(GetValue(6));
                 }
-                
+
 
                 pt.H2AH4.SpeedTraitsRuntime = ReadTraits(binaryString, pt.H2AH4.SpeedTraitsRuntime);
                 if (Settings.Default.IsGvar)
                 {
                     pt.H2AH4.SpeedTraitsRuntimeDuration = ConvertToInt(GetValue(7));
-                } else
+                }
+                else
                 {
                     pt.H2AH4.SpeedTraitsRuntimeDuration = ConvertToInt(GetValue(6));
                 }
-                
+
 
                 pt.H2AH4.OverShieldTraits = ReadTraits(binaryString, pt.H2AH4.OverShieldTraits);
                 if (Settings.Default.IsGvar)
                 {
                     pt.H2AH4.OverShieldTraitsDuration = ConvertToInt(GetValue(7));
-                } else
+                }
+                else
                 {
                     pt.H2AH4.OverShieldTraitsDuration = ConvertToInt(GetValue(6));
                 }
@@ -2620,19 +2700,21 @@ namespace UniversalGametypeEditor
                 if (Settings.Default.IsGvar)
                 {
                     pt.H2AH4.OverShieldTraitsRuntimeDuration = ConvertToInt(GetValue(7));
-                } else
+                }
+                else
                 {
                     pt.H2AH4.OverShieldTraitsRuntimeDuration = ConvertToInt(GetValue(6));
                 }
-                
 
-                pt.H2AH4.CustomTraits = ReadTraits(binaryString, pt.H2AH4.DamageTraits);
 
-                
+                pt.H2AH4.CustomTraits = ReadTraits(binaryString, pt.H2AH4.CustomTraits);
+
+
                 if (Settings.Default.IsGvar)
                 {
                     pt.H2AH4.CustomTraitsDuration = ConvertToInt(GetValue(7));
-                } else
+                }
+                else
                 {
                     pt.H2AH4.CustomTraitsDuration = ConvertToInt(GetValue(6));
                 }
@@ -2640,14 +2722,14 @@ namespace UniversalGametypeEditor
                 if (Settings.Default.IsGvar)
                 {
                     pt.H2AH4.CustomTraitsRuntimeDuration = ConvertToInt(GetValue(7));
-                } else
+                }
+                else
                 {
                     pt.H2AH4.CustomTraitsRuntimeDuration = ConvertToInt(GetValue(6));
                 }
             }
 
-            gt.PowerupTraits = Newtonsoft.Json.JsonConvert.SerializeObject(pt);
-
+            gt.PowerupTraitsVM = new PowerupTraitsViewModel(pt);
             //Read TeamSettings
             TeamSettings ts = new();
             ts.TeamScoringMethod = ConvertToInt(GetValue(3));
@@ -2668,8 +2750,7 @@ namespace UniversalGametypeEditor
             ts.Team6Options = ReadTeaMOptions();
             ts.Team7Options = ReadTeaMOptions();
             ts.Team8Options = ReadTeaMOptions();
-            gt.TeamSettings = Newtonsoft.Json.JsonConvert.SerializeObject(ts);
-
+            gt.TeamSettingsVM = new TeamSettingsViewModel(ts);
             //ConvertAndSaveToXml(ts, "gametype.xml");
 
             //Read LoadoutCluster
@@ -2691,37 +2772,36 @@ namespace UniversalGametypeEditor
             lc.Loadout5 = ReadLoadoutOptions();
             lc.Loadout6 = ReadLoadoutOptions();
 
-                lc.Loadout7 = ReadLoadoutOptions();
-                lc.Loadout8 = ReadLoadoutOptions();
-                lc.Loadout9 = ReadLoadoutOptions();
-                lc.Loadout10 = ReadLoadoutOptions();
-                lc.Loadout11 = ReadLoadoutOptions();
-                lc.Loadout12 = ReadLoadoutOptions();
-                lc.Loadout13 = ReadLoadoutOptions();
-                lc.Loadout14 = ReadLoadoutOptions();
-                lc.Loadout15 = ReadLoadoutOptions();
-                lc.Loadout16 = ReadLoadoutOptions();
-                lc.Loadout17 = ReadLoadoutOptions();
-                lc.Loadout18 = ReadLoadoutOptions();
-                lc.Loadout19 = ReadLoadoutOptions();
-                lc.Loadout20 = ReadLoadoutOptions();
-                lc.Loadout21 = ReadLoadoutOptions();
-                lc.Loadout22 = ReadLoadoutOptions();
-                lc.Loadout23 = ReadLoadoutOptions();
-                lc.Loadout24 = ReadLoadoutOptions();
-                lc.Loadout25 = ReadLoadoutOptions();
-                lc.Loadout26 = ReadLoadoutOptions();
-                lc.Loadout27 = ReadLoadoutOptions();
-                lc.Loadout28 = ReadLoadoutOptions();
-                lc.Loadout29 = ReadLoadoutOptions();
-                lc.Loadout30 = ReadLoadoutOptions();
-                //if (Settings.Default.DecompiledVersion > 0)
-                //{
-                //    lc.Loadout31 = ReadLoadoutOptions();
-                //}
+            lc.Loadout7 = ReadLoadoutOptions();
+            lc.Loadout8 = ReadLoadoutOptions();
+            lc.Loadout9 = ReadLoadoutOptions();
+            lc.Loadout10 = ReadLoadoutOptions();
+            lc.Loadout11 = ReadLoadoutOptions();
+            lc.Loadout12 = ReadLoadoutOptions();
+            lc.Loadout13 = ReadLoadoutOptions();
+            lc.Loadout14 = ReadLoadoutOptions();
+            lc.Loadout15 = ReadLoadoutOptions();
+            lc.Loadout16 = ReadLoadoutOptions();
+            lc.Loadout17 = ReadLoadoutOptions();
+            lc.Loadout18 = ReadLoadoutOptions();
+            lc.Loadout19 = ReadLoadoutOptions();
+            lc.Loadout20 = ReadLoadoutOptions();
+            lc.Loadout21 = ReadLoadoutOptions();
+            lc.Loadout22 = ReadLoadoutOptions();
+            lc.Loadout23 = ReadLoadoutOptions();
+            lc.Loadout24 = ReadLoadoutOptions();
+            lc.Loadout25 = ReadLoadoutOptions();
+            lc.Loadout26 = ReadLoadoutOptions();
+            lc.Loadout27 = ReadLoadoutOptions();
+            lc.Loadout28 = ReadLoadoutOptions();
+            lc.Loadout29 = ReadLoadoutOptions();
+            lc.Loadout30 = ReadLoadoutOptions();
+            //if (Settings.Default.DecompiledVersion > 0)
+            //{
+            //    lc.Loadout31 = ReadLoadoutOptions();
+            //}
 
-            gt.loadoutCluster = Newtonsoft.Json.JsonConvert.SerializeObject(lc);
-
+            gt.LoadoutClusterVM = new LoadoutClusterViewModel(lc);
             if (Settings.Default.DecompiledVersion > 0)
             {
                 //Read Ordnance
@@ -2750,12 +2830,15 @@ namespace UniversalGametypeEditor
                 o.OrdnancePointsRequirement = GetValue(30);
                 o.OrdnanceIncreaseMultiplier = GetValue(30);
 
+                gt.OrdinanceVM = new OrdinanceViewModel(o);
+
             }
 
             //Read ScriptedPlayerTraits
             List<ScriptedPlayerTraits> scriptedPlayerTraits = ReadScriptedPlayerTraits(binaryString);
 
             gt.scriptedPlayerTraits = scriptedPlayerTraits;
+            gt.ScriptedPlayerTraitsVM = BuildScriptedPlayerTraitsVM(scriptedPlayerTraits);
 
             ////Read ScriptOptions
             //ScriptOptions so = new();
@@ -2822,8 +2905,8 @@ namespace UniversalGametypeEditor
             //}
             //gt.scriptOptions = Newtonsoft.Json.JsonConvert.SerializeObject(so);
 
-             gt.scriptOptions =  ReadScriptOptions();
-            
+            gt.scriptOptions = ReadScriptOptions();
+
 
 
             gt.Strings = ReadStrings();
@@ -2904,9 +2987,9 @@ namespace UniversalGametypeEditor
             if (Settings.Default.DecompiledVersion > 0 && Settings.Default.IsGvar == false)
             {
 
-                
-                    GetValue(42);
-                    int loadouts = ConvertToInt(GetValue(9));
+
+                GetValue(42);
+                int loadouts = ConvertToInt(GetValue(9));
                 for (int i = 0; i < loadouts; i++)
                 {
                     int size = ConvertToInt(GetValue(2));
@@ -2921,15 +3004,16 @@ namespace UniversalGametypeEditor
                     int unknown = ConvertToInt(GetValue(6));
 
                 }
-                    GetValue(1728);
+                GetValue(1728);
 
-                    
+
 
             }
             else if (Settings.Default.DecompiledVersion > 0 && Settings.Default.IsGvar == true)
             {
                 GetValue(2126);
-            } else
+            }
+            else
             {
                 gt.Empty = GetValue(2642);
             }
@@ -2939,9 +3023,12 @@ namespace UniversalGametypeEditor
             gt.scriptOffset = scriptOffset;
 
 
-            gt.conditions = ReadConditions();
+            //gt.conditions = ReadConditions();
 
-            gametypeItems.Add(gt);
+            //gametypeItems.Add(gt);
+
+            string scriptContent = ScriptDecompiler.Decompile(binaryString);
+            Debug.WriteLine("Decompiled Script!");
 
             //Read Actions
 
@@ -2966,11 +3053,11 @@ namespace UniversalGametypeEditor
             //    switch (ac.ActionType)
             //    {
 
-                    
-                        
+
+
             //        case 2:
             //            //Create Object
-                        
+
             //            ac.Parameter1 = Objects[ConvertToInt(GetValue(objectType))];
             //            type = ConvertToInt(GetValue(objectTypeRef));
             //            (ac.Parameter2, subvalue) = GetRefType(type);
@@ -3206,8 +3293,8 @@ namespace UniversalGametypeEditor
             //            int unknown4 = ConvertToInt(GetValue(11));
             //            unknown4 = unknown4 == 0 ? 1 : unknown4;
             //            unknown3 = unknown3 == 0 ? 1 : unknown3;
-                        
-                        
+
+
             //            //ActionList[unknown3 + unknown4 - 2] += " \n\tend";
             //            for (int j = 0; j < conditionCount; j++)
             //            {
@@ -3665,7 +3752,7 @@ namespace UniversalGametypeEditor
             //    }
 
 
-                
+
 
             //    //Build trigger string
             //    string trigger = type + "\n" + actions + "\n" + "end\n";
@@ -3677,7 +3764,7 @@ namespace UniversalGametypeEditor
             //    //Get only the file path without the filename
             //    string filepath = Path.GetDirectoryName(filePath);
             //    //Append the trigger to a new text file with the filename at the file pat locaation and overwrite the existing
-                
+
             //    File.AppendAllText($"{filepath}\\{filename}.txt", trigger);
             //}
 
@@ -3823,7 +3910,7 @@ namespace UniversalGametypeEditor
         //                    break;
         //            }
         //            break;
-                    
+
         //    }
         //    return (SpecificType, subplayer);
         //}
@@ -3876,7 +3963,7 @@ namespace UniversalGametypeEditor
         //            return "trigger filter";
         //        default:
         //            return "Unknown Trigger Type";
-                
+
         //    }
         //}
         //private string GetNumericRefType(int value)
@@ -4057,7 +4144,7 @@ namespace UniversalGametypeEditor
         //    }
         //}
 
- 
+
         //private (string, string) GetRefType(int type)
         //{
         //    string subvalue = "";
@@ -4225,7 +4312,7 @@ namespace UniversalGametypeEditor
                 to.SecondarycolorOverride = ConvertToInt(GetValue(1));
                 to.PrimarycolorOverride = ConvertToInt(GetValue(1));
                 to.TeamEnabled = ConvertToInt(GetValue(1));
-                
+
                 to.Teamstring = ReadLangStrings(5, 1, true);
                 to.InitialDesignator = ConvertToInt(GetValue(4));
                 to.Elitespecies = ConvertToInt(GetValue(1));
@@ -4264,125 +4351,135 @@ namespace UniversalGametypeEditor
 
             return to;
         }
-        private string fullStringBits = "";
-        private string GetLanguageValue(int bits, string defaultValue = "-1")
+        // ------------------------------------------------------------
+        // Language-string blocks (string table + metadata strings)
+        // ------------------------------------------------------------
+
+        private static void FillLangEntries(ObservableCollection<LanguageStringsViewModel> dest, List<LanguageStrings> entries)
         {
-            //Super dirty, but will get us past the language strings for now
-            fullStringBits += binaryString.Substring(0, 1);
+            dest.Clear();
+            if (entries == null) return;
+
+            foreach (var e in entries)
+                dest.Add(new LanguageStringsViewModel(e));
+        }
+
+        private string GetLanguageValue(int bits, ref StringBuilder rawBits, string defaultValue = "-1")
+        {
+            // present flag
+            rawBits.Append(binaryString.Substring(0, 1));
             int present = ConvertToInt(GetValue(1));
             if (present == 0)
-            {
-                fullStringBits += "0";
                 return defaultValue;
-            } else
-            {
-                fullStringBits += binaryString.Substring(0, bits);
-                return GetValue(bits);
-            }
+
+            // value payload
+            rawBits.Append(binaryString.Substring(0, bits));
+            return GetValue(bits);
         }
 
-        private string ReadLangStrings(int bits, int chars, bool teamString)
-        {
-            StringBuilder bitsRead = new StringBuilder();
-            fullStringBits += binaryString.Substring(0, chars);
-            bitsRead.Append(binaryString.Substring(0, chars));
-            int stringPresent = ConvertToInt(GetValue(chars));
-            List<LanguageStrings> indexes = new();
-
-            for (int i = 0; i < stringPresent; i++)
-            {
-                var ls = ReadLanguageStrings(bits);
-                indexes.Add(ls);
-            }
-
-            string compressedChunk = ReadCompressedChunk(bits, teamString, stringPresent, indexes.FirstOrDefault());
-            foreach (var currentString in indexes)
-            {
-                DecompressLanguageStrings(currentString, compressedChunk);
-            }
-
-            bitsRead.Append(fullStringBits);
-            return bitsRead.ToString();
-        }
-
-        private LanguageStrings ReadLanguageStrings(int bits)
+        private LanguageStrings ReadLanguageStringsDecoded(int bits, ref StringBuilder rawBits)
         {
             var ls = new LanguageStrings
             {
-                English = GetLanguageValue(bits),
-                Japanese = GetLanguageValue(bits),
-                German = GetLanguageValue(bits),
-                French = GetLanguageValue(bits),
-                Spanish = GetLanguageValue(bits),
-                LatinAmericanSpanish = GetLanguageValue(bits),
-                Italian = GetLanguageValue(bits),
-                Korean = GetLanguageValue(bits),
-                ChineseTraditional = GetLanguageValue(bits),
-                ChineseSimplified = GetLanguageValue(bits),
-                Portuguese = GetLanguageValue(bits),
-                Polish = GetLanguageValue(bits)
+                English = GetLanguageValue(bits, ref rawBits),
+                Japanese = GetLanguageValue(bits, ref rawBits),
+                German = GetLanguageValue(bits, ref rawBits),
+                French = GetLanguageValue(bits, ref rawBits),
+                Spanish = GetLanguageValue(bits, ref rawBits),
+                LatinAmericanSpanish = GetLanguageValue(bits, ref rawBits),
+                Italian = GetLanguageValue(bits, ref rawBits),
+                Korean = GetLanguageValue(bits, ref rawBits),
+                ChineseTraditional = GetLanguageValue(bits, ref rawBits),
+                ChineseSimplified = GetLanguageValue(bits, ref rawBits),
+                Portuguese = GetLanguageValue(bits, ref rawBits),
+                Polish = GetLanguageValue(bits, ref rawBits)
             };
 
             if (Settings.Default.DecompiledVersion > 0)
             {
                 ls.H2AH4 = new LanguageStrings.H2AH4Settings
                 {
-                    Russian = GetLanguageValue(bits),
-                    Danish = GetLanguageValue(bits),
-                    Finnish = GetLanguageValue(bits),
-                    Dutch = GetLanguageValue(bits),
-                    Norwegian = GetLanguageValue(bits)
+                    Russian = GetLanguageValue(bits, ref rawBits),
+                    Danish = GetLanguageValue(bits, ref rawBits),
+                    Finnish = GetLanguageValue(bits, ref rawBits),
+                    Dutch = GetLanguageValue(bits, ref rawBits),
+                    Norwegian = GetLanguageValue(bits, ref rawBits)
                 };
             }
 
             return ls;
         }
 
-        private string ReadCompressedChunk(int bits, bool teamString, int stringPresent, LanguageStrings ls)
+        /// <summary>
+        /// Reads a "language strings" block and returns both:
+        ///  - RawBits: the exact bit string for re-encoding (your existing workflow)
+        ///  - Entries: decoded strings per-language for UI (new)
+        /// </summary>
+        private (string RawBits, List<LanguageStrings> Entries) ReadLangStringsDecoded(int bits, int chars, bool teamString)
         {
-            string compressedChunk = "";
-            bool compression = true;
+            var rawBits = new StringBuilder();
 
+            // count/present header
+            rawBits.Append(binaryString.Substring(0, chars));
+            int stringPresent = ConvertToInt(GetValue(chars));
+
+            var entries = new List<LanguageStrings>(stringPresent);
+
+            // index/presence table
+            for (int i = 0; i < stringPresent; i++)
+            {
+                entries.Add(ReadLanguageStringsDecoded(bits, ref rawBits));
+            }
+
+            // compressed chunk header + body
             if (stringPresent > 0)
             {
-                if (teamString && Settings.Default.DecompiledVersion == 0)
+                int m3Bits = (teamString && Settings.Default.DecompiledVersion == 0) ? (bits + 1) : bits;
+
+                rawBits.Append(binaryString.Substring(0, m3Bits));
+                int m3 = ConvertToInt(GetValue(m3Bits));
+
+                int d = ConvertToInt(GetValue(1));
+                rawBits.Append(Convert.ToString(d, 2).PadLeft(1, '0'));
+
+                int m1 = 0;
+                string compressedChunk;
+
+                if (d == 0)
                 {
-                    fullStringBits += binaryString.Substring(0, bits + 1);
-                    ls.m3 = ConvertToInt(GetValue(bits + 1));
+                    rawBits.Append(binaryString.Substring(0, m3 * 8));
+                    compressedChunk = GetValue(m3 * 8);
                 }
                 else
                 {
-                    fullStringBits += binaryString.Substring(0, bits);
-                    ls.m3 = ConvertToInt(GetValue(bits));
-                }
+                    rawBits.Append(binaryString.Substring(0, bits));
+                    m1 = ConvertToInt(GetValue(bits));
 
-                ls.d = ConvertToInt(GetValue(1));
-                fullStringBits += Convert.ToString(ls.d, 2).PadLeft(1, '0');
-
-                if (ls.d == 0)
-                {
-                    fullStringBits += binaryString.Substring(0, ls.m3 * 8);
-                    compressedChunk = GetValue(ls.m3 * 8);
-                    compression = false;
-                }
-                else
-                {
-                    fullStringBits += binaryString.Substring(0, bits);
-                    int m1 = ConvertToInt(GetValue(bits));
-                    fullStringBits += binaryString.Substring(0, m1 * 8);
+                    rawBits.Append(binaryString.Substring(0, m1 * 8));
                     string hexString = ConvertToHex(GetValue(m1 * 8));
 
-                    ls.m1 = m1;
-
                     byte[] compressedBytes = Convert.FromHexString(hexString);
-                    byte[] decompressedBytes = LowLevelDecompress(compressedBytes, ls.m3);
+                    byte[] decompressedBytes = LowLevelDecompress(compressedBytes, m3);
 
                     compressedChunk = ConvertToBinary(BitConverter.ToString(decompressedBytes).Replace("-", ""));
                 }
+
+                // Stash the decode bookkeeping on each entry (handy for debugging / round-trip)
+                foreach (var e in entries)
+                {
+                    e.m3 = m3;
+                    e.d = d;
+                    e.m1 = m1;
+                    DecompressLanguageStrings(e, compressedChunk);
+                }
             }
 
-            return compressedChunk;
+            return (rawBits.ToString(), entries);
         }
+
+        // Backwards-compatible wrapper used by the binary readers for non-UI blocks.
+        private string ReadLangStrings(int bits, int chars, bool teamString)
+            => ReadLangStringsDecoded(bits, chars, teamString).RawBits;
 
         private void DecompressLanguageStrings(LanguageStrings currentString, string compressedChunk)
         {
@@ -4523,7 +4620,7 @@ namespace UniversalGametypeEditor
                 pt.shieldvampirism = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.H2AH4.explosivedamageresistance = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.H2AH4.wheelmanvehiclestuntime = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
-                pt.H2AH4.wheelmanvehiclerechargetime =  ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
+                pt.H2AH4.wheelmanvehiclerechargetime = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.H2AH4.wheelmanvehicleemp = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.H2AH4.falldamage = ConvertToInt(GetValue(1)) == 1 ? ConvertToInt(GetValue(16)) : -1;
                 pt.HeadshotImmunity = ConvertToInt(GetValue(2));
@@ -4634,7 +4731,7 @@ namespace UniversalGametypeEditor
 
         private string ReadStringFromBits(string binary, bool countForward)
         {
-            
+
             StringBuilder value = new StringBuilder();
             int index = 0;
 
@@ -4736,5 +4833,5 @@ namespace UniversalGametypeEditor
 
 
 
-}
+    }
 }

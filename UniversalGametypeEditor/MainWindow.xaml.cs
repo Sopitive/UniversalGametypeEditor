@@ -42,7 +42,7 @@ namespace UniversalGametypeEditor
     /// </summary>
     public partial class MainWindow : System.Windows.Window
     {
-        
+
 
 
 
@@ -162,7 +162,7 @@ namespace UniversalGametypeEditor
 
             //string fullPath = Path.Combine(defaultPath, exeName);
             //if (File.Exists(fullPath))
-                //return defaultPath;
+            //return defaultPath;
 
             // 2. Fall back to registry
             const string regPath = @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{E8991692-EB10-4EB2-965C-92DB5A468561}_is1";
@@ -182,7 +182,7 @@ namespace UniversalGametypeEditor
                     Debug.WriteLine($"Found RVT at {installPath} using Install");
                     return installPath;
                 }
-                    
+
 
                 // Fallback: extract from UninstallString
                 var uninstallString = key.GetValue("UninstallString") as string;
@@ -196,7 +196,7 @@ namespace UniversalGametypeEditor
                             Debug.WriteLine($"Found RVT at {derivedPath} using UninstallString");
                             return derivedPath;
                         }
-                            
+
                     }
                     catch { }
                 }
@@ -213,7 +213,7 @@ namespace UniversalGametypeEditor
 
 
 
-        
+
         public MainWindow()
         {
             InitializeComponent();
@@ -223,6 +223,25 @@ namespace UniversalGametypeEditor
             //sc.CompileScript(script);
 
             ConfigureSyntaxHighlighting();
+
+
+            // ------------------------------------------------------------
+            // UI polish: keep script panel hidden until a variant is decompiled,
+            // and make the editor areas roomier for editing.
+            // ------------------------------------------------------------
+            try
+            {
+                if (ScriptEditor != null)
+                    ScriptEditor.Visibility = Visibility.Collapsed;
+
+                if (ScriptInputTextEditor != null)
+                {
+                    // Bigger editing surface, less friction
+                    ScriptInputTextEditor.MinHeight = 280;
+                    ScriptInputTextEditor.FontSize = Math.Max(13, ScriptInputTextEditor.FontSize);
+                }
+            }
+            catch { }
 
             //CheckForUpdates(null, null);
 
@@ -241,8 +260,8 @@ namespace UniversalGametypeEditor
 
             CreatePlaylist.GetUUID();
 
-            
-            
+
+
             if (Settings.Default.GameDir == "Undefined")
             {
                 //Attempt to autmoatically locate the game directory
@@ -255,7 +274,7 @@ namespace UniversalGametypeEditor
                         Settings.Default.GameDir = gameDir;
                         Settings.Default.Save();
                     }
-                }   
+                }
             }
 
             if (Settings.Default.RVTDirectory == "Undefined")
@@ -336,11 +355,12 @@ namespace UniversalGametypeEditor
                 if (Settings.Default.MultiDirectory)
                 {
                     RegisterWatchers(Settings.Default.FilePathList);
-                } else
+                }
+                else
                 {
                     RegisterWatcher(Settings.Default.FilePath, watcher);
                 }
-                
+
             }
 
             if (Settings.Default.HotReloadPath != "Undefined")
@@ -399,7 +419,7 @@ namespace UniversalGametypeEditor
             });
         }
 
-            private async void PatchMegaloEdit(object sender, RoutedEventArgs e)
+        private async void PatchMegaloEdit(object sender, RoutedEventArgs e)
         {
             UpdateLastEvent("Patching MegaloEdit");
             int result = await Task.Run(() => MemoryWriter.WriteOpcode2());
@@ -408,7 +428,7 @@ namespace UniversalGametypeEditor
                 UpdateLastEvent("ERROR: Failed to Patch MegaloEdit: MegaloEdit Not Running");
                 return;
             }
-            
+
             if (result == 2)
             {
                 UpdateLastEvent("SUCCESS: Patched MegaloEdit");
@@ -440,53 +460,184 @@ namespace UniversalGametypeEditor
             CompileVariant();
         }
 
+        private static bool TrySetVariantTypeToForge(object gametypeHeaderVm, int forgeValue)
+        {
+            if (gametypeHeaderVm == null) return false;
+
+            // Common candidate property names (add your real one once you find it)
+            string[] candidates =
+            {
+        "VariantType",
+        "Variant",
+        "Type",
+        "ContentType",
+        "FileType",
+        "VariantKind",
+        "GameVariantType",
+        "MapVariantType",
+        "IsForge",          // if it's a bool
+        "ForgeVariant",     // if it's a bool
+    };
+
+            const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var t = gametypeHeaderVm.GetType();
+
+            foreach (var name in candidates)
+            {
+                var p = t.GetProperty(name, BF);
+                if (p == null || !p.CanWrite) continue;
+
+                var pt = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
+
+                try
+                {
+                    if (pt == typeof(bool))
+                    {
+                        // "Forge" => true
+                        p.SetValue(gametypeHeaderVm, true);
+                        return true;
+                    }
+
+                    if (pt.IsEnum)
+                    {
+                        // If your enum has a Forge entry, this will work if forgeValue matches underlying int
+                        object boxed = Enum.ToObject(pt, forgeValue);
+                        p.SetValue(gametypeHeaderVm, boxed);
+                        return true;
+                    }
+
+                    if (pt == typeof(int))
+                    {
+                        p.SetValue(gametypeHeaderVm, forgeValue);
+                        return true;
+                    }
+
+                    if (pt == typeof(string))
+                    {
+                        // Some of your VMs store numeric fields as strings
+                        p.SetValue(gametypeHeaderVm, forgeValue.ToString());
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // ignore and keep trying
+                }
+            }
+
+            return false;
+        }
 
         private void CompileVariant()
         {
-            if (Settings.Default.Selected != "Undefined")
+            if (Settings.Default.Selected == "Undefined")
+                return;
+
+            // Keep UI selection behavior
+            Dispatcher.BeginInvoke((Action)(() =>
             {
-                Dispatcher.BeginInvoke((Action)delegate ()
-                {
-                    FilesListWatched.SelectedItem = Settings.Default.Selected;
-                });
+                FilesListWatched.SelectedItem = Settings.Default.Selected;
+            }));
 
-                WriteGametype wg = new();
-                string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
+            string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
+            if (!File.Exists(filePath))
+                return;
 
-                if (File.Exists(filePath))
-                {
-                    // Initialize ReadGametype and read binary data
-                    ReadGametype rg = new ReadGametype();
-                    rg.ReadBinary(filePath);
+            // IMPORTANT:
+            // Do NOT re-read the file here.
+            // Use the already-decompiled/current VMs (what your UI is bound to).
+            var gt = ReadGT; // ReadGT is set in Decompile(): ReadGT = rg.gt;
+            if (gt == null)
+                throw new InvalidOperationException("CompileVariant: ReadGT is null. Decompile() must run before CompileVariant().");
 
-                    // Deserialize JSON data
-                    FileHeader fileHeader = JsonConvert.DeserializeObject<FileHeader>(rg.gt.FileHeader);
-                    GametypeHeader gametypeHeader = JsonConvert.DeserializeObject<GametypeHeader>(rg.gt.GametypeHeader);
-                    ModeSettings modeSettings = JsonConvert.DeserializeObject<ModeSettings>(rg.gt.ModeSettings);
-                    SpawnSettings spawnSettings = JsonConvert.DeserializeObject<SpawnSettings>(rg.gt.SpawnSettings);
-                    GameSettings gameSettings = JsonConvert.DeserializeObject<GameSettings>(rg.gt.GameSettings);
-                    PowerupTraits powerupTraits = JsonConvert.DeserializeObject<PowerupTraits>(rg.gt.PowerupTraits);
-                    TeamSettings teamSettings = JsonConvert.DeserializeObject<TeamSettings>(rg.gt.TeamSettings);
-                    LoadoutCluster loadoutCluster = JsonConvert.DeserializeObject<LoadoutCluster>(rg.gt.loadoutCluster);
+            // Require VMs populated by Decompile/ReadBinary
+            var fileHeaderVM = gt.FileHeaderVM ?? throw new InvalidOperationException("CompileVariant: ReadGT.FileHeaderVM is null.");
+            var gametypeHeaderVM = gt.GametypeHeaderVM ?? throw new InvalidOperationException("CompileVariant: ReadGT.GametypeHeaderVM is null.");
+            var modeSettingsVM = gt.ModeSettingsVM ?? throw new InvalidOperationException("CompileVariant: ReadGT.ModeSettingsVM is null.");
+            var spawnSettingsVM = gt.SpawnSettingsVM ?? throw new InvalidOperationException("CompileVariant: ReadGT.SpawnSettingsVM is null.");
+            var gameSettingsVM = gt.GameSettingsVM ?? throw new InvalidOperationException("CompileVariant: ReadGT.GameSettingsVM is null.");
+            var powerupTraitsVM = gt.PowerupTraitsVM ?? throw new InvalidOperationException("CompileVariant: ReadGT.PowerupTraitsVM is null.");
+            var teamSettingsVM = gt.TeamSettingsVM ?? throw new InvalidOperationException("CompileVariant: ReadGT.TeamSettingsVM is null.");
+            var loadoutClusterVM = gt.LoadoutClusterVM ?? throw new InvalidOperationException("CompileVariant: ReadGT.LoadoutClusterVM is null.");
 
-                    // Initialize view models with deserialized data
-                    FileHeaderViewModel fileHeaderViewModel = new FileHeaderViewModel(fileHeader);
-                    GametypeHeaderViewModel gametypeHeaderViewModel = new GametypeHeaderViewModel(gametypeHeader);
-                    ModeSettingsViewModel modeSettingsViewModel = new ModeSettingsViewModel(modeSettings);
-                    SpawnSettingsViewModel spawnSettingsViewModel = new SpawnSettingsViewModel(spawnSettings);
-                    GameSettingsViewModel gameSettingsViewModel = new GameSettingsViewModel(gameSettings);
-                    PowerupTraitsViewModel powerupTraitsViewModel = new PowerupTraitsViewModel(powerupTraits);
-                    TeamSettingsViewModel teamSettingsViewModel = new TeamSettingsViewModel(teamSettings);
-                    LoadoutClusterViewModel loadoutClusterViewModel = new LoadoutClusterViewModel(loadoutCluster);
+            // Your writer doesn't actually need the model here (it writes from the VMs),
+            // so just pass a dummy model instance to satisfy the signature.
+            var dummyHeaderModel = new GametypeHeader();
 
-                    // Pass the initialized view models to the WriteBinaryFile method
-                    wg.WriteBinaryFile(filePath, gametypeHeader, fileHeaderViewModel, gametypeHeaderViewModel, modeSettingsViewModel, spawnSettingsViewModel, gameSettingsViewModel, powerupTraitsViewModel, teamSettingsViewModel, loadoutClusterViewModel);
-                }
+            var wg = new WriteGametype();
+            wg.WriteBinaryFile(
+                filePath,
+                dummyHeaderModel,
+                fileHeaderVM,
+                gametypeHeaderVM,
+                modeSettingsVM,
+                spawnSettingsVM,
+                gameSettingsVM,
+                powerupTraitsVM,
+                teamSettingsVM,
+                loadoutClusterVM
+            );
 
-                // Reselect the selected item
-            }
+            // Optional: reselect after compile
+            Dispatcher.BeginInvoke((Action)(() =>
+            {
+                FilesListWatched.SelectedItem = Settings.Default.Selected;
+            }));
         }
 
+
+        /// <summary>
+        /// Finds a backing model of type T on a VM by scanning ALL instance properties/fields
+        /// (public + nonpublic). Works even if the model is stored in a private field.
+        /// </summary>
+        private static T ExtractBackingModel<T>(object vm, string vmName) where T : class
+        {
+            if (vm is null)
+                throw new InvalidOperationException($"CompileVariant: {vmName} is null.");
+
+            if (vm is T already)
+                return already;
+
+            var tVm = vm.GetType();
+            const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+            // 1) Properties
+            foreach (var p in tVm.GetProperties(BF))
+            {
+                if (!p.CanRead) continue;
+                if (!typeof(T).IsAssignableFrom(p.PropertyType)) continue;
+
+                object? val;
+                try { val = p.GetValue(vm); }
+                catch { continue; }
+
+                if (val is T ok)
+                    return ok;
+            }
+
+            // 2) Fields (handles private backing fields)
+            foreach (var f in tVm.GetFields(BF))
+            {
+                if (!typeof(T).IsAssignableFrom(f.FieldType)) continue;
+
+                object? val;
+                try { val = f.GetValue(vm); }
+                catch { continue; }
+
+                if (val is T ok)
+                    return ok;
+            }
+
+            // Helpful debug list so you can see what the VM actually has
+            var propList = string.Join(", ", tVm.GetProperties(BF).Select(p => $"{p.Name}:{p.PropertyType.Name}"));
+            var fieldList = string.Join(", ", tVm.GetFields(BF).Select(f => $"{f.Name}:{f.FieldType.Name}"));
+
+            throw new InvalidOperationException(
+                $"CompileVariant: Could not extract {typeof(T).Name} from {vmName} ({tVm.FullName}).\n" +
+                $"Properties: {propList}\n" +
+                $"Fields: {fieldList}"
+            );
+        }
 
 
 
@@ -504,45 +655,99 @@ namespace UniversalGametypeEditor
 
 
 
+
         private void AddDataToUI<T>(T viewModel, string header, ObservableCollection<System.Windows.Controls.UserControl> gametype) where T : class
+        {
+            if (viewModel == null) return;
+            AddDataToUI((object)viewModel, header, gametype);
+        }
+
+        private void AddDataToUI(object viewModel, string header, ObservableCollection<System.Windows.Controls.UserControl> gametype)
         {
             if (viewModel == null) return;
 
             DropDown parentDropDown = CreateParentDropDown(header);
-            Type viewModelType = typeof(T);
-            PropertyInfo[] properties = viewModelType.GetProperties();
+
+            // Top-level collections: render each element as a nested expander
+            if (viewModel is System.Collections.IEnumerable enumerable && viewModel is not string)
+            {
+                int i = 0;
+                foreach (var item in enumerable)
+                {
+                    if (item == null) { i++; continue; }
+
+                    if (IsSimpleType(item.GetType()))
+                    {
+                        var gd = new GametypeData();
+                        gd.value_name.Text = $"[{i}]";
+                        ConfigureGametypeDataLayout(gd);
+
+                        gd.enabled.Visibility = Visibility.Collapsed;
+                        gd.enum_dropdown.Visibility = Visibility.Collapsed;
+                        gd.value.Visibility = Visibility.Visible;
+                        gd.value.Text = item.ToString();
+                        gd.value.IsEnabled = false;
+                        parentDropDown.DropdownData.Children.Add(gd);
+                    }
+                    else
+                    {
+                        Expander itemDropDown = CreateNestedDropDown($"[{i}] {item.GetType().Name}");
+                        AddNestedPropertiesToUI(item, itemDropDown);
+
+                        if (itemDropDown.Content is StackPanel panel && panel.Children.Count > 0)
+                            parentDropDown.DropdownData.Children.Add(itemDropDown);
+                    }
+
+                    i++;
+                }
+
+                if (parentDropDown.DropdownData.Children.Count > 0)
+                    gametype.Add(parentDropDown);
+
+                return;
+            }
+
+            Type viewModelType = viewModel.GetType();
+            PropertyInfo[] properties = viewModelType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
             foreach (var property in properties)
             {
-                var propertyValue = property.GetValue(viewModel);
-                if (propertyValue != null && IsComplexType(property))
+                if (!IsEditableProperty(property)) continue;
+
+                object? propertyValue = null;
+                try { propertyValue = property.GetValue(viewModel); } catch { }
+
+                if (IsComplexType(property))
                 {
+                    if (propertyValue == null) continue;
+
                     Expander nestedDropDown = CreateNestedDropDown(property.Name);
                     AddNestedPropertiesToUI(propertyValue, nestedDropDown);
+
                     if (nestedDropDown.Content is StackPanel panel && panel.Children.Count > 0)
-                    {
                         parentDropDown.DropdownData.Children.Add(nestedDropDown);
-                    }
+
+                    continue;
                 }
-                else if (propertyValue != null)
-                {
-                    GametypeData gd = CreateGametypeData(property, propertyValue);
-                    parentDropDown.DropdownData.Children.Add(gd);
-                    AddEventHandlers(gd, property, viewModel);
-                }
+
+                // Simple (including nullables/strings): show even if null so it can be edited.
+                GametypeData gd = CreateGametypeData(property, propertyValue);
+                parentDropDown.DropdownData.Children.Add(gd);
+                AddEventHandlers(gd, property, viewModel);
             }
 
             if (parentDropDown.DropdownData.Children.Count > 0)
-            {
                 gametype.Add(parentDropDown);
-            }
         }
+
 
         private DropDown CreateParentDropDown(string header)
         {
             return new DropDown
             {
-                MaxHeight = 400,
+                MaxHeight = 650,
+                Margin = new Thickness(0, 6, 0, 6),
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
                 Expander = { Header = header }
             };
         }
@@ -553,130 +758,227 @@ namespace UniversalGametypeEditor
             {
                 Header = header,
                 Foreground = new SolidColorBrush(Colors.White),
-                Content = new StackPanel { Name = "DropdownData" }
+                Margin = new Thickness(0, 4, 0, 4),
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
+                Content = new StackPanel { Name = "DropdownData", Margin = new Thickness(10, 4, 0, 4) }
             };
         }
 
+        // ------------------------------------------------------------
+        // UI reflection helpers (view-model driven)
+        // ------------------------------------------------------------
+        private static bool IsNullableType(Type t) => Nullable.GetUnderlyingType(t) != null;
+
+        private static Type NonNullable(Type t) => Nullable.GetUnderlyingType(t) ?? t;
+
+        private static bool IsSimpleType(Type t)
+        {
+            t = NonNullable(t);
+            return t.IsPrimitive
+                || t.IsEnum
+                || t == typeof(string)
+                || t == typeof(decimal)
+                || t == typeof(DateTime)
+                || t == typeof(Guid)
+                || t == typeof(TimeSpan);
+        }
+
+        private static bool IsEnumerableButNotString(Type t)
+        {
+            if (t == typeof(string)) return false;
+            return typeof(System.Collections.IEnumerable).IsAssignableFrom(t);
+        }
+
+        private static bool IsEditableProperty(PropertyInfo p)
+        {
+            if (!p.CanRead || !p.CanWrite) return false;
+            if (p.GetIndexParameters().Length != 0) return false;
+
+            // Avoid reflective noise / "display-only" properties if present.
+            if (p.Name == "Item" || p.Name == "Count") return false;
+
+            return true;
+        }
+
+
+
+
         private bool IsComplexType(PropertyInfo property)
         {
-            return !property.PropertyType.IsPrimitive &&
-                   property.PropertyType != typeof(string) &&
-                   !property.PropertyType.IsEnum &&
-                   !property.PropertyType.IsValueType;
+            var t = property.PropertyType;
+
+            // Collections show as nested groups (items)
+            if (IsEnumerableButNotString(t)) return true;
+
+            // Any non-simple objects become nested expanders
+            return !IsSimpleType(t);
         }
+
+
 
 
         private void AddNestedPropertiesToUI(object propertyValue, Expander nestedDropDown)
         {
             if (nestedDropDown.Content == null)
-            {
                 nestedDropDown.Content = new StackPanel();
-            }
 
-            var stackPanel = nestedDropDown.Content as StackPanel;
-            if (stackPanel == null)
-            {
+            if (nestedDropDown.Content is not StackPanel stackPanel)
                 throw new InvalidOperationException("nestedDropDown.Content must be a StackPanel.");
-            }
 
-            //Debug.WriteLine($"propertyValue type: {propertyValue.GetType()}");
+            if (propertyValue == null) return;
 
-            if (propertyValue is ObservableCollection<ScriptedPlayerTraitItemViewModel> traitItems)
+            var valueType = propertyValue.GetType();
+
+            // Collections: render each item as its own nested expander / row
+            if (propertyValue is System.Collections.IEnumerable enumerable && propertyValue is not string)
             {
-                foreach (var traitItem in traitItems)
+                int i = 0;
+                foreach (var item in enumerable)
                 {
-                    if (traitItem == null) continue;
-                    Expander traitDropDown = CreateNestedDropDown(traitItem.GetType().Name);
-                    AddNestedPropertiesToUI(traitItem, traitDropDown);
-                    stackPanel.Children.Add(traitDropDown);
-                }
-            }
-            else
-            {
-                var nestedProperties = propertyValue.GetType().GetProperties();
-                foreach (var nestedProperty in nestedProperties)
-                {
-                    if (nestedProperty.Name == "HasValue" || nestedProperty.Name == "Value") continue;
+                    if (item == null) { i++; continue; }
 
-                    var indexParams = nestedProperty.GetIndexParameters();
-                    var nestedPropertyValue = indexParams.Length == 0 ?
-                                              nestedProperty.GetValue(propertyValue) :
-                                              nestedProperty.GetValue(propertyValue, new object[indexParams.Length]);
-
-                    if (nestedPropertyValue == null) continue;
-
-                    //Debug.WriteLine($"Processing property: {nestedProperty.Name}, Type: {nestedPropertyValue.GetType()}");
-
-                    if (nestedPropertyValue is ObservableCollection<ScriptedPlayerTraitItemViewModel> nestedTraitItems)
+                    if (IsSimpleType(item.GetType()))
                     {
-                        foreach (var nestedTraitItem in nestedTraitItems)
-                        {
-                            if (nestedTraitItem == null) continue;
-                            Expander nestedTraitDropDown = CreateNestedDropDown(nestedTraitItem.GetType().Name);
-                            AddNestedPropertiesToUI(nestedTraitItem, nestedTraitDropDown);
-                            stackPanel.Children.Add(nestedTraitDropDown);
-                        }
-                    }
-                    else if (nestedPropertyValue is ScriptedPlayerTraitsViewModel scriptedPlayerTraitsViewModel)
-                    {
-                        Expander scriptedTraitsDropDown = CreateNestedDropDown(scriptedPlayerTraitsViewModel.GetType().Name);
-                        AddNestedPropertiesToUI(scriptedPlayerTraitsViewModel, scriptedTraitsDropDown);
-                        stackPanel.Children.Add(scriptedTraitsDropDown);
-                    }
-                    else if (nestedPropertyValue is PlayerTraitsViewModel playerTraits)
-                    {
-                        Expander playerTraitsDropDown = CreateNestedDropDown(nestedProperty.Name);
-                        AddNestedPropertiesToUI(playerTraits, playerTraitsDropDown);
-                        stackPanel.Children.Add(playerTraitsDropDown);
-                    }
-                    else if (nestedPropertyValue is ScriptedPlayerTraitItemViewModel traitItem)
-                    {
-                        Expander traitItemDropDown = CreateNestedDropDown(traitItem.GetType().Name);
-                        AddNestedPropertiesToUI(traitItem, traitItemDropDown);
-                        stackPanel.Children.Add(traitItemDropDown);
+                        // Create a pseudo-property display for list items
+                        var gd = new GametypeData();
+                        gd.value_name.Text = $"[{i}]";
+                        gd.enabled.Visibility = Visibility.Collapsed;
+                        gd.enum_dropdown.Visibility = Visibility.Collapsed;
+                        gd.value.Visibility = Visibility.Visible;
+                        gd.value.Text = item.ToString();
+                        gd.value.IsEnabled = false; // list editing not implemented yet
+                        stackPanel.Children.Add(gd);
                     }
                     else
                     {
-                        GametypeData gd = CreateGametypeData(nestedProperty, nestedPropertyValue);
-                        stackPanel.Children.Add(gd);
-                        AddEventHandlers(gd, nestedProperty, propertyValue);
+                        Expander itemDropDown = CreateNestedDropDown($"[{i}] {item.GetType().Name}");
+                        AddNestedPropertiesToUI(item, itemDropDown);
+
+                        if (itemDropDown.Content is StackPanel p && p.Children.Count > 0)
+                            stackPanel.Children.Add(itemDropDown);
                     }
+
+                    i++;
                 }
+
+                return;
+            }
+
+            // Normal object: render properties
+            var nestedProperties = valueType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            foreach (var nestedProperty in nestedProperties)
+            {
+                if (!IsEditableProperty(nestedProperty)) continue;
+
+                object? nestedPropertyValue = null;
+                try { nestedPropertyValue = nestedProperty.GetValue(propertyValue); } catch { }
+
+                if (IsComplexType(nestedProperty))
+                {
+                    if (nestedPropertyValue == null) continue;
+
+                    Expander deeperDropDown = CreateNestedDropDown(nestedProperty.Name);
+                    AddNestedPropertiesToUI(nestedPropertyValue, deeperDropDown);
+
+                    if (deeperDropDown.Content is StackPanel panel && panel.Children.Count > 0)
+                        stackPanel.Children.Add(deeperDropDown);
+
+                    continue;
+                }
+
+                // Simple property (including nullables/strings): show even when null so user can edit.
+                GametypeData gd = CreateGametypeData(nestedProperty, nestedPropertyValue);
+                stackPanel.Children.Add(gd);
+                AddEventHandlers(gd, nestedProperty, propertyValue);
+            }
+        }
+
+        // ------------------------------------------------------------
+        // UI layout helpers (make decompiled fields easier to edit)
+        // ------------------------------------------------------------
+        private static void ConfigureGametypeDataLayout(GametypeData gd)
+        {
+            // Stretch rows to fill the available width
+            gd.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            gd.Margin = new Thickness(0, 2, 0, 2);
+
+            // Name/label column
+            if (gd.value_name != null)
+            {
+                gd.value_name.MinWidth = 220;
+            }
+
+            // Value editor column (TextBox)
+            if (gd.value != null)
+            {
+                gd.value.MinWidth = 360;
+                gd.value.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            }
+
+            // Enum editor column (ComboBox)
+            if (gd.enum_dropdown != null)
+            {
+                gd.enum_dropdown.MinWidth = 360;
+                gd.enum_dropdown.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
             }
         }
 
 
-
-
-
-
-
-
-
-
-
-        private GametypeData CreateGametypeData(PropertyInfo property, object propertyValue)
+        private GametypeData CreateGametypeData(PropertyInfo property, object? propertyValue)
         {
             GametypeData gd = new();
             gd.value_name.Text = property.Name;
 
-            if (propertyValue is bool boolValue)
+            ConfigureGametypeDataLayout(gd);
+
+            var propType = property.PropertyType;
+            var baseType = NonNullable(propType);
+            bool isNullable = IsNullableType(propType) || !baseType.IsValueType; // reference types can be null too
+
+            // "enabled" checkbox is used as "HasValue" for nullable primitives/enums
+            // and as the bool editor for bool/bool?.
+            if (baseType == typeof(bool))
             {
                 gd.value.Visibility = Visibility.Collapsed;
+                gd.enum_dropdown.Visibility = Visibility.Collapsed;
                 gd.enabled.Visibility = Visibility.Visible;
-                gd.enabled.IsChecked = boolValue;
+
+                bool b = false;
+                if (propertyValue is bool bv) b = bv;
+                gd.enabled.IsChecked = b;
+                return gd;
             }
-            else if (propertyValue.GetType().IsEnum)
+
+            // Nullable => show enabled toggle
+            gd.enabled.Visibility = isNullable && IsSimpleType(propType) ? Visibility.Visible : Visibility.Collapsed;
+            gd.enabled.IsChecked = propertyValue != null;
+
+            if (baseType.IsEnum)
             {
-                SetupEnumDropdown(gd, propertyValue);
+                gd.value.Visibility = Visibility.Collapsed;
+                gd.enum_dropdown.Visibility = Visibility.Visible;
+
+                gd.enum_dropdown.ItemsSource = Enum.GetNames(baseType);
+
+                if (propertyValue != null)
+                    gd.enum_dropdown.SelectedItem = propertyValue.ToString();
+                else
+                    gd.enum_dropdown.SelectedIndex = 0;
+
+                gd.enum_dropdown.IsEnabled = gd.enabled.Visibility != Visibility.Visible || gd.enabled.IsChecked == true;
             }
             else
             {
-                gd.value.Text = propertyValue.ToString();
+                gd.enum_dropdown.Visibility = Visibility.Collapsed;
+                gd.value.Visibility = Visibility.Visible;
+
+                gd.value.Text = propertyValue?.ToString() ?? string.Empty;
+                gd.value.IsEnabled = gd.enabled.Visibility != Visibility.Visible || gd.enabled.IsChecked == true;
             }
 
             return gd;
         }
+
 
         private void SetupEnumDropdown(GametypeData gd, object propertyValue)
         {
@@ -692,49 +994,203 @@ namespace UniversalGametypeEditor
             gd.enum_dropdown.SelectedItem = propertyValue.ToString();
         }
 
+
         private void AddEventHandlers(GametypeData gd, PropertyInfo property, object viewModel)
         {
-            gd.value.TextChanged += (sender, e) =>
+            var propType = property.PropertyType;
+            var baseType = NonNullable(propType);
+            bool isNullable = IsNullableType(propType) || !baseType.IsValueType;
+
+            void SetPropertyValueFromText()
             {
-                object val = property.PropertyType == typeof(int?) && int.TryParse(gd.value.Text, out int result) ? (object)result : Convert.ChangeType(gd.value.Text, property.PropertyType);
-                property.SetValue(viewModel, val);
-            };
-
-            gd.enabled.Checked += (sender, e) => property.SetValue(viewModel, true);
-            gd.enabled.Unchecked += (sender, e) => property.SetValue(viewModel, false);
-
-            gd.enum_dropdown.SelectionChanged += (sender, e) =>
-            {
-                var enumType = property.PropertyType;
-                var enumValue = Enum.Parse(enumType, gd.enum_dropdown.SelectedItem.ToString());
-                property.SetValue(viewModel, enumValue);
-            };
-        }
-
-        
-
-        ReadGametype rg = new();
-        private void DeserializeAndAddToUI<T, V>(string json, string header, ObservableCollection<System.Windows.Controls.UserControl> gametype) where V : class
-        {
-            if (!string.IsNullOrEmpty(json))
-            {
-                T? deserializedObject = JsonConvert.DeserializeObject<T>(json);
-                if (deserializedObject != null)
+                try
                 {
-                    if (typeof(V) == typeof(ScriptedPlayerTraitsViewModel))
+                    // Nullable + empty => null
+                    if (isNullable && IsSimpleType(propType) && string.IsNullOrWhiteSpace(gd.value.Text))
                     {
-                        List<ScriptedPlayerTraits> scriptedPlayerTraits = JsonConvert.DeserializeObject<List<ScriptedPlayerTraits>>(json); // Deserialize as List
-                        ScriptedPlayerTraitsViewModel viewModel = PopulateScriptedPlayerTraitsViewModel(scriptedPlayerTraits);
-                        AddDataToUI(viewModel, header, gametype);
+                        property.SetValue(viewModel, null);
+                        return;
+                    }
+
+                    if (baseType == typeof(string))
+                    {
+                        property.SetValue(viewModel, gd.value.Text);
+                        return;
+                    }
+
+                    if (baseType.IsEnum)
+                    {
+                        if (gd.enum_dropdown.SelectedItem == null) return;
+                        var enumValue = Enum.Parse(baseType, gd.enum_dropdown.SelectedItem.ToString()!);
+                        property.SetValue(viewModel, enumValue);
+                        return;
+                    }
+
+                    if (baseType == typeof(int))
+                    {
+                        if (int.TryParse(gd.value.Text, out var v)) property.SetValue(viewModel, v);
+                        else if (isNullable) property.SetValue(viewModel, null);
+                        return;
+                    }
+                    if (baseType == typeof(uint))
+                    {
+                        if (uint.TryParse(gd.value.Text, out var v)) property.SetValue(viewModel, v);
+                        else if (isNullable) property.SetValue(viewModel, null);
+                        return;
+                    }
+                    if (baseType == typeof(short))
+                    {
+                        if (short.TryParse(gd.value.Text, out var v)) property.SetValue(viewModel, v);
+                        else if (isNullable) property.SetValue(viewModel, null);
+                        return;
+                    }
+                    if (baseType == typeof(ushort))
+                    {
+                        if (ushort.TryParse(gd.value.Text, out var v)) property.SetValue(viewModel, v);
+                        else if (isNullable) property.SetValue(viewModel, null);
+                        return;
+                    }
+                    if (baseType == typeof(byte))
+                    {
+                        if (byte.TryParse(gd.value.Text, out var v)) property.SetValue(viewModel, v);
+                        else if (isNullable) property.SetValue(viewModel, null);
+                        return;
+                    }
+                    if (baseType == typeof(sbyte))
+                    {
+                        if (sbyte.TryParse(gd.value.Text, out var v)) property.SetValue(viewModel, v);
+                        else if (isNullable) property.SetValue(viewModel, null);
+                        return;
+                    }
+                    if (baseType == typeof(long))
+                    {
+                        if (long.TryParse(gd.value.Text, out var v)) property.SetValue(viewModel, v);
+                        else if (isNullable) property.SetValue(viewModel, null);
+                        return;
+                    }
+                    if (baseType == typeof(ulong))
+                    {
+                        if (ulong.TryParse(gd.value.Text, out var v)) property.SetValue(viewModel, v);
+                        else if (isNullable) property.SetValue(viewModel, null);
+                        return;
+                    }
+                    if (baseType == typeof(float))
+                    {
+                        if (float.TryParse(gd.value.Text, out var v)) property.SetValue(viewModel, v);
+                        else if (isNullable) property.SetValue(viewModel, null);
+                        return;
+                    }
+                    if (baseType == typeof(double))
+                    {
+                        if (double.TryParse(gd.value.Text, out var v)) property.SetValue(viewModel, v);
+                        else if (isNullable) property.SetValue(viewModel, null);
+                        return;
+                    }
+
+                    // Fallback: try ChangeType
+                    var converted = Convert.ChangeType(gd.value.Text, baseType);
+                    property.SetValue(viewModel, converted);
+                }
+                catch
+                {
+                    // Keep UI responsive: ignore bad user input.
+                }
+            }
+
+            // Bool editor (enabled checkbox acts as the bool editor)
+            if (baseType == typeof(bool))
+            {
+                gd.enabled.Checked += (s, e) => property.SetValue(viewModel, true);
+                gd.enabled.Unchecked += (s, e) => property.SetValue(viewModel, false);
+                return;
+            }
+
+            // Nullable primitives/enums: enabled controls HasValue
+            if (gd.enabled.Visibility == Visibility.Visible)
+            {
+                gd.enabled.Checked += (s, e) =>
+                {
+                    gd.value.IsEnabled = true;
+                    gd.enum_dropdown.IsEnabled = true;
+
+                    // If user checks it with no value yet, seed a default.
+                    if (baseType.IsEnum)
+                    {
+                        if (gd.enum_dropdown.SelectedItem == null && gd.enum_dropdown.Items.Count > 0)
+                            gd.enum_dropdown.SelectedIndex = 0;
+
+                        if (gd.enum_dropdown.SelectedItem != null)
+                        {
+                            var enumValue = Enum.Parse(baseType, gd.enum_dropdown.SelectedItem.ToString()!);
+                            property.SetValue(viewModel, enumValue);
+                        }
                     }
                     else
                     {
-                        V viewModel = (V)Activator.CreateInstance(typeof(V), deserializedObject);
-                        AddDataToUI(viewModel, header, gametype);
+                        if (string.IsNullOrWhiteSpace(gd.value.Text))
+                            gd.value.Text = "0";
+
+                        SetPropertyValueFromText();
                     }
-                }
+                };
+
+                gd.enabled.Unchecked += (s, e) =>
+                {
+                    gd.value.IsEnabled = false;
+                    gd.enum_dropdown.IsEnabled = false;
+                    property.SetValue(viewModel, null);
+                };
             }
+
+            gd.value.TextChanged += (s, e) =>
+            {
+                if (gd.enabled.Visibility == Visibility.Visible && gd.enabled.IsChecked != true) return;
+                SetPropertyValueFromText();
+            };
+
+            gd.enum_dropdown.SelectionChanged += (s, e) =>
+            {
+                if (gd.enabled.Visibility == Visibility.Visible && gd.enabled.IsChecked != true) return;
+                if (!baseType.IsEnum) return;
+                if (gd.enum_dropdown.SelectedItem == null) return;
+
+                try
+                {
+                    var enumValue = Enum.Parse(baseType, gd.enum_dropdown.SelectedItem.ToString()!);
+                    property.SetValue(viewModel, enumValue);
+                }
+                catch { }
+            };
         }
+
+
+
+
+        ReadGametype rg = new();
+
+        private void DeserializeAndAddToUI<T, V>(string? json, string header, ObservableCollection<System.Windows.Controls.UserControl> gametype) where V : class
+        {
+            if (string.IsNullOrEmpty(json)) return;
+
+            T? deserializedObject = JsonConvert.DeserializeObject<T>(json);
+            if (deserializedObject == null) return;
+
+            // Special case: scripted traits are stored as a list in JSON.
+            if (typeof(V) == typeof(ScriptedPlayerTraitsViewModel))
+            {
+                List<ScriptedPlayerTraits>? scriptedPlayerTraits = JsonConvert.DeserializeObject<List<ScriptedPlayerTraits>>(json);
+                if (scriptedPlayerTraits == null) return;
+
+                ScriptedPlayerTraitsViewModel traitsVm = PopulateScriptedPlayerTraitsViewModel(scriptedPlayerTraits);
+                AddDataToUI(traitsVm, header, gametype);
+                return;
+            }
+
+            V viewModel = (V)Activator.CreateInstance(typeof(V), deserializedObject);
+            AddDataToUI(viewModel, header, gametype);
+        }
+
+
 
 
 
@@ -743,34 +1199,61 @@ namespace UniversalGametypeEditor
 
         public void LoadSettings()
         {
-            DeserializeAndAddToUI<ModeSettings, ModeSettingsViewModel>(rg.gt.ModeSettings, "Mode Settings", Gametype);
-            DeserializeAndAddToUI<SpawnSettings, SpawnSettingsViewModel>(rg.gt.SpawnSettings, "Spawn Settings", Gametype);
-            DeserializeAndAddToUI<GameSettings, GameSettingsViewModel>(rg.gt.GameSettings, "Game Settings", Gametype);
+            // Sections that exist for all games
+            if (rg?.gt == null) return;
 
+            // Mode / Spawn / Game
+            if (rg.gt.ModeSettingsVM != null) AddDataToUI(rg.gt.ModeSettingsVM, "Mode Settings", Gametype);
+            else DeserializeAndAddToUI<ModeSettings, ModeSettingsViewModel>(rg.gt.ModeSettings, "Mode Settings", Gametype);
+
+            if (rg.gt.SpawnSettingsVM != null) AddDataToUI(rg.gt.SpawnSettingsVM, "Spawn Settings", Gametype);
+            else DeserializeAndAddToUI<SpawnSettings, SpawnSettingsViewModel>(rg.gt.SpawnSettings, "Spawn Settings", Gametype);
+
+            if (rg.gt.GameSettingsVM != null) AddDataToUI(rg.gt.GameSettingsVM, "Game Settings", Gametype);
+            else DeserializeAndAddToUI<GameSettings, GameSettingsViewModel>(rg.gt.GameSettings, "Game Settings", Gametype);
+
+            // Reach-specific (kept gated by DecompiledVersion == 0 as before)
             if (Settings.Default.DecompiledVersion == 0)
             {
-                DeserializeAndAddToUI<PowerupTraits, PowerupTraitsViewModel>(rg.gt.PowerupTraits, "Powerup Traits", Gametype);
-                DeserializeAndAddToUI<TeamSettings, TeamSettingsViewModel>(rg.gt.TeamSettings, "Team Settings", Gametype);
-                DeserializeAndAddToUI<LoadoutCluster, LoadoutClusterViewModel>(rg.gt.loadoutCluster, "Loadout Cluster", Gametype);
-                string scriptedPlayerTraitsJson = JsonConvert.SerializeObject(rg.gt.scriptedPlayerTraits);
-                DeserializeAndAddToUI<List<ScriptedPlayerTraits>, ScriptedPlayerTraitsViewModel>(scriptedPlayerTraitsJson, "Scripted Player Traits", Gametype);
+                if (rg.gt.PowerupTraitsVM != null) AddDataToUI(rg.gt.PowerupTraitsVM, "Powerup Traits", Gametype);
+                else DeserializeAndAddToUI<PowerupTraits, PowerupTraitsViewModel>(rg.gt.PowerupTraits, "Powerup Traits", Gametype);
 
-                var scriptOptionsViewModel = rg.gt.scriptOptions;
-                // Add the data to the UI
-                AddDataToUI(scriptOptionsViewModel, "Script Options", _gametype);
-                AddDataToUI(rg.gt.Strings, "Strings", _gametype);
-                AddDataToUI(rg.gt.Game, "Game", _gametype);
-                AddDataToUI(rg.gt.Map, "Map", _gametype);
-                AddDataToUI(rg.gt.playerratings, "Player Ratings", _gametype);
-                // Add conditions to the UI
-                AddDataToUI(rg.gt.conditions, "Conditions", _gametype);
+                if (rg.gt.TeamSettingsVM != null) AddDataToUI(rg.gt.TeamSettingsVM, "Team Settings", Gametype);
+                else DeserializeAndAddToUI<TeamSettings, TeamSettingsViewModel>(rg.gt.TeamSettings, "Team Settings", Gametype);
 
+                if (rg.gt.LoadoutClusterVM != null) AddDataToUI(rg.gt.LoadoutClusterVM, "Loadout Cluster", Gametype);
+                else DeserializeAndAddToUI<LoadoutCluster, LoadoutClusterViewModel>(rg.gt.loadoutCluster, "Loadout Cluster", Gametype);
+
+                if (rg.gt.ScriptedPlayerTraitsVM != null)
+                {
+                    AddDataToUI(rg.gt.ScriptedPlayerTraitsVM, "Scripted Player Traits", Gametype);
+                }
+                else if (rg.gt.scriptedPlayerTraits != null)
+                {
+                    string scriptedPlayerTraitsJson = JsonConvert.SerializeObject(rg.gt.scriptedPlayerTraits);
+                    DeserializeAndAddToUI<List<ScriptedPlayerTraits>, ScriptedPlayerTraitsViewModel>(scriptedPlayerTraitsJson, "Scripted Player Traits", Gametype);
+                }
             }
+
+            // H4 / H2A may expose Ordnance
+            if (rg.gt.OrdinanceVM != null)
+            {
+                AddDataToUI(rg.gt.OrdinanceVM, "Ordnance", Gametype);
+            }
+
+            // Common VM-based sections
+            if (rg.gt.scriptOptions != null) AddDataToUI(rg.gt.scriptOptions, "Script Options", Gametype);
+            if (rg.gt.Strings != null) AddDataToUI(rg.gt.Strings, "Strings", Gametype);
+            if (rg.gt.Game != null) AddDataToUI(rg.gt.Game, "Game", Gametype);
+            if (rg.gt.Map != null) AddDataToUI(rg.gt.Map, "Map", Gametype);
+            if (rg.gt.playerratings != null) AddDataToUI(rg.gt.playerratings, "Player Ratings", Gametype);
+            if (rg.gt.conditions != null) AddDataToUI(rg.gt.conditions, "Conditions", Gametype);
         }
+
 
         private ScriptedPlayerTraitsViewModel PopulateScriptedPlayerTraitsViewModel(List<ScriptedPlayerTraits> scriptedPlayerTraits)
         {
-            ScriptedPlayerTraitsViewModel viewModel = new()
+            ScriptedPlayerTraitsViewModel traitsVm = new()
             {
                 Count = scriptedPlayerTraits.Count
             };
@@ -791,10 +1274,10 @@ namespace UniversalGametypeEditor
                     itemViewModel.Hidden = trait.H2AH4.hidden;
                 }
 
-                viewModel.PlayerTraitsItems.Add(itemViewModel);
+                traitsVm.PlayerTraitsItems.Add(itemViewModel);
             }
 
-            return viewModel;
+            return traitsVm;
         }
 
         private void ConfigureSyntaxHighlighting()
@@ -920,7 +1403,6 @@ namespace UniversalGametypeEditor
         List<ReadGametype.Gametype> gametypeItems = new();
         private void Decompile(object name)
         {
-            // Invoke dispatcher
             Dispatcher.Invoke(() =>
             {
                 Gametype.Clear();
@@ -931,26 +1413,29 @@ namespace UniversalGametypeEditor
                 {
                     rg.ReadBinary(filePath);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
+                    // Preserve previous behavior (some reads were wrapped like this)
                     ReadGametype.gametypeItems.Add(rg.gt);
                 }
 
                 try
                 {
                     ReadGT = rg.gt;
-                    
+
                     gametypeItems.AddRange(ReadGametype.gametypeItems);
                     ReadGametype.gametypeItems.Clear();
 
-                    ObservableCollection<FileHeader> items = new();
+                    // Prefer VM surfaces; fall back to legacy JSON blobs if needed
+                    if (rg.gt.FileHeaderVM != null) AddDataToUI(rg.gt.FileHeaderVM, "File Header", Gametype);
+                    else DeserializeAndAddToUI<FileHeader, FileHeaderViewModel>(rg.gt.FileHeader, "File Header", Gametype);
 
-                    DeserializeAndAddToUI<FileHeader, FileHeaderViewModel>(rg.gt.FileHeader, "File Header", Gametype);
-                    DeserializeAndAddToUI<GametypeHeader, GametypeHeaderViewModel>(rg.gt.GametypeHeader, "Gametype Header", Gametype);
+                    if (rg.gt.GametypeHeaderVM != null) AddDataToUI(rg.gt.GametypeHeaderVM, "Gametype Header", Gametype);
+                    else DeserializeAndAddToUI<GametypeHeader, GametypeHeaderViewModel>(rg.gt.GametypeHeader, "Gametype Header", Gametype);
 
                     if (Settings.Default.ConvertToForge && viewModel != null)
                     {
-                        viewModel.VariantType = (ReadGametype.VariantTypeEnum)1;
+                        rg.gt.FileHeaderVM.VariantType = (ReadGametype.VariantTypeEnum)1;
                     }
 
                     LoadSettings();
@@ -961,206 +1446,28 @@ namespace UniversalGametypeEditor
                 }
 
                 GametypeScroller.ItemsSource = Gametype;
-                ScriptEditor.Visibility = Visibility.Visible; // Show the script editor
+                ScriptEditor.Visibility = Visibility.Visible;
             });
         }
+
 
 
         private bool IsString(Type fieldType) { return fieldType != typeof(string); }
 
         private async void FilesListWatched_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            //GametypeScroller.DataContext = null;
-            //GametypeScroller.Children.Clear();
-    
+
             if (e.AddedItems?.Count != 0 && e.AddedItems[0].ToString().EndsWith("bin"))
             {
                 //GametypeScroller.Children.Clear();
-                
+
                 Settings.Default.Selected = e.AddedItems[0].ToString();
                 Settings.Default.Save();
                 Decompile(e.AddedItems[0]);
-
-                //Take the rg.gt instance and serialize it as JSON
-                //string json = JsonConvert.SerializeObject(gametypeItems, Formatting.Indented);
-                //Debug.WriteLine(json);
-
-                //Now we have a JSON object that should eventually be organized with only relevant data
-                //We can use this to create a new list of objects that will be used to populate the gametype scroller
-
-                //foreach (var item in gametypeItems)
-                //{
-                //    foreach (var inner in new object[] { item.FileHeader, item.GametypeHeader, item.ModeSettings, item.SpawnSettings, item.GameSettings, item.PowerupTraits, item.TeamSettings, item.loadoutCluster, item.scriptedPlayerTraits, item.scriptOptions, item.Strings, item.Game, item.Map, item.playerratings })
-                //    {
-                //          foreach (var value in inner.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance))
-                //        {
-
-                //            //Check if the value is a class and not a string
-                //            if (value.FieldType.IsClass && !value.FieldType.IsPrimitive && !value.FieldType.IsEnum && !value.FieldType.IsPointer && !value.FieldType.FullName.Equals(typeof(string).FullName))
-                //            {
-                //                if (inner == null)
-                //                {
-                //                    return;
-                //                }
-                //                DropDown dropDown = new();
-                //                dropDown.Expander.Header = value.Name;
-                //                foreach (var innerValue in value.FieldType.GetFields(BindingFlags.Public | BindingFlags.Instance))
-                //                {
-
-                //                    await Task.Run(() =>
-                //                    {
-                //                        try
-                //                        {
-                //                            _ = Dispatcher.BeginInvoke((Action)delegate ()
-                //                        {
-                //                            GametypeData gd = new();
-
-
-                //                            var isNull = value.GetValue(inner);
-                //                            if (isNull == null)
-                //                            {
-                //                                return;
-                //                            }
-                //                            var val2 = innerValue.GetValue(value.GetValue(inner));
-
-
-                //                            if (val2 != null)
-                //                            {
-                //                                gd.value.Text = val2.ToString();
-                //                                gd.value_name.Text = innerValue.Name;
-                //                            }
-                //                            else
-                //                            {
-                //                                gd.value.Text = "????";
-                //                            }
-                //                            dropDown.DropdownData.Children.Add(gd);
-
-                //                        });
-                //                        }
-                //                        catch (Exception ex)
-                //                        {
-                //                            return;
-                //                        }
-                //                        Thread.Sleep(1);
-                //                    });
-                //                }
-                //                if (dropDown.DropdownData.Children.Count == 0)
-                //                {
-                //                    continue;
-                //                }
-                //                Gametype.Add(dropDown);
-
-                //            }
-                //            else
-                //            {
-                //                GametypeData gd = new();
-                //                var val = value.GetValue(inner);
-
-                //                if (val != null)
-                //                {
-                //                    gd.value.Text = val.ToString();
-                //                    gd.value_name.Text = value.Name;
-                //                }
-                //                else
-                //                {
-                //                    gd.value.Text = "????";
-                //                }
-                //                Gametype.Add(gd);
-                //            }
-                //        }
-                //    }
-                //}
-
-
-
-
-
-
-                //GametypeScroller.ItemsSource = Gametype;
-
-                //Create a new list and assign it the values of the gametypeItems list
-
-
-
-
-
-
-
-                //foreach (var item in gametypeItems)
-                //{
-                //    foreach (var inner in new object[] { item.FileHeader, item.GametypeHeader, item.ModeSettings, item.SpawnSettings, item.GameSettings, item.PowerupTraits, item.TeamSettings, item.loadoutCluster, item.scriptedPlayerTraits, item.scriptOptions, item.Strings, item.Game, item.Map, item.playerratings })
-                //    {
-
-
-                //        foreach (var value in inner.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance))
-                //        {
-
-                //            //Check if the value is a struct
-                //            if (value.FieldType.IsValueType && !value.FieldType.IsPrimitive && !value.FieldType.IsEnum && !value.FieldType.IsPointer)
-                //            {
-                //                DropDown dropDown = new();
-                //                dropDown.Expander.Header = value.Name;
-                //                foreach (var innerValue in value.FieldType.GetFields(BindingFlags.Public | BindingFlags.Instance))
-                //                {
-                //                    await Task.Run(() =>
-                //                    {
-                //                        Dispatcher.BeginInvoke((Action)delegate ()
-                //                        {
-                //                            GametypeData gd = new();
-                //                            var val = innerValue.GetValue(value.GetValue(inner));
-
-
-                //                            if (val != null)
-                //                            {
-                //                                gd.value_name.Text = innerValue.Name;
-                //                                gd.value.Text = val.ToString();
-                //                            }
-                //                            else
-                //                            {
-                //                                gd.value.Text = "????";
-                //                                //return;
-                //                            }
-                //                            dropDown.DropdownData.Children.Add(gd);
-                //                        });
-                //                        Thread.Sleep(1);
-                //                    });
-                //                }
-                //                //Check if dropDown has any children
-                //                if (dropDown.DropdownData.Children.Count == 0)
-                //                {
-                //                    continue;
-                //                }
-                //                Gametype.Add(dropDown);
-                //            }
-                //            else
-                //            {
-                //                GametypeData gd = new();
-                //                var val = value.GetValue(inner);
-                //                gd.value_name.Text = value.Name;
-
-                //                if (val != null)
-                //                {
-                //                    gd.value.Text = val.ToString();
-                //                }
-                //                else
-                //                {
-                //                    gd.value.Text = "????";
-                //                }
-                //                Gametype.Add(gd);
-                //            }
-
-                //        }
-                //        GametypeScroller.ItemsSource = Gametype;
-
-                //    }
-                //}
-
             }
             else
             {
                 LoadGametype.Visibility = Visibility.Collapsed;
-                //MetaName.Text = "";
-                //MetaDesc.Text = "";
             }
 
         }
@@ -1193,7 +1500,7 @@ namespace UniversalGametypeEditor
                 FileMenu.IsSubmenuOpen = true;
                 Watched.Opacity = 0.5;
             }
-                
+
             if (tutStep == 2)
             {
                 McTextBlock.Text = "Alternatively, select the path to your game files to use the built-in game variant path.";
@@ -1213,8 +1520,6 @@ namespace UniversalGametypeEditor
             {
                 FullWindow.Opacity = 1;
                 McTextBlock.Text = "Select a .bin or .mglo file on the left column to convert and/or copy it to the Hot Reload folder.";
-                //System.Windows.Media.Color col = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("gray");
-                //FilesListWatched.Background = new SolidColorBrush(col);
                 FilesListWatched.Opacity = 1;
                 // Create a new SolidColorBrush with the starting color
                 SolidColorBrush brush = new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3D3D3D"));
@@ -1286,9 +1591,9 @@ namespace UniversalGametypeEditor
                 //System.Windows.Media.Color col = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("gray");
                 //FilesListWatched.Background = new SolidColorBrush(col);
                 FilesListWatched.Opacity = 1;
-                
 
-                
+
+
                 Tutorial.PlacementTarget = Tools;
                 Tools.IsSubmenuOpen = true;
                 //Tutorial.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
@@ -1332,7 +1637,8 @@ namespace UniversalGametypeEditor
             {
                 Tutorial.IsOpen = false;
                 FullWindow.Opacity = 1;
-            } else
+            }
+            else
             {
                 ResetTutorial();
                 Tutorial.IsOpen = true;
@@ -1359,7 +1665,8 @@ namespace UniversalGametypeEditor
                 if (Settings.Default.FilePathList.Count == 0)
                 {
                     DirHistory.Visibility = Visibility.Collapsed;
-                } else
+                }
+                else
                 {
                     DirHistory.ItemsSource = dirHistory;
                     foreach (string? item in Settings.Default.FilePathList)
@@ -1369,7 +1676,8 @@ namespace UniversalGametypeEditor
                     }
                     DirHistory.Text = Settings.Default.FilePath;
                 }
-            } else
+            }
+            else
             {
                 DirHistory.Visibility = Visibility.Collapsed;
             }
@@ -1399,12 +1707,12 @@ namespace UniversalGametypeEditor
                 }
                 GetFiles(Settings.Default.HotReloadPath, HotReloadFilesList);
             }
-                
+
             if (Settings.Default.FilePath != "Undefined")
             {
                 GetFiles(Settings.Default.FilePath, WatchedFilesList);
             }
-                
+
         }
 
         public void DirHistorySelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1423,7 +1731,7 @@ namespace UniversalGametypeEditor
         {
             filesCollection.Clear();
             fileEntries.Clear();
-            
+
             foreach (string filename in Directory.GetFiles(dirName))
             {
                 fileEntries.Add(new FileInfo(filename));
@@ -1469,7 +1777,8 @@ namespace UniversalGametypeEditor
             {
                 Settings.Default.MultiDirectory = true;
                 RegisterWatchers(Settings.Default.FilePathList);
-            } else
+            }
+            else
             {
                 Settings.Default.MultiDirectory = false;
                 UnregisterWatchers();
@@ -1504,7 +1813,7 @@ namespace UniversalGametypeEditor
             Settings.Default.Save();
         }
 
-        private void UpdateInsertErrors (object sender, RoutedEventArgs e)
+        private void UpdateInsertErrors(object sender, RoutedEventArgs e)
         {
             if (InsertErrors.IsChecked == true)
             {
@@ -1522,7 +1831,8 @@ namespace UniversalGametypeEditor
             if (KeepNamedMglo.IsChecked)
             {
                 Settings.Default.KeepNamedMglo = true;
-            } else
+            }
+            else
             {
                 Settings.Default.KeepNamedMglo = false;
             }
@@ -1561,7 +1871,8 @@ namespace UniversalGametypeEditor
             {
                 Settings.Default.Opacity = true;
                 Opacity = 0.9;
-            } else
+            }
+            else
             {
                 Settings.Default.Opacity = false;
                 Opacity = 1;
@@ -1676,7 +1987,7 @@ namespace UniversalGametypeEditor
         }
         public void UpdateOnTop(object sender, RoutedEventArgs e)
         {
-            
+
             if (AlwaysOnTop.IsChecked == true)
             {
                 Settings.Default.AlwaysOnTop = true;
@@ -1699,7 +2010,8 @@ namespace UniversalGametypeEditor
             if (SwitchWatched.IsChecked)
             {
                 Settings.Default.SwitchWatched = true;
-            } else
+            }
+            else
             {
                 Settings.Default.SwitchWatched = false;
             }
@@ -1712,7 +2024,7 @@ namespace UniversalGametypeEditor
             Debug.WriteLine("Sent Key!");
         }
 
-        
+
         public void OpenFolder(string path)
         {
             string? folderName;
@@ -1751,7 +2063,7 @@ namespace UniversalGametypeEditor
                 {
                     RegisterWatcher(folderName, watcher);
                 }
-                
+
                 if (path == "Game")
                 {
                     if (Path.GetFileName(folderName) != "Halo The Master Chief Collection")
@@ -1769,8 +2081,8 @@ namespace UniversalGametypeEditor
                 }
             }
         }
-  
-        
+
+
         public void RegisterWatcher(string foldername, FileSystemWatcher watcher)
         {
             timer.Enabled = true;
@@ -1812,7 +2124,7 @@ namespace UniversalGametypeEditor
                     watchers.Add(watcher);
                 }
             }
-            
+
         }
 
         public void UnregisterWatchers()
@@ -1924,7 +2236,7 @@ namespace UniversalGametypeEditor
         {
             int index = GameSelector.SelectedIndex;
             Settings.Default.GameIndex = index;
-            _ = index == 0 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\HaloReach\\HotReload" : "" ;
+            _ = index == 0 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\HaloReach\\HotReload" : "";
             _ = index == 1 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\Halo4\\HotReload" : "";
             _ = index == 2 ? Settings.Default.HotReloadPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\\AppData\\LocalLow\\MCC\\Temporary\\Halo2A\\HotReload" : "";
             Settings.Default.Save();
@@ -2162,7 +2474,7 @@ namespace UniversalGametypeEditor
 
         public void HandleFiles(string name, string path, WatcherChangeTypes changeType, bool setDirectory)
         {
-            
+
             if (copying)
             {
                 return;
@@ -2193,14 +2505,15 @@ namespace UniversalGametypeEditor
                     ConvertToBin(path, name);
                     MoveFile($"{path}\\{name.Replace(".mglo", "")}_mod.bin", $"{Settings.Default.FilePath}\\{name.Replace(".mglo", "")}_mod.bin", name);
                     UpdateHRListView(path);
-                } else
+                }
+                else
                 {
                     UpdateLastEvent("Error: File is not of type 'mglo' ");
                 }
-                
+
                 return;
             }
-      
+
             if (changeType != WatcherChangeTypes.Changed)
             {
                 //UpdateLastEvent($"Created: {name}");
@@ -2425,17 +2738,18 @@ namespace UniversalGametypeEditor
             {
                 fullPath = Path.GetDirectoryName(path) + "\\" + name;
                 directory = Path.GetDirectoryName(path);
-            } else
+            }
+            else
             {
                 directory = path;
                 fullPath = path + "\\" + name;
             }
-                
+
 
             //UpdateLastEvent($"Modified: {name}");
-            
 
-            
+
+
             if (Settings.Default.HotReloadPath == "Undefined")
             {
                 UpdateLastEvent("Error: Hot Reload Path Not Set");
@@ -2443,13 +2757,13 @@ namespace UniversalGametypeEditor
             }
             var copyPath = Settings.Default.HotReloadPath;
 
-             bool exists = Directory.Exists(copyPath);
-             if (!exists)
+            bool exists = Directory.Exists(copyPath);
+            if (!exists)
             {
                 Directory.CreateDirectory(copyPath);
             }
 
-            
+
 
             if (name.EndsWith(".bin") && Settings.Default.ConvertBin)
             {
@@ -2475,8 +2789,9 @@ namespace UniversalGametypeEditor
                             {
                                 File.Copy($"{fullPath}", $"{Settings.Default.GameDir}\\haloreach\\game_variants\\{name}", true);
                                 UpdateLastEvent($"Copied: {name} to the H:R Folder");
-                            } catch { }
-                                
+                            }
+                            catch { }
+
                         }
                         if (Settings.Default.DecompiledVersion == 1)
                         {
@@ -2499,14 +2814,14 @@ namespace UniversalGametypeEditor
                             }
                         }
                     }
-                    
+
                     Dispatcher.BeginInvoke((Action)delegate ()
                     {
                         Settings.Default.FilePath = DirHistory.Text;
                         Gametype.Clear();
                     });
                 }
-                
+
                 ConvertToMglo(name, directory);
             }
 
@@ -2522,8 +2837,8 @@ namespace UniversalGametypeEditor
                 Debug.WriteLine(name);
                 MoveFile($"{fullPath}", $"{copyPath}\\.mglo", name);
                 //File.Copy($"{copyPath}\\{name}", $"{copyPath}\\.mglo", true);
-                
-                
+
+
                 UpdateLastEvent($"Copied: {name} to the HotReload Folder");
                 Task.Delay(100).ContinueWith(_ =>
                 {
@@ -2531,7 +2846,7 @@ namespace UniversalGametypeEditor
                     convertedMglo = string.Empty;
                 });
             }
-            
+
         }
 
         private void OnChange(object sender, FileSystemEventArgs e)
@@ -2561,157 +2876,6 @@ namespace UniversalGametypeEditor
             GetFiles(copyPath, HotReloadFilesList);
         }
 
-        Stopwatch sw = new();
-
-
-
-        //public void CheckForUpdates(object sender, RoutedEventArgs e)
-        //{
-        //    //Check for recent commits on GitHub
-        //    //If there are recent commits, display a message box asking if the user would like to download the latest version
-        //    //If the user clicks yes, open the link to the GitHub repo and download the latest version
-
-        //    //Get recent commits from GitHub
-        //    string commits = "";
-        //    string node_id;
-        //    string date;
-        //    try
-        //    {
-
-        //        using (WebClient client = new WebClient())
-        //        {
-        //            client.Headers.Add("user-agent", "request");
-        //            commits = client.DownloadString("https://api.github.com/repos/Sopitive/UniversalGametypeEditor/commits/master");
-        //            Debug.WriteLine("Commits: " + commits);
-        //            //parse the json and set node_id to the value of the node_id field
-        //            JObject json = JObject.Parse(commits);
-        //            node_id = (string)json["node_id"];
-        //            date = (string)json["commit"]["author"]["date"];
-        //            Debug.WriteLine(DateTime.Parse(date));
-        //            if (DateTime.Parse(date) > DateTime.UtcNow.AddMinutes(-15))
-        //            {
-        //                Debug.WriteLine("Update Available, Still Proceessing...");
-        //                UpdateLastEvent("Update Available, but is still building. Try again later.");
-        //                return;
-        //            }
-        //            Debug.WriteLine("Node ID: " + node_id);
-        //        }
-        //        if (Settings.Default.Version == "")
-        //        {
-        //            Settings.Default.Version = node_id;
-        //            Settings.Default.Save();
-        //            return;
-        //        }
-        //    }
-        //    catch (Exception)
-        //    {
-        //        Debug.WriteLine("API Fail");
-        //        UpdateLastEvent("Unable to check for updates. Please check your internet connection.");
-        //        return;
-        //    }
-        //    string storedVersion;
-        //    try
-        //    {
-        //        //Get the stored version number from the settings file
-        //        storedVersion = Settings.Default.Version;
-        //        Debug.WriteLine("Stored version: " + storedVersion);
-        //    }
-        //    catch (Exception)
-        //    {
-        //        UpdateLastEvent("Unable to check for updates. Please check your internet connection.");
-        //        return;
-        //    }
-        //    //Compare the two and if the stored version is less than the current version, display a message box asking if the user would like to download the latest version
-        //    if (storedVersion != node_id)
-
-                
-        //    {
-        //        DialogResult result = System.Windows.Forms.MessageBox.Show("A new version is available. Would you like to download the latest version?", "Update Available", MessageBoxButtons.YesNoCancel);
-        //        if (result == System.Windows.Forms.DialogResult.Yes)
-        //        {
-        //            UpdateLastEvent("Downloading latest version...");
-        //            //Download the file
-        //            try
-        //            {
-        //                using (WebClient client = new WebClient())
-        //                {
-        //                    sw.Start();
-        //                    UpdateLastEvent("Discovering File Size...");
-        //                    client.DownloadProgressChanged += (s, e) =>
-        //                    {
-        //                        string downloadedMBs = Math.Round(e.BytesReceived / 1024.0 / 1024.0) + " MB";
-        //                        string downloadSpeed = string.Format("{0} MB/s", (e.BytesReceived / 1024.0 / 1024.0 / sw.Elapsed.TotalSeconds).ToString("0.00"));
-        //                        UpdateLastEvent($"Downloading... {downloadedMBs} @ {downloadSpeed}");
-        //                    };
-        //                    client.DownloadFileCompleted += (s, e) =>
-        //                    {
-        //                        sw.Stop();
-        //                        UpdateLastEvent("Download Complete");
-        //                        // any other code to process the file
-        //                        // Write the node id to the settings file
-        //                        Settings.Default.Version = node_id;
-        //                        Settings.Default.Save();
-        //                        // Move the zip file and the bat file up one directory and overwrite the existing files
-        //                        File.Copy("UniversalGametypeEditor.zip", "..\\UniversalGametypeEditor.zip", true);
-        //                        File.Copy("unzip.bat", "..\\unzip.bat", true);
-        //                        Thread.Sleep(1000);
-
-        //                        // Check if the batch file exists
-        //                        string batchFilePath = Path.GetFullPath("..\\unzip.bat");
-        //                        if (File.Exists(batchFilePath))
-        //                        {
-        //                            UpdateLastEvent("unzip.bat file found. Starting the process...");
-
-        //                            // Start the unzip.bat file
-        //                            ProcessStartInfo startInfo = new()
-        //                            {
-        //                                FileName = batchFilePath,
-        //                                WorkingDirectory = Path.GetFullPath("..") // Set the working directory to the parent directory
-        //                                                                          // Arguments = "UniversalGametypeEditor.zip"
-        //                            };
-
-        //                            Process process = Process.Start(startInfo);
-
-        //                            if (process != null)
-        //                            {
-        //                                UpdateLastEvent("unzip.bat started successfully. Exiting the application...");
-        //                                // Close the current process
-        //                                Environment.Exit(0);
-        //                            }
-        //                            else
-        //                            {
-        //                                UpdateLastEvent("Failed to start unzip.bat.");
-        //                            }
-        //                        }
-        //                        else
-        //                        {
-        //                            UpdateLastEvent("unzip.bat file not found.");
-        //                        }
-
-
-        //                    };
-        //                    //Download the file on a background thread
-        //                    client.DownloadFileAsync(new Uri("https://nightly.link/Sopitive/UniversalGametypeEditor/workflows/dotnet-desktop/master/UniversalGametypeEditor.zip"), "UniversalGametypeEditor.zip");
-        //                    while (client.IsBusy)
-        //                    {
-        //                        System.Windows.Forms.Application.DoEvents();
-        //                    }
-
-        //                }
-        //            }
-        //            catch (Exception)
-        //            {
-        //                UpdateLastEvent("Unable to download the latest version. Please check your internet connection.");
-        //            }
-        //        }
-        //    }
-        //    else
-        //    {
-        //        UpdateLastEvent("Client up to date!");
-        //    }
-        //    return;
-        //}
-
         public void ConvertToBin(string directory, string name)
         {
             bool fileLocked = true;
@@ -2735,17 +2899,18 @@ namespace UniversalGametypeEditor
                     {
                         length = 20480;
                     }
-                } catch (IOException)
+                }
+                catch (IOException)
                 {
                     fileLocked = true;
                     Debug.WriteLine("File still in use!");
                 }
             }
 
-            
 
-            
-            
+
+
+
 
             byte[] newArray = fileBytes;
             Array.Resize(ref newArray, length);
@@ -2763,21 +2928,22 @@ namespace UniversalGametypeEditor
                 {
                     finalArray[i] = header[i];
                 }
-                
+
                 int insertionIndex = header.Length;
 
                 for (int i = 1; i < newArray.Length; i++)
                 {
                     finalArray[(i - 1) + insertionIndex] = newArray[i];
                 }
-                
+
                 insertionIndex += newArray.Length - 1;
                 for (int i = 0; i < ender.Length; i++)
                 {
                     finalArray[i + insertionIndex] = ender[i];
                 }
                 Debug.WriteLine("Test");
-            } catch (IndexOutOfRangeException e)
+            }
+            catch (IndexOutOfRangeException e)
             {
                 Debug.WriteLine(e);
                 //UpdateLastEvent($"Error While Converting File {name}");
@@ -2802,7 +2968,7 @@ namespace UniversalGametypeEditor
 
         private void ConvertToMglo(string name, string directory)
         {
-            byte[] fileBytes = {};
+            byte[] fileBytes = { };
             bool fileLocked = true;
             while (fileLocked)
             {
@@ -2818,23 +2984,24 @@ namespace UniversalGametypeEditor
                 }
             }
             int length;
-            
+
             length = fileBytes.Length - header.Length - 1;
             length = fileBytes.Length > 10000 ? length - 1273 : length;
             byte[] newArray = new byte[length];
-            
+
             for (int i = 0; i < length; i++)
             {
                 try
                 {
                     newArray[i] = fileBytes[i + header.Length];
-                } catch (IndexOutOfRangeException e)
+                }
+                catch (IndexOutOfRangeException e)
                 {
                     Debug.WriteLine(name);
                     //UpdateLastEvent($"Error While Converting File {name}");
                     return;
                 }
-                
+
             }
             newArray = BitShift(newArray.Length, newArray);
             fileLocked = true;
@@ -2845,7 +3012,8 @@ namespace UniversalGametypeEditor
                 {
                     File.WriteAllBytes($"{directory}\\{name.Replace(".bin", "")}.mglo", newArray);
                     fileLocked = false;
-                } catch (Exception ex)
+                }
+                catch (Exception ex)
                 {
                     Debug.WriteLine("File still in use!");
                     fileLocked = true;
@@ -2853,7 +3021,7 @@ namespace UniversalGametypeEditor
                 }
             }
 
-            
+
         }
 
 
@@ -2861,7 +3029,7 @@ namespace UniversalGametypeEditor
         {
             int previousUpperBits = 0;
 
-            for (int i = 0; i<length; i++)
+            for (int i = 0; i < length; i++)
             {
                 var currentLowerBits = (array[i] << 4);
                 array[i] = (byte)(array[i] >> 4);
@@ -2870,9 +3038,9 @@ namespace UniversalGametypeEditor
             }
 
             return array;
-            
+
         }
 
-        
+
     }
 }

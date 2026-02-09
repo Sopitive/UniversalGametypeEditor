@@ -220,7 +220,8 @@ namespace UniversalGametypeEditor
     }
 
 
-    internal class ScriptCompiler
+    internal partial class ScriptCompiler
+
     {
 
 
@@ -662,6 +663,9 @@ namespace UniversalGametypeEditor
             // Run the analyzer to process triggers
             RunAnalyzer(tree);
 
+            Prepass_RegisterInlineFunctions(root);
+
+
             // Traverse the syntax tree
             foreach (var member in root.Members)
             {
@@ -828,7 +832,19 @@ namespace UniversalGametypeEditor
                     if (localFunction.Body != null)
                     {
                         // Call ProcessTrigger for top-level local function declarations
-                        ProcessTrigger(localFunction);
+                        if (IsTriggerLocalFunction(localFunction))
+                        {
+                            ProcessTrigger(localFunction);
+                        }
+                        else if (localFunction.ReturnType?.ToString() == "void")
+                        {
+                            // inline function definition: already compiled in pre-pass
+                        }
+                        else
+                        {
+                            throw new Exception($"Unsupported top-level local function '{localFunction.Identifier.Text}' return type '{localFunction.ReturnType}'.");
+                        }
+
                     }
                 }
                 else if (globalStatement.Statement is LocalDeclarationStatementSyntax localDeclaration)
@@ -1446,6 +1462,11 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             string? varOut = "NoObject",
             int inlineActionOffset2 = -1)
         {
+
+            if (TryEmitInlineFunctionCall(invocation, ref actionOffset))
+                return;
+
+
             string? scriptName = GetInvokedName(invocation.Expression);
             if (string.IsNullOrWhiteSpace(scriptName))
             {

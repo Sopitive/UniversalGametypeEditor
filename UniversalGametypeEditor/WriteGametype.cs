@@ -20,111 +20,223 @@ namespace UniversalGametypeEditor
     {
         private string rawBinary = "";
         private string modifiedBinary = "";
-        
-        public void WriteBinaryFile(string filename, GametypeHeader gt, FileHeaderViewModel fh, GametypeHeaderViewModel gh, ModeSettingsViewModel ms, SpawnSettingsViewModel ss, GameSettingsViewModel gs, PowerupTraitsViewModel ps, TeamSettingsViewModel ts, LoadoutClusterViewModel lc)
+
+        public void WriteBinaryFile(
+    string filename,
+    GametypeHeader gt,
+    FileHeaderViewModel fh,
+    GametypeHeaderViewModel gh,
+    ModeSettingsViewModel ms,
+    SpawnSettingsViewModel ss,
+    GameSettingsViewModel gs,
+    PowerupTraitsViewModel ps,
+    TeamSettingsViewModel ts,
+    LoadoutClusterViewModel lc)
         {
-            //Write the bytes for the file, starting at file offset 2F0
             byte[] bytes = File.ReadAllBytes(filename);
 
-            //Get all bytes up to file offset 2F0
+            // Apply convert-to-forge BEFORE writing anything
+            if (Settings.Default.ConvertToForge)
+            {
+                fh.VariantType = VariantTypeEnum.Forge;
+            }
+
+            // Build bitstreams
             string prebits;
-            prebits = string.Join("", bytes.Take(752).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
             if (Settings.Default.IsGvar)
             {
-                prebits = string.Join("", bytes.Take(136).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+                // ✅ gvar data starts at 0x80 (128)
+                const int GVAR_BASE = 0x80;
+
+                if (bytes.Length < GVAR_BASE)
+                    throw new InvalidOperationException($"WriteBinaryFile: file too small for gvar base 0x{GVAR_BASE:X}.");
+
+                prebits = string.Join("", bytes.Take(GVAR_BASE).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+                rawBinary = string.Join("", bytes.Skip(GVAR_BASE).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+
+                modifiedBinary = "";
+
+                // ✅ gvar: ONLY write the header fields (do not write mpvr sections)
+                WriteFileHeaders(fh);
+
+                // splice: replace header prefix bits inside the gvar region
+                int slice = modifiedBinary.Length;
+                string tail = rawBinary.Length >= slice ? rawBinary.Substring(slice) : "";
+
+                rawBinary = modifiedBinary + tail;
+                rawBinary = prebits + rawBinary;
+
+                byte[] newBytes = Enumerable.Range(0, rawBinary.Length / 8)
+                    .Select(i => Convert.ToByte(rawBinary.Substring(i * 8, 8), 2))
+                    .ToArray();
+
+                File.WriteAllBytes(filename, newBytes);
+                System.Threading.Thread.Sleep(1);
+                return;
             }
-            //Convert to a string of 0s and 1s starting at file offset 2F0
-            rawBinary = string.Join("", bytes.Skip(752).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
-            if (Settings.Default.IsGvar)
+            else
             {
-                rawBinary = string.Join("", bytes.Skip(136).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+                // mpvr path: your existing behavior (starts at 0x2F0 / 752)
+                prebits = string.Join("", bytes.Take(752).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
+                rawBinary = string.Join("", bytes.Skip(752).Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
             }
-            int slice = 0;
+
+            modifiedBinary = "";
+
             WriteFileHeaders(fh);
 
-            int len = WriteGametypeHeaders(gh, gt);
+            WriteGametypeHeaders(gh, gt);
             modifiedBinary += WriteModeSettings(ms);
+
             if (Settings.Default.DecompiledVersion == 0)
             {
                 modifiedBinary += WriteSpawnSettings(ss);
                 modifiedBinary += WriteGameSettings(gs);
-                //modifiedBinary += WritePowerupSettings(ps);
-                //modifiedBinary += WriteTeamSettings(ts);
-                //modifiedBinary += WriteLoadoutPalettes(lc);
+                // optional sections...
             }
-            
-            slice = modifiedBinary.Length;
 
-            
-
-
-            
-            rawBinary = rawBinary[slice..];
+            int sliceMpvr = modifiedBinary.Length;
+            rawBinary = rawBinary.Length >= sliceMpvr ? rawBinary.Substring(sliceMpvr) : "";
             rawBinary = modifiedBinary + rawBinary;
             rawBinary = prebits + rawBinary;
-            //Convert raw binary string to bytes
-            byte[] newBytes = Enumerable.Range(0, rawBinary.Length / 8).Select(i => Convert.ToByte(rawBinary.Substring(i * 8, 8), 2)).ToArray();
-            //Write the bytes to the file
-            File.WriteAllBytes(filename, newBytes);
+
+            byte[] newBytesMpvr = Enumerable.Range(0, rawBinary.Length / 8)
+                .Select(i => Convert.ToByte(rawBinary.Substring(i * 8, 8), 2))
+                .ToArray();
+
+            File.WriteAllBytes(filename, newBytesMpvr);
             System.Threading.Thread.Sleep(1);
-            
         }
+
+
+
+
+
 
         public void WriteFileHeaders(FileHeaderViewModel fh)
         {
-            string GetBinaryString(dynamic value, int bitSize)
+            if (fh == null)
+                return;
+
+            static string SafeSlice(string bits, int start, int len)
             {
-                if (value is string strValue)
+                if (len <= 0) return string.Empty;
+                if (string.IsNullOrEmpty(bits)) return new string('0', len);
+                if (start < 0) start = 0;
+                if (start >= bits.Length) return new string('0', len);
+
+                int avail = bits.Length - start;
+                if (avail >= len) return bits.Substring(start, len);
+                return bits.Substring(start, avail) + new string('0', len - avail);
+            }
+
+            static bool IsBinaryString(string s) => !string.IsNullOrEmpty(s) && s.All(c => c == '0' || c == '1');
+
+            string? TryEncode(object? valueObj, int bitSize)
+            {
+                if (valueObj == null) return null;
+
+                try
                 {
-                    // Check if the string is a valid binary string
-                    if (strValue.All(c => c == '0' || c == '1'))
+                    if (valueObj is string s)
                     {
-                        return strValue.PadLeft(bitSize, '0'); // Return the binary string directly
+                        if (IsBinaryString(s)) return s.PadLeft(bitSize, '0');
+                        if (int.TryParse(s, out int nStr)) return Convert.ToString(nStr, 2).PadLeft(bitSize, '0');
+                        return null;
                     }
-                    else
+
+                    var t = Nullable.GetUnderlyingType(valueObj.GetType()) ?? valueObj.GetType();
+
+                    if (t.IsEnum)
                     {
-                        // Convert the non-binary string to an integer
-                        int intValue = int.Parse(strValue);
-                        return Convert.ToString(intValue, 2).PadLeft(bitSize, '0');
+                        // ✅ FIX: this works for boxed enums
+                        int nEnum = Convert.ToInt32(valueObj);
+                        return Convert.ToString(nEnum, 2).PadLeft(bitSize, '0');
                     }
+
+                    if (valueObj is IConvertible)
+                    {
+                        int n = Convert.ToInt32(valueObj);
+                        return Convert.ToString(n, 2).PadLeft(bitSize, '0');
+                    }
+
+                    return null;
                 }
-                else
+                catch
                 {
-                    return Convert.ToString((int)value, 2).PadLeft(bitSize, '0');
+                    return null;
                 }
             }
 
+            // Explicit binary order
+            var orderedNames = Settings.Default.IsGvar
+                ? new[]
+                {
+            nameof(FileHeaderViewModel.Mpvr),         // 32 ("gvar")
+            nameof(FileHeaderViewModel.MegaloVersion),// 32 (gvar pad/skip field from ReadBinary: GetValue(32))
+            nameof(FileHeaderViewModel.Unknown0x2F8),  // 16
+            nameof(FileHeaderViewModel.Unknown0x2FA),  // 16
+            nameof(FileHeaderViewModel.Unknown0x318),  // 2
+            nameof(FileHeaderViewModel.VariantType),   // 2
+            nameof(FileHeaderViewModel.Unknown0x319),  // 4  => packed byte @ offset 0x0C (12)
+            nameof(FileHeaderViewModel.Unknown0x31D),  // 32
+            nameof(FileHeaderViewModel.Unknown0x31C),  // 32
+            nameof(FileHeaderViewModel.FileLength),    // 32
+                }
+                : new[]
+                {
+            nameof(FileHeaderViewModel.Mpvr),
+            nameof(FileHeaderViewModel.MegaloVersion),
+            nameof(FileHeaderViewModel.Unknown0x2F8),
+            nameof(FileHeaderViewModel.Unknown0x2FA),
+            nameof(FileHeaderViewModel.UnknownHash0x2FC),
+            nameof(FileHeaderViewModel.Blank0x310),
+            nameof(FileHeaderViewModel.FileUsedSize),
+            nameof(FileHeaderViewModel.Unknown0x318),
+            nameof(FileHeaderViewModel.VariantType),
+            nameof(FileHeaderViewModel.Unknown0x319),
+            nameof(FileHeaderViewModel.Unknown0x31D),
+            nameof(FileHeaderViewModel.Unknown0x31C),
+            nameof(FileHeaderViewModel.FileLength),
+                };
 
-
-
-            string GetPropertyBinaryString(FileHeaderViewModel fh, PropertyInfo property)
-            {
-                var bitSizeAttribute = (BitSizeAttribute)Attribute.GetCustomAttribute(property, typeof(BitSizeAttribute));
-                int bitSize = bitSizeAttribute?.Bits ?? 0;
-                dynamic value = property.GetValue(fh);
-                return GetBinaryString(value, bitSize);
-            }
-
-            var properties = typeof(FileHeaderViewModel).GetProperties()
-                .Where(p => Attribute.IsDefined(p, typeof(BitSizeAttribute)))
+            var tFh = typeof(FileHeaderViewModel);
+            var props = orderedNames
+                .Select(n => tFh.GetProperty(n))
+                .Where(p => p != null)
                 .ToList();
 
-            var binaryStrings = new List<string>();
+            var sb = new StringBuilder();
+            int bitCursor = 0;
 
-            for (int i = 0; i < properties.Count; i++)
+            foreach (var prop in props)
             {
-                if (Settings.Default.IsGvar && i < 2)
+                var bitSizeAttr = (BitSizeAttribute)Attribute.GetCustomAttribute(prop, typeof(BitSizeAttribute));
+                int bitSize = bitSizeAttr?.Bits ?? 0;
+
+                // ✅ gvar: ALWAYS preserve the 32-bit skipped pad field (the one you GetValue(32) and never store)
+                if (Settings.Default.IsGvar && prop.Name == nameof(FileHeaderViewModel.MegaloVersion))
                 {
-                    // Skip the first two properties if IsGvar is true
+                    sb.Append(SafeSlice(rawBinary, bitCursor, bitSize));
+                    bitCursor += bitSize;
                     continue;
                 }
 
-                binaryStrings.Add(GetPropertyBinaryString(fh, properties[i]));
+                object? valueObj = null;
+                try { valueObj = prop.GetValue(fh); } catch { }
+
+                var encoded = TryEncode(valueObj, bitSize);
+
+                if (encoded == null)
+                    sb.Append(SafeSlice(rawBinary, bitCursor, bitSize)); // preserve original bits for this field
+                else
+                    sb.Append(encoded);
+
+                bitCursor += bitSize;
             }
 
-            modifiedBinary = string.Join("", binaryStrings);
-
-            // Use the modifiedBinary as needed
+            // FileHeader is first section, so overwrite prefix
+            modifiedBinary = sb.ToString();
         }
 
 

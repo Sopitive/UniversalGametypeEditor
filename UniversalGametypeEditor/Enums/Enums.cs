@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 
 namespace UniversalGametypeEditor.Enums
 {
@@ -32,6 +33,70 @@ namespace UniversalGametypeEditor.Enums
             OnObjectDeath = 0b101,
             OnLocal = 0b110,
             OnPregame = 0b111
+        }
+
+
+        //        speaker 0 debugger eval code:2:9
+        //dead_teammate_marker 1 debugger eval code:2:9
+        //lightning_bolt 2 debugger eval code:2:9
+        //bullseye 3 debugger eval code:2:9
+        //diamond 4 debugger eval code:2:9
+        //bomb 5 debugger eval code:2:9
+        //flag 6 debugger eval code:2:9
+        //skull 7 debugger eval code:2:9
+        //crown 8 debugger eval code:2:9
+        //vip 9 debugger eval code:2:9
+        //padlock 10 debugger eval code:2:9
+        //territory_a 11 debugger eval code:2:9
+        //territory_b 12 debugger eval code:2:9
+        //territory_c 13 debugger eval code:2:9
+        //territory_d 14 debugger eval code:2:9
+        //territory_e 15 debugger eval code:2:9
+        //territory_f 16 debugger eval code:2:9
+        //territory_g 17 debugger eval code:2:9
+        //territory_h 18 debugger eval code:2:9
+        //territory_i 19 debugger eval code:2:9
+        //supply 20 debugger eval code:2:9
+        //supply_health 21 debugger eval code:2:9
+        //supply_air_drop 22 debugger eval code:2:9
+        //supply_ammo 23 debugger eval code:2:9
+        //arrow 24 debugger eval code:2:9
+        //defend 25 debugger eval code:2:9
+        //ordnance 26 debugger eval code:2:9
+        //inward 27
+
+        public enum WaypointIcon
+        {
+
+            Speaker = 1,
+            DeadTeammateMarker = 2,
+            LightningBolt = 3,
+            Bullseye = 4,
+            Diamond = 5,
+            Bomb = 6,
+            Flag = 7,
+            Skull = 8,
+            Crown = 9,
+            Vip = 10,
+            Padlock = 11,
+            TerritoryA = 12,
+            TerritoryB = 13,
+            TerritoryC = 14,
+            TerritoryD = 15,
+            TerritoryE = 16,
+            TerritoryF = 17,
+            TerritoryG = 18,
+            TerritoryH = 19,
+            TerritoryI = 20,
+            Supply = 21,
+            SupplyHealth = 22,
+            SupplyAirDrop = 23,
+            SupplyAmmo = 24,
+            Arrow = 25,
+            Defend = 26,
+            Ordnance = 27,
+            Inward = 28,
+            All = 29
         }
 
         public enum TriggerRef : ushort
