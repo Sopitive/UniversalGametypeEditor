@@ -7,14 +7,113 @@ using System.Collections.Generic;
 
 namespace UniversalGametypeEditor.Megalo
 {
-    public static class MegaloSchema
+    public static partial class MegaloSchema
     {
         public sealed record FieldDef(string Name, string Type, int Bits);
         public sealed record VariantDef(string Key, string Name, int Id, string IdBits, FieldDef[] Fields);
         public sealed record EnumDef(string Name, int Bits, VariantDef[] Variants);
 
+        // --------------------------------------------------------------
+        // Universal section vocabulary. Every MegaloSection subtype is
+        // a declarative description of a bit-level region in the stream.
+        //
+        // GametypeReader walks a top-level layout (ReachMpvrLayout) that
+        // covers the whole .bin from after the 94-byte MCC wrapper; the
+        // ScriptTailReader reuses these same section types on the
+        // post-trigger portion of the megalo script block. Since one
+        // vocabulary drives everything, a future writer using the same
+        // layout table is guaranteed to be bit-for-bit compatible.
+        // --------------------------------------------------------------
+
+        public abstract record MegaloSection(string Name);
+
+        /// Fixed-width zeroed / reserved region.
+        public sealed record BlankSection(string Name, int Bits) : MegaloSection(Name);
+
+        /// N-bit count followed by N occurrences of a record description.
+        public sealed record CountSection(
+            string Name,
+            int CountBits,
+            MegaloSection[] RecordFields,
+            /// Optional: name of a table in DecompileContext.Tables to populate
+            /// from this count section (index -> rendered name).
+            string? TableKey = null,
+            /// Optional: name of the record field whose value is used as the
+            /// string table index for this record's display name.
+            string? NameFromField = null) : MegaloSection(Name);
+
+        /// Variant selector (N-bit tag + a branch chosen by tag).
+        public sealed record VariantSection(
+            string Name,
+            int TagBits,
+            (int Id, string Key, MegaloSection[] Fields)[] Variants) : MegaloSection(Name);
+
+        /// Unsigned integer field.
+        public sealed record UIntSection(string Name, int Bits) : MegaloSection(Name);
+
+        /// Signed (two's complement) integer field.
+        public sealed record SIntSection(string Name, int Bits) : MegaloSection(Name);
+
+        /// Raw hex region (rendered as hex, not decoded).
+        public sealed record HexSection(string Name, int Bits) : MegaloSection(Name);
+
+        /// Reference into the mpvr string table (7 bits Reach, 8 bits H4/H2A).
+        public sealed record StringTableRefSection(string Name, int Bits) : MegaloSection(Name);
+
+        /// Hash-compressed language-strings block (mpvr.xml "HCount").
+        /// Walkthrough: read CountBits → stringPresent; for each, read
+        /// NumLanguages × (1-bit present + ValueBits payload); if
+        /// stringPresent > 0 read (ValueBits or ValueBits+1 for team) → m3,
+        /// 1-bit d flag, then either m3*8 raw bits (d==0) or a ValueBits
+        /// compressed-size followed by m1*8 zlib bytes (d==1).
+        public sealed record StringTableSection(
+            string Name,
+            int ValueBits,
+            int CountBits,
+            bool IsTeamString = false,
+            int NumLanguages = 12) : MegaloSection(Name);
+
+        /// Magic/ASCII string of fixed bit length (e.g. "mpvr" @ 32 bits).
+        public sealed record AsciiStringSection(string Name, int Bits) : MegaloSection(Name);
+
+        /// Null-terminated 8-bit ASCII string.
+        public sealed record UString8Section(string Name) : MegaloSection(Name);
+
+        /// Null-terminated 16-bit-per-char string.
+        public sealed record UString16Section(string Name) : MegaloSection(Name);
+
+        /// Field of type "Enumref:X" — walks the TypeRef system.
+        public sealed record EnumRefSection(string Name, string EnumName) : MegaloSection(Name);
+
+        /// Reference to another named MegaloSection layout by key (used to
+        /// share PlayerTraits / TeamOptions / LoadoutOptions blocks across
+        /// multiple parent containers).
+        public sealed record SectionRefSection(string Name, string LayoutKey) : MegaloSection(Name);
+
+        /// Inline group / container — a sequence of child sections with a
+        /// group name but no header bits of its own.
+        public sealed record GroupSection(string Name, MegaloSection[] Children) : MegaloSection(Name);
+
+        /// Marker for sections where the bit layout is NOT yet empirically
+        /// verified against real .bin files. Walker treats these as hard
+        /// stops with a diagnostic.
+        public sealed record UnverifiedSection(string Name, string Note) : MegaloSection(Name);
+
         // All enum/union schemas from the XML (RefTypes).
         public static readonly IReadOnlyDictionary<string, EnumDef> Enums;
+
+        // Named reusable RefType layouts from mpvr.xml (PlayerTraits,
+        // TeamOptions, LoadoutOptions). Referenced by SectionRefSection.
+        public static readonly IReadOnlyDictionary<string, MegaloSection[]> Layouts;
+
+        // Full Reach gametype variant layout from bit 752 of the .bin
+        // through WeaponTunings at EOF. Walked by GametypeReader.
+        public static readonly MegaloSection[] ReachMpvrLayout;
+
+        // Reach post-trigger script + mpvr tail layout, walked by the
+        // ScriptTailReader from the current stream position after the
+        // last trigger record.
+        public static readonly MegaloSection[] ReachScriptTail;
 
         // Convenient built-in identifiers for common script keywords (curated subset).
         // Maps script token -> (LeafEnumName, LeafVariantKey)
@@ -1002,6 +1101,104 @@ namespace UniversalGametypeEditor.Megalo
             };
             Enums = e;
 
+            // --------------------------------------------------------------
+            // Reach post-trigger tail layout.
+            //
+            // Everything above the first UnverifiedSection has a known bit
+            // layout (sourced from either mpvr.xml, the legacy working
+            // ReadScriptOptions/ReadStrings/ReadGame/ReadMap/ReadPlayerRatings
+            // readers, or the Labels section grammar in mpvr.xml).
+            //
+            // The MegaloVars globals pool widths are NOT yet empirically
+            // verified. Rather than guess and silently corrupt the rest of
+            // the stream, we plant an UnverifiedSection that forces the
+            // decoder to stop and emit a diagnostic identifying the exact
+            // point where the layout spec runs out. That way the first
+            // real-.bin test will surface the missing widths at a single,
+            // specific location we can then fix in one place.
+            //
+            // Order per mpvr.xml:
+            //   megl  → globals (script vars)
+            //         → MegaloVars sub-pools
+            //         → hud widgets / stats / traits / options / strings
+            //         → game / map / player ratings / reserved blanks
+            //   after megl →
+            //     requiredobjects(224)  [blank]
+            //     unknown1824           [blank]
+            //     Labels                [count 5, per-label StringID + flag fields + MapMinimum]
+            //     unknown26             [blank]
+            //     WeaponTunings
+            // --------------------------------------------------------------
+
+            // Per-entry record shapes for global variable pools.
+            // Sourced from community Reach megalo documentation +
+            // cross-referenced against the compiler's intent (not its
+            // buggy emission widths). Networking priority is the common
+            // 2-bit "locality" field on every variable.
+            var globalNumberRec = new MegaloSection[]
+            {
+                new SIntSection("InitialValue", 16),
+                new UIntSection("NetworkPriority", 2),
+            };
+            var globalTimerRec = new MegaloSection[]
+            {
+                new SIntSection("InitialValue", 16),
+                new UIntSection("NetworkPriority", 2),
+            };
+            var globalTeamRec = new MegaloSection[]
+            {
+                new UIntSection("InitialTeam", 4),
+                new UIntSection("NetworkPriority", 2),
+            };
+            var globalPlayerRec = new MegaloSection[]
+            {
+                new UIntSection("NetworkPriority", 2),
+            };
+            var globalObjectRec = new MegaloSection[]
+            {
+                new UIntSection("NetworkPriority", 2),
+            };
+
+            ReachScriptTail = new MegaloSection[]
+            {
+                // ---- Script variable globals (after triggers) ----
+                new CountSection("GlobalNumbers", 4, globalNumberRec),
+                new CountSection("GlobalTimers", 4, globalTimerRec),
+                new CountSection("GlobalTeams", 4, globalTeamRec),
+                new CountSection("GlobalPlayers", 4, globalPlayerRec),
+                new CountSection("GlobalObjects", 5, globalObjectRec),
+
+                // ---- MegaloVars sub-pools, scoped to player/object/team ----
+                // Per the compiler's ProcessGlobalVariables emission order,
+                // these are 15 sub-pools with an all-zero body when empty.
+                // Counts match mpvr.xml "Ref0" pool widths.
+                new CountSection("playernumbers", 4, globalNumberRec),
+                new CountSection("playertimers", 3, globalTimerRec),
+                new CountSection("playerteams",  3, globalTeamRec),
+                new CountSection("playerplayers",3, globalPlayerRec),
+                new CountSection("playerobjects",3, globalObjectRec),
+
+                new CountSection("objectnumbers", 4, globalNumberRec),
+                new CountSection("objecttimers",  3, globalTimerRec),
+                new CountSection("objectteams",   2, globalTeamRec),
+                new CountSection("objectplayers", 3, globalPlayerRec),
+                new CountSection("objectobjects", 3, globalObjectRec),
+
+                new CountSection("teamnumbers", 4, globalNumberRec),
+                new CountSection("teamtimers",  3, globalTimerRec),
+                new CountSection("teamteams",   3, globalTeamRec),
+                new CountSection("teamplayers", 3, globalPlayerRec),
+                new CountSection("teamobjects", 3, globalObjectRec),
+
+                // HUD widgets + script stats + script widgets are not yet
+                // schema-described; this UnverifiedSection hard-stops so
+                // real-.bin testing points at the exact boundary to fix.
+                new UnverifiedSection(
+                    "HudWidgetsAndStats",
+                    "HUD widgets / script stats / script widgets post-MegaloVars. "
+                    + "Need empirical widths — compiler doesn't emit them, mpvr.xml has no entry."),
+            };
+
             BuiltinLeaf = new Dictionary<string, (string EnumName, string VariantKey)>(StringComparer.OrdinalIgnoreCase)
             {
                 ["no_object"] = ("ObjectRef", "NoObject"),
@@ -1017,6 +1214,370 @@ namespace UniversalGametypeEditor.Megalo
                 ["no_team"] = ("TeamRef", "NoTeam"),
                 ["current_team"] = ("TeamRef", "CurrentTeam"),
                 ["neutral_team"] = ("TeamRef", "NeutralTeam"),
+            };
+
+            // --------------------------------------------------------------
+            // Named reusable layouts, referenced by SectionRefSection from
+            // within parent containers. These map to mpvr.xml <RefTypes>.
+            // --------------------------------------------------------------
+            var layouts = new Dictionary<string, MegaloSection[]>(StringComparer.OrdinalIgnoreCase);
+
+            layouts["PlayerTraits"] = new MegaloSection[]
+            {
+                new UIntSection("DamageResistance", 4),
+                new UIntSection("Healthmultiplyer", 3),
+                new UIntSection("Healthregenrate", 4),
+                new UIntSection("ShieldMultiplyer", 3),
+                new UIntSection("ShieldRegenrate", 4),
+                new UIntSection("Overshieldregenrate", 4),
+                new UIntSection("HeadshotImmunity", 2),
+                new UIntSection("shieldvampirism", 3),
+                new UIntSection("Assasinationimmunity", 2),
+                new UIntSection("invincible", 2),
+                new UIntSection("WeaponDamagemultiplier", 4),
+                new UIntSection("MeleeDamagemultiplier", 4),
+                new UIntSection("Primaryweapon", 8),
+                new UIntSection("Secondaryweapon", 8),
+                new UIntSection("Grenades", 4),
+                new UIntSection("Infiniteammo", 2),
+                new UIntSection("Grenaderegen", 2),
+                new UIntSection("WeaponPickup", 2),
+                new UIntSection("AbilityUsage", 2),
+                new UIntSection("Abilitiesdropondeath", 2),
+                new UIntSection("InfiniteAbility", 2),
+                new UIntSection("ArmorAbility", 8),
+                new UIntSection("MovementSpeed", 5),
+                new UIntSection("Playergravity", 4),
+                new UIntSection("VehicleUse", 4),
+                new UIntSection("Unknown", 2),
+                new VariantSection("JumpHeight", 1, new (int, string, MegaloSection[])[]
+                {
+                    (0, "Unchanged", Array.Empty<MegaloSection>()),
+                    (1, "Override",  new MegaloSection[] { new UIntSection("JumpHeight", 9) }),
+                }),
+                new UIntSection("Camo", 3),
+                new UIntSection("Visiblewaypoint", 2),
+                new UIntSection("VisibleName", 2),
+                new UIntSection("Aura", 3),
+                new UIntSection("Forcedcolor", 4),
+                new UIntSection("Motiontrackermode", 3),
+                new UIntSection("MotiontrackerRange", 3),
+                new UIntSection("DirectionalDamageindicator", 2),
+            };
+
+            layouts["TeamOptions"] = new MegaloSection[]
+            {
+                new UIntSection("TertiarycolorOverride", 1),
+                new UIntSection("SecondarycolorOverride", 1),
+                new UIntSection("PrimarycolorOverride", 1),
+                new UIntSection("TeamEnabled", 1),
+                new StringTableSection("Teamstring", ValueBits: 5, CountBits: 1, IsTeamString: true),
+                new UIntSection("InitialDesignator", 4),
+                new UIntSection("Elitespecies", 1),
+                new HexSection("PrimaryColor", 32),
+                new HexSection("SecondaryColor", 32),
+                new HexSection("TertiaryColor", 32),
+                new UIntSection("FireteamCount", 5),
+            };
+
+            layouts["LoadoutOptions"] = new MegaloSection[]
+            {
+                new UIntSection("LoadoutVisibleingame", 1),
+                new VariantSection("LoadoutName", 1, new (int, string, MegaloSection[])[]
+                {
+                    (0, "True",  new MegaloSection[] { new UIntSection("NameIndex", 7) }),
+                    (1, "False", Array.Empty<MegaloSection>()),
+                }),
+                new UIntSection("PrimaryWeapon", 8),
+                new UIntSection("SecondaryWeapon", 8),
+                new UIntSection("Armorability", 8),
+                new UIntSection("Grenades", 4),
+            };
+
+            Layouts = layouts;
+
+            // --------------------------------------------------------------
+            // ReachMpvrLayout — full Reach gametype variant layout,
+            // walked by GametypeReader from bit 752 of the raw .bin file
+            // (i.e. past the 94-byte MCC wrapper) through WeaponTunings.
+            //
+            // Order and widths are anchored to mpvr.xml, the legacy working
+            // ReadBinary code (ReadScriptOptions / ReadStrings / ReadGame /
+            // ReadMap / ReadPlayerRatings), and community Reach-megalo docs.
+            // Any entry that hasn't been empirically verified against a
+            // stock .bin is an UnverifiedSection so the walker hard-stops
+            // rather than silently desyncing.
+            //
+            // H4 / H2A differ in several widths; those live in separate
+            // layouts (to be added once Reach is round-tripping cleanly).
+            // --------------------------------------------------------------
+
+            ReachMpvrLayout = new MegaloSection[]
+            {
+                // FileHeader
+                new AsciiStringSection("mpvr", 32),
+                new UIntSection("megaloversion", 32),
+                new UIntSection("Unknown0x2F8", 16),
+                new UIntSection("Unknown0x2FA", 16),
+                new HexSection("UnknownHash0x2FC", 160),
+                new HexSection("Blank0x310", 32),
+                new UIntSection("Fileusedsize", 32),
+                new UIntSection("Unknown0x318", 2),
+                new UIntSection("VariantType", 2),
+                new UIntSection("Unknown0x319", 4),
+                new UIntSection("Unknown0x31D", 32),
+                new UIntSection("Unknown0x31C", 32),
+                new UIntSection("FileLength", 32),
+
+                // GametypeHeader
+                new HexSection("ID0x48", 64),
+                new HexSection("ID0x50", 64),
+                new HexSection("ID0x58", 64),
+                new HexSection("Blank0x60", 64),
+                new BlankSection("UnknownFlags", 9),
+                new UIntSection("Unknown_1", 32),
+                new UIntSection("Unknown0x1", 8),
+                new UIntSection("Blank04", 32),
+                new HexSection("TimeStampUint", 32),
+                new HexSection("XUID", 64),
+                new UString8Section("Gamertag"),
+                new BlankSection("Blank041bit", 33),
+                new HexSection("EditTimeStampUint", 32),
+                new HexSection("EditXUID", 64),
+                new UString8Section("EditGamertag"),
+                new UIntSection("UnknownFlag1", 1),
+                new UString16Section("Title"),
+                new UString16Section("Description"),
+                new UIntSection("GameIcon", 8),
+
+                // ModeSettings (Reach path — UnknownFlag2 is 1 bit here).
+                new UIntSection("UnknownFlag2", 1),
+                new UIntSection("Teamsenabled", 1),
+                new UIntSection("Resetmaponnewroundunused", 1),
+                new UIntSection("Resetplayersonnewroundunused", 1),
+                new UIntSection("Perfectionmedalenabled", 1),
+                new UIntSection("RoundTimeLimit", 8),
+                new UIntSection("NumberOfRounds", 5),
+                new UIntSection("RoundsToWin", 4),
+                new UIntSection("SuddenDeathTime", 7),
+                new UIntSection("GracePeriod", 5),
+
+                // SpawnSettings
+                new UIntSection("RespawnOnKills", 1),
+                new UIntSection("respawnatlocationunused", 1),
+                new UIntSection("respawnwithteammateunused", 1),
+                new UIntSection("RespawnSyncwithteam", 1),
+                new UIntSection("LivesPerround", 6),
+                new UIntSection("TeamLivesPerround", 7),
+                new UIntSection("RespawnTime", 8),
+                new UIntSection("Suicidepenalty", 8),
+                new UIntSection("Betrayalpenalty", 8),
+                new UIntSection("RespawnTimegrowth", 4),
+                new UIntSection("LoadoutCamTime", 4),
+                new UIntSection("Respawntraitsduration", 6),
+                new SectionRefSection("RespawnPlayerTraits", "PlayerTraits"),
+
+                // GameSettings
+                new UIntSection("EnableObservers", 1),
+                new UIntSection("Teamchanging", 2),
+                new UIntSection("FriendlyFire", 1),
+                new UIntSection("BetrayalBooting", 1),
+                new UIntSection("ProximityVoice", 1),
+                new UIntSection("Dontrestrictteamvoicechat", 1),
+                new UIntSection("allowdeadplayerstotalk", 1),
+                new UIntSection("Indestructiblevehicles", 1),
+                new UIntSection("turretsonmap", 1),
+                new UIntSection("powerupsonmap", 1),
+                new UIntSection("abilitiesonmap", 1),
+                new UIntSection("shortcutsonmap", 1),
+                new UIntSection("grenadesonmap", 1),
+                new SectionRefSection("BasePlayerTraits", "PlayerTraits"),
+                new UIntSection("WeaponSet", 8),
+                new UIntSection("VehicleSet", 8),
+
+                // PowerupTraits
+                new SectionRefSection("RedPlayerTraits", "PlayerTraits"),
+                new SectionRefSection("BluePlayerTraits", "PlayerTraits"),
+                new SectionRefSection("YellowPlayerTraits", "PlayerTraits"),
+                new UIntSection("RedPowerupDuration", 7),
+                new UIntSection("BluePowerupDuration", 7),
+                new UIntSection("YellowPowerupDuration", 7),
+
+                // TeamSettings
+                new UIntSection("TeamScoringMethod", 3),
+                new UIntSection("PlayerSpecies", 3),
+                new UIntSection("DesignatorSwitchtype", 2),
+                new SectionRefSection("Team1Options", "TeamOptions"),
+                new SectionRefSection("Team2Options", "TeamOptions"),
+                new SectionRefSection("Team3Options", "TeamOptions"),
+                new SectionRefSection("Team4Options", "TeamOptions"),
+                new SectionRefSection("Team5Options", "TeamOptions"),
+                new SectionRefSection("Team6Options", "TeamOptions"),
+                new SectionRefSection("Team7Options", "TeamOptions"),
+                new SectionRefSection("Team8Options", "TeamOptions"),
+
+                // LoadoutPalettes — 30 fixed-position LoadoutOptions, gated by two 1-bit flags.
+                new UIntSection("EliteLoadoutsEnabled", 1),
+                new UIntSection("SpartanLoadoutsEnabled", 1),
+                new SectionRefSection("loadouts01", "LoadoutOptions"),
+                new SectionRefSection("loadouts02", "LoadoutOptions"),
+                new SectionRefSection("loadouts03", "LoadoutOptions"),
+                new SectionRefSection("loadouts04", "LoadoutOptions"),
+                new SectionRefSection("loadouts05", "LoadoutOptions"),
+                new SectionRefSection("loadouts06", "LoadoutOptions"),
+                new SectionRefSection("loadouts07", "LoadoutOptions"),
+                new SectionRefSection("loadouts08", "LoadoutOptions"),
+                new SectionRefSection("loadouts09", "LoadoutOptions"),
+                new SectionRefSection("loadouts10", "LoadoutOptions"),
+                new SectionRefSection("loadouts11", "LoadoutOptions"),
+                new SectionRefSection("loadouts12", "LoadoutOptions"),
+                new SectionRefSection("loadouts13", "LoadoutOptions"),
+                new SectionRefSection("loadouts14", "LoadoutOptions"),
+                new SectionRefSection("loadouts15", "LoadoutOptions"),
+                new SectionRefSection("loadouts16", "LoadoutOptions"),
+                new SectionRefSection("loadouts17", "LoadoutOptions"),
+                new SectionRefSection("loadouts18", "LoadoutOptions"),
+                new SectionRefSection("loadouts19", "LoadoutOptions"),
+                new SectionRefSection("loadouts20", "LoadoutOptions"),
+                new SectionRefSection("loadouts21", "LoadoutOptions"),
+                new SectionRefSection("loadouts22", "LoadoutOptions"),
+                new SectionRefSection("loadouts23", "LoadoutOptions"),
+                new SectionRefSection("loadouts24", "LoadoutOptions"),
+                new SectionRefSection("loadouts25", "LoadoutOptions"),
+                new SectionRefSection("loadouts26", "LoadoutOptions"),
+                new SectionRefSection("loadouts27", "LoadoutOptions"),
+                new SectionRefSection("loadouts28", "LoadoutOptions"),
+                new SectionRefSection("loadouts29", "LoadoutOptions"),
+                new SectionRefSection("loadouts30", "LoadoutOptions"),
+
+                // --- Pre-megl container sections (mpvr.xml order) ---
+                new CountSection("ScriptedPlayerTraits", 5, new MegaloSection[]
+                {
+                    new StringTableRefSection("String1", 7),
+                    new StringTableRefSection("String2", 7),
+                    new SectionRefSection("PlayerTraits", "PlayerTraits"),
+                }),
+
+                new CountSection("ScriptOptions", 5, new MegaloSection[]
+                {
+                    new StringTableRefSection("String1", 7),
+                    new StringTableRefSection("String2", 7),
+                    new VariantSection("ScriptOption", 1, new (int, string, MegaloSection[])[]
+                    {
+                        (0, "Scriptoption", new MegaloSection[]
+                        {
+                            new UIntSection("ChildIndex", 3),
+                            new CountSection("ScriptOptionChild", 4, new MegaloSection[]
+                            {
+                                new SIntSection("Value", 10),
+                                new StringTableRefSection("String1", 7),
+                                new StringTableRefSection("String2", 7),
+                            }),
+                            new UIntSection("Unknown", 3),
+                        }),
+                        (1, "Range", new MegaloSection[]
+                        {
+                            new SIntSection("range1", 10),
+                            new SIntSection("range2", 10),
+                            new SIntSection("range3", 10),
+                            new SIntSection("range4", 10),
+                        }),
+                    }),
+                }),
+
+                // Strings block — main string table + four metastring tables.
+                // Populates the string table used to render Labels/Traits names.
+                new StringTableSection(
+                    "Stringtable",
+                    ValueBits: 15, CountBits: 7,
+                    IsTeamString: false, NumLanguages: 12),
+                new StringTableRefSection("StringNameIndex", 7),
+                new StringTableSection("metanameStrings",  ValueBits: 9,  CountBits: 1, NumLanguages: 12),
+                new StringTableSection("metadescStrings",  ValueBits: 12, CountBits: 1, NumLanguages: 12),
+                new StringTableSection("metagroupStrings", ValueBits: 9,  CountBits: 1, NumLanguages: 12),
+
+                // Game / map perms / player ratings.
+                new UIntSection("ActualGameicon", 5),
+                new UIntSection("ActualGamecategory", 5),
+                new CountSection("mapperms", 6, new MegaloSection[]
+                {
+                    new HexSection("MapID", 16),
+                }),
+                new UIntSection("mappermsflip", 1),
+
+                new HexSection("Playerrating-ratingscale", 32),
+                new HexSection("Playerrating-kilweight", 32),
+                new HexSection("Playerrating-assistweight", 32),
+                new HexSection("Playerrating-betrayalweight", 32),
+                new HexSection("Playerrating-deathweight", 32),
+                new HexSection("Playerrating-normalizebymaxkills", 32),
+                new HexSection("Playerrating-base", 32),
+                new HexSection("Playerrating-range", 32),
+                new HexSection("Playerrating-lossscalar", 32),
+                new HexSection("Playerrating-customstat0", 32),
+                new HexSection("Playerrating-customstat1", 32),
+                new HexSection("Playerrating-customstat2", 32),
+                new HexSection("Playerrating-customstat3", 32),
+                new HexSection("Playerrating-expansion0", 32),
+                new HexSection("Playerrating-expansion1", 32),
+                new UIntSection("showplayerratings", 1),
+
+                new BlankSection("unknown2643", 2642),
+
+                // megl — script block handed to ScriptDecompiler; see
+                // GametypeReader's UnverifiedSection handler for the routing.
+                new UnverifiedSection(
+                    "megl",
+                    "Megalo script block — parsed by ScriptDecompiler. "
+                    + "GametypeReader hands off at this boundary."),
+
+                // requiredobjects + reserved — after megl per mpvr.xml.
+                new BlankSection("requiredobjects", 224),
+                new BlankSection("unknown1824", 1824),
+
+                // Forge labels.
+                new CountSection(
+                    Name: "Labels",
+                    CountBits: 5,
+                    TableKey: "Gametype/base/mpvr/Labels",
+                    NameFromField: "StringID",
+                    RecordFields: new MegaloSection[]
+                    {
+                        new StringTableRefSection("StringID", 7),
+                        new VariantSection("usenumber", 1, new (int, string, MegaloSection[])[]
+                        {
+                            (0, "Null",   Array.Empty<MegaloSection>()),
+                            (1, "InUse",  new MegaloSection[] { new SIntSection("Number", 16) }),
+                        }),
+                        new VariantSection("useteamtype", 1, new (int, string, MegaloSection[])[]
+                        {
+                            (0, "Null",   Array.Empty<MegaloSection>()),
+                            (1, "InUse",  new MegaloSection[] { new UIntSection("Team", 4) }),
+                        }),
+                        new VariantSection("useobjectype", 1, new (int, string, MegaloSection[])[]
+                        {
+                            (0, "Null",   Array.Empty<MegaloSection>()),
+                            (1, "InUse",  new MegaloSection[] { new UIntSection("Objecttype", 12) }),
+                        }),
+                        new UIntSection("MapMinimum", 7),
+                    }),
+
+                new BlankSection("unknown26", 26),
+
+                // WeaponTunings
+                new UIntSection("FullAutomagnum", 1),
+                new UIntSection("MustHaveEnergySwordToBlock", 1),
+                new UIntSection("EnableActiveCamoModifiers", 1),
+                new UIntSection("ArmorLockCanBeStuck", 1),
+                new UIntSection("Armorlockdoesntshednades", 1),
+                new UIntSection("ShieldBleedthrough", 1),
+                new BlankSection("PrecisionWeaponBloom", 8),
+                new BlankSection("ArmorLockDamageDrain", 8),
+                new BlankSection("ArmorLockDamageDrainLimit", 8),
+                new BlankSection("ActivecamoEnergyDraincurveMax", 8),
+                new BlankSection("ActivecamoEnergyDraincurveMin", 8),
+                new BlankSection("MagnumDamage", 8),
+                new BlankSection("MagnumFireDelayModifier", 8),
             };
         }
 

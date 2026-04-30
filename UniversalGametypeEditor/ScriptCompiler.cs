@@ -230,9 +230,248 @@ namespace UniversalGametypeEditor
         // - Returns diagnostics and does NOT throw for script errors.
         // - UI should only write the file when Success == true.
         // ------------------------------------------------------------
+        // Translate the decompiler's user-facing dialect into Roslyn-
+        // parseable C# so the existing compile pipeline can read it.
+        //   `void {`               → `void __OnTick() {`
+        //   `foreach player {`     → `foreach (var current_player in __players) {`
+        //   `foreach player randomly {` → ` … in __playersRandomly`
+        //   `foreach team {`       → `foreach (var current_team in __teams) {`
+        //   `foreach object {`     → `foreach (var current_object in __objects) {`
+        //   `foreach object with label "X" {` → `foreach (var current_object in __objectsWithLabel("X")) {`
+        //   `foreach object with label label[N] {` → `foreach (var current_object in __objectsWithLabel(N)) {`
+        //   `foreach object with filter F {` → `foreach (var current_object in __objectsWithFilter(F)) {`
+        // The original script-side meaning is preserved as the
+        // collection-expression token, which downstream compilation
+        // recognizes via name matching.
+        public static string PreprocessDialect(string script)
+        {
+            if (string.IsNullOrEmpty(script)) return script ?? string.Empty;
+            string s = script;
+
+            // Rate literals: the decompiler emits TimerRate values verbatim
+            // (`-100%`, `25%`, `0%`). Roslyn can't parse those, so rewrite
+            // them into the internal snake-case enum form (`rate_minus_100`,
+            // `rate_25`, `rate_0`) BEFORE Roslyn touches the source. The
+            // surrounding context is always a call argument or comma-list,
+            // and we anchor on `(`, `,`, or whitespace so we don't catch
+            // arbitrary `-100%` in identifiers (none exist in megalo).
+            s = System.Text.RegularExpressions.Regex.Replace(
+                s,
+                @"(?<=[(,\s])(-?\d+)\s*%",
+                m =>
+                {
+                    string body = m.Groups[1].Value;
+                    bool neg = body.StartsWith("-");
+                    if (neg) body = body.Substring(1);
+                    return neg ? $"rate_minus_{body}" : $"rate_{body}";
+                });
+            // Anonymous OnTick wrappers — make each name unique so multiple
+            // `void { … }` blocks in the same script don't collide.
+            int onTickIdx = 0;
+            s = System.Text.RegularExpressions.Regex.Replace(
+                s,
+                @"^\s*void\s*\{",
+                _ => $"void __OnTick_{onTickIdx++}() {{",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
+            // foreach object with label X {  — X is "name", label[N], or a
+            // bare integer index. The decompiler emits "name" for resolved
+            // forge labels and bare ints when no name is known; the legacy
+            // `label[N]` form is accepted for backward compat.
+            s = System.Text.RegularExpressions.Regex.Replace(
+                s,
+                @"foreach\s+object\s+with\s+label\s+(""[^""]*""|label\[\d+\]|\d+)\s*\{",
+                m => $"foreach (var current_object in __objectsWithLabel({m.Groups[1].Value})) {{");
+            // foreach object with filter <expr> {
+            s = System.Text.RegularExpressions.Regex.Replace(
+                s,
+                @"foreach\s+object\s+with\s+filter\s+([^\{]+)\{",
+                m => $"foreach (var current_object in __objectsWithFilter({m.Groups[1].Value.Trim()})) {{");
+            // foreach player randomly {
+            s = System.Text.RegularExpressions.Regex.Replace(
+                s,
+                @"foreach\s+player\s+randomly\s*\{",
+                "foreach (var current_player in __playersRandomly) {");
+            // foreach player|team|object {
+            s = System.Text.RegularExpressions.Regex.Replace(
+                s,
+                @"foreach\s+player\s*\{",
+                "foreach (var current_player in __players) {");
+            s = System.Text.RegularExpressions.Regex.Replace(
+                s,
+                @"foreach\s+team\s*\{",
+                "foreach (var current_team in __teams) {");
+            s = System.Text.RegularExpressions.Regex.Replace(
+                s,
+                @"foreach\s+object\s*\{",
+                "foreach (var current_object in __objects) {");
+
+            // ----- Variable redesign Turn 4c (must run BEFORE Turn 2) -------
+            // Decompiler annotates slot references inside trigger bodies
+            // at every expression position (assignment LHS, condition
+            // operands, call args, receivers) with `<priority>? <type>`.
+            // The annotation is informational; strip it before Turn 2's
+            // priority-keyword rewrite (which matches the same surface
+            // pattern) so trigger-body annotations don't get converted
+            // into `[Priority(...)]` attribute decls. Brace-depth tracking
+            // restricts the strip to lines whose start position is inside
+            // a trigger body (depth > 0); top-level decls are left intact.
+            //
+            // Pattern is mid-line — uses `\b` instead of `^` so it matches
+            // annotations like `if (int num1 == int num2)` and
+            // `Timer current_player.tmr1.set_rate(100)`. Lookahead
+            // `(?=\w)` requires an identifier to follow.
+            {
+                var lines = s.Replace("\r\n", "\n").Split('\n');
+                int depth = 0;
+                var stripRx = new System.Text.RegularExpressions.Regex(
+                    @"\b(low\s+|high\s+|local\s+)?(int|number|timer|player|object|team|Number|Timer|Player|Object|Team)\s+(?=\w)");
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    int startDepth = depth;
+                    foreach (char c in lines[i])
+                    {
+                        if (c == '{') depth++;
+                        else if (c == '}') depth--;
+                    }
+                    if (startDepth > 0)
+                        lines[i] = stripRx.Replace(lines[i], "");
+                }
+                s = string.Join("\n", lines);
+            }
+
+            // ----- Variable redesign Turn 2 ---------------------------------
+            // Decompiler emits decls in the form
+            //     <priority>? <type> <name> = <init>;
+            // where a missing priority means `low`. Internal encoder still
+            // wants the legacy `[Priority("X")] <type> <name> = <init>;`
+            // form because ProcessLocalDeclaration parses the attribute.
+            // Rewrite the leading-keyword decl back to attribute form
+            // BEFORE the lowercase→Pascal type rewrites below so both
+            // type cases are accepted. The bare-low form (`int num1 = 0;`)
+            // doesn't need rewriting — ProcessLocalDeclaration defaults
+            // priority to `low` when no [Priority] attribute is present.
+            s = System.Text.RegularExpressions.Regex.Replace(
+                s,
+                @"^(\s*)(low|high|local)\s+(int|number|timer|player|object|team|Number|Timer|Player|Object|Team)\b",
+                "$1[Priority(\"$2\")] $3",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
+
+            // ----- Variable redesign Turn 3 ---------------------------------
+            // Per-scope sub-pool rewrites. Decompiler emits forms like
+            //   current_player.num1   →  playernumber0  (receiver-disambiguated)
+            //   current_object.tmr2   →  objecttimer1
+            //   current_team.plr3     →  teamplayer2
+            // Receivers can be `current_<scope>`, `globalplayer<N>` /
+            // `globalobject<N>` / `globalteam<N>` (long form), the Turn 1
+            // short forms `plr<N>` / `obj<N>` / `tm<N>`, or `temp_<kind>_<N>`.
+            //
+            // Order matters: sub-pool rewrites MUST run before the global
+            // short-name rewrite below, because that step rewrites the
+            // receiver (`plr1` → `globalplayer0`) and the receiver pattern
+            // here matches the short form.
+            string[] kindShort = { "num", "tmr", "plr", "obj", "tm" };
+            string[] kindLong  = { "number", "timer", "player", "object", "team" };
+            string RewriteScopedSubpool(string src, string receiverPattern, string scopePrefix)
+            {
+                for (int i = 0; i < kindShort.Length; i++)
+                {
+                    src = System.Text.RegularExpressions.Regex.Replace(
+                        src,
+                        $@"\b({receiverPattern})\.{kindShort[i]}(\d+)\b",
+                        m => $"{m.Groups[1].Value}.{scopePrefix}{kindLong[i]}{int.Parse(m.Groups[2].Value) - 1}");
+                }
+                return src;
+            }
+            s = RewriteScopedSubpool(s, @"current_player|globalplayer\d+|plr\d+|temp_player_\d+", "player");
+            s = RewriteScopedSubpool(s, @"current_object|globalobject\d+|obj\d+|temp_obj_\d+",    "object");
+            s = RewriteScopedSubpool(s, @"current_team|globalteam\d+|tm\d+|temp_team_\d+",         "team");
+
+            // Sub-pool DECL names use receiver-qualified dotted form
+            // (`player.num1`, `object.tmr2`, `team.plr3`) so scope is
+            // explicit at the decl site and mirrors the use-site
+            // syntax (`current_player.num1`). Rewrite to internal long
+            // form 0-indexed:
+            //   player.num<N>  →  playernumber<N-1>
+            //   object.tmr<N>  →  objecttimer<N-1>
+            //   team.plr<N>    →  teamplayer<N-1>
+            // Word boundary `\b` prevents matching receivers like
+            // `current_player.num1` (the `_` before `player` is a word
+            // char, killing the boundary). Order before short-name
+            // rewrite so the bare scope prefix gets caught first.
+            string RewriteScopedDecl(string src, string scopePrefix)
+            {
+                for (int i = 0; i < kindShort.Length; i++)
+                {
+                    src = System.Text.RegularExpressions.Regex.Replace(
+                        src,
+                        $@"\b{scopePrefix}\.{kindShort[i]}(\d+)\b",
+                        m => $"{scopePrefix}{kindLong[i]}{int.Parse(m.Groups[1].Value) - 1}");
+                }
+                return src;
+            }
+            s = RewriteScopedDecl(s, "player");
+            s = RewriteScopedDecl(s, "object");
+            s = RewriteScopedDecl(s, "team");
+
+            // ----- Variable redesign Turn 1 ---------------------------------
+            // The decompiler emits 1-based short names for global pool slots
+            // (`num1, tmr1, plr1, obj1, tm1`). Internally the encode pipeline
+            // still works in 0-based long names (`globalnumber0`, …). Rewrite
+            // here so the rest of the compiler doesn't have to know about
+            // the new naming scheme. Use word boundaries so we don't match
+            // identifiers like `mynum1` or `temp_obj_0`.
+            //
+            // After the sub-pool rewrites above, any remaining `num<N>` /
+            // `tmr<N>` / `plr<N>` / `obj<N>` / `tm<N>` is a global slot
+            // reference (bare or as a member-access receiver).
+            string RewriteShort(string src, string shortPrefix, string longPrefix)
+                => System.Text.RegularExpressions.Regex.Replace(
+                    src,
+                    $@"\b{shortPrefix}(\d+)\b",
+                    m => longPrefix + (int.Parse(m.Groups[1].Value) - 1).ToString());
+            s = RewriteShort(s, "num", "globalnumber");
+            s = RewriteShort(s, "tmr", "globaltimer");
+            s = RewriteShort(s, "plr", "globalplayer");
+            s = RewriteShort(s, "obj", "globalobject");
+            s = RewriteShort(s, "tm",  "globalteam");
+
+            // Lowercase type keywords → internal PascalCase (variable
+            // redesign Turn 1 + Turn 5). Match the type-keyword slot:
+            // each must be preceded by line-start, `]` + whitespace
+            // (attribute end), or whitespace, and followed by whitespace
+            // + identifier. Captures preserve the prefix so we don't
+            // dissolve attribute brackets. The lookahead `(\s+\w)` skips
+            // dotted scope receivers (`player.num1`) — they're caught
+            // earlier by RewriteScopedDecl.
+            (string lo, string hi)[] typeAliases =
+            {
+                ("int",    "Number"),
+                ("timer",  "Timer"),
+                ("player", "Player"),
+                ("object", "Object"),
+                ("team",   "Team"),
+            };
+            foreach (var (lo, hi) in typeAliases)
+            {
+                s = System.Text.RegularExpressions.Regex.Replace(
+                    s,
+                    $@"(^|\]\s+|\s){lo}(\s+\w)",
+                    "$1" + hi + "$2",
+                    System.Text.RegularExpressions.RegexOptions.Multiline);
+            }
+
+            return s;
+        }
+
         public CompileResult TryCompileScript(string script)
         {
             var diags = new List<CompilerDiagnostic>();
+
+            // Pre-process the decompiler's dialect into valid C# so
+            // Roslyn can parse it. The transformations are reversible
+            // and downstream code recognizes the synthetic collection
+            // identifiers by name to emit the right foreach trigger type.
+            script = PreprocessDialect(script);
 
             // 1) Syntax (parse) diagnostics from Roslyn
             var tree = CSharpSyntaxTree.ParseText(script);
@@ -258,6 +497,11 @@ namespace UniversalGametypeEditor
             try
             {
                 Compile(script);
+                // Merge encoder warnings collected during Compile() so the
+                // caller sees which actions / TypeRefs fell back to None
+                // placeholders. These don't make compilation FAIL (we still
+                // emit something), but they cause re-decompile to desync.
+                diags.AddRange(_encoderDiagnostics);
                 string bin = GetBinaryString();
                 if (string.IsNullOrWhiteSpace(bin))
                 {
@@ -297,6 +541,13 @@ namespace UniversalGametypeEditor
         private List<ActionObject> _actions = new List<ActionObject>();
         private List<ConditionObject> _conditions = new List<ConditionObject>();
         private List<TriggerObject> _triggers = new List<TriggerObject>();
+
+        // Encoder-side warnings collected during Compile(). Surfaced through
+        // TryCompileScript's diagnostics so the user sees exactly which
+        // action / TypeRef / param caused a fall-back to a None placeholder
+        // instead of just seeing gibberish on re-decompile.
+        private readonly List<CompilerDiagnostic> _encoderDiagnostics = new();
+        public IReadOnlyList<CompilerDiagnostic> EncoderDiagnostics => _encoderDiagnostics;
 
         private readonly record struct PendingTrigger(LocalFunctionStatementSyntax Syntax, int Index, string DefaultAttribute);
 
@@ -340,6 +591,13 @@ namespace UniversalGametypeEditor
         // Per-trigger deferred storage
         private readonly List<InlinePatch> _deferredInlines = new();
 
+        // Per-trigger OrSequence counter. Advanced on each new nested-if's
+        // condition emission so that two ifs gating the same action (e.g.
+        // `if (a) { if (b) { X } }`) get DIFFERENT OrSequences, which the
+        // decoder treats as an AND across groups (vs. the OR within a
+        // group). Reset at trigger / inline boundaries.
+        private int _orSeqCounter = 0;
+
         // Condition.actionOffset is LOCAL within the current container (trigger or inline).
         // We track a global base (startActionOffset / inline action start) so we can encode local offsets.
         private readonly Stack<int> _actionBaseStack = new();
@@ -352,6 +610,30 @@ namespace UniversalGametypeEditor
                 .Where(a => !string.IsNullOrWhiteSpace(a.Name))
                 .GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        // Action lookup by numeric ID — used by RVT-script-name resolution
+        // below. The decompiler's _rvtActionNames table maps action IDs to
+        // their RVT-script-form names; we invert it and look up the ID here.
+        private static readonly Dictionary<int, MegaloAction> _megaloActionsById =
+            MegaloTables.Actions.ToDictionary(a => a.Id, a => a);
+
+        // Inverse of ScriptDecompiler.RvtActionNames: snake_case script
+        // name → first action ID that decompiles to it. Several IDs may
+        // share a script name (e.g. 35/36 → "get_scoreboard_pos"); the
+        // first wins. The decompiler always emits these snake-case names
+        // for known actions, so this is the authoritative resolver path.
+        private static readonly Dictionary<string, int> _rvtScriptNameToActionId =
+            ScriptDecompiler.RvtActionNames
+                .GroupBy(kv => kv.Value, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Key, StringComparer.OrdinalIgnoreCase);
+
+        private static readonly Dictionary<int, MegaloCondition> _megaloConditionsById =
+            MegaloTables.Conditions.ToDictionary(c => c.Id, c => c);
+
+        private static readonly Dictionary<string, int> _rvtScriptNameToConditionId =
+            ScriptDecompiler.RvtConditionNames
+                .GroupBy(kv => kv.Value, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Key, StringComparer.OrdinalIgnoreCase);
 
         private static readonly Dictionary<string, MegaloCondition> _megaloConditionsByName =
             MegaloTables.Conditions
@@ -509,6 +791,14 @@ namespace UniversalGametypeEditor
             {
                 yield return "Kill";
             }
+
+            // 6) Snake-case → Pascal-prefixed table names
+            //    set_loadout_palette → SetLoadoutPalette / Player_SetLoadoutPalette / Player_LoadoutPalette_SET
+            foreach (var c in BuildActionCandidatesExtra(name))
+                yield return c;
+            if (!string.IsNullOrEmpty(suffix))
+                foreach (var c in BuildActionCandidatesExtra(suffix))
+                    yield return c;
         }
 
         private static IEnumerable<string> BuildConditionCandidates(string name)
@@ -539,11 +829,83 @@ namespace UniversalGametypeEditor
                 if (!string.Equals(suffixNoDot, suffix, StringComparison.OrdinalIgnoreCase))
                     yield return suffixNoDot;
             }
+
+            // Snake-case → "Obj_PascalCase" / "Player_PascalCase" / etc.
+            // The decompiler emits is_of_type, killer_type_is, has_forge_label,
+            // is_zero, is_elite, etc., and the table names are Obj_IsOfType,
+            // Player_KillerTypeIs, Obj_HasForgeLabel, Timer_IsZero, …
+            string pascal = SnakeToPascal(name);
+            if (!string.Equals(pascal, name, StringComparison.OrdinalIgnoreCase))
+                yield return pascal;
+            foreach (var prefix in new[] { "Obj", "Player", "Team", "Timer", "Var", "Megl" })
+            {
+                yield return $"{prefix}_{pascal}";
+                yield return $"{prefix}.{pascal}";
+            }
+        }
+
+        private static IEnumerable<string> BuildActionCandidatesExtra(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) yield break;
+            string pascal = SnakeToPascal(name);
+            if (!string.Equals(pascal, name, StringComparison.OrdinalIgnoreCase))
+                yield return pascal;
+            foreach (var prefix in new[] { "Obj", "Player", "Team", "Timer", "Var", "Megl", "Hud", "Game" })
+            {
+                yield return $"{prefix}_{pascal}";
+                yield return $"{prefix}.{pascal}";
+                // Setter form (snake-case suffix _set / _get → trailing _SET/_GET)
+                if (pascal.EndsWith("Get", StringComparison.OrdinalIgnoreCase))
+                    yield return $"{prefix}_{pascal.Substring(0, pascal.Length - 3)}_GET";
+                if (pascal.EndsWith("Set", StringComparison.OrdinalIgnoreCase))
+                    yield return $"{prefix}_{pascal.Substring(0, pascal.Length - 3)}_SET";
+            }
+            // Trailing _SET / _GET fallbacks if name itself was set_x / get_x
+            if (name.StartsWith("set_", StringComparison.OrdinalIgnoreCase))
+                yield return SnakeToPascal(name.Substring(4)) + "_SET";
+            if (name.StartsWith("get_", StringComparison.OrdinalIgnoreCase))
+                yield return SnakeToPascal(name.Substring(4)) + "_GET";
+        }
+
+        private static string SnakeToPascal(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            var parts = s.Split('_');
+            var sb = new System.Text.StringBuilder();
+            foreach (var p in parts)
+            {
+                if (p.Length == 0) continue;
+                sb.Append(char.ToUpperInvariant(p[0]));
+                if (p.Length > 1) sb.Append(p.Substring(1));
+            }
+            return sb.ToString();
         }
 
         private static MegaloAction ResolveActionByName(string name)
         {
             var tried = new List<string>();
+
+            // PRIORITY 1: RVT-script-name → action ID lookup. The decompiler
+            // emits these snake_case names; this is the authoritative path
+            // that handles cases the candidate generator misses (e.g.
+            // `set_hidden` → Obj_Hidden_SET, `attach_to` → Obj_Attach,
+            // `place_between_me_and` → Megl_CreateBetween).
+            // Strip any "receiver." prefix the decompiler adds for member
+            // calls (e.g. `current_object.set_hidden`).
+            var stripped = name;
+            int dotIdx = stripped.LastIndexOf('.');
+            if (dotIdx >= 0) stripped = stripped.Substring(dotIdx + 1);
+
+            foreach (var probe in new[] { name, stripped })
+            {
+                if (string.IsNullOrWhiteSpace(probe)) continue;
+                if (_rvtScriptNameToActionId.TryGetValue(probe, out int id)
+                    && _megaloActionsById.TryGetValue(id, out var byId))
+                {
+                    return byId;
+                }
+                tried.Add($"rvt:{probe}");
+            }
 
             foreach (var cand in BuildActionCandidates(name))
             {
@@ -568,6 +930,25 @@ namespace UniversalGametypeEditor
         {
             var tried = new List<string>();
 
+            // PRIORITY 1: RVT-script-name → condition ID lookup. Mirrors the
+            // action-resolution path. Strip "receiver." prefix the
+            // decompiler adds for member calls (e.g.
+            // `current_object.is_of_type` → `is_of_type`).
+            var stripped = name;
+            int dotIdx = stripped.LastIndexOf('.');
+            if (dotIdx >= 0) stripped = stripped.Substring(dotIdx + 1);
+
+            foreach (var probe in new[] { name, stripped })
+            {
+                if (string.IsNullOrWhiteSpace(probe)) continue;
+                if (_rvtScriptNameToConditionId.TryGetValue(probe, out int id)
+                    && _megaloConditionsById.TryGetValue(id, out var byId))
+                {
+                    return byId;
+                }
+                tried.Add($"rvt:{probe}");
+            }
+
             foreach (var cand in BuildConditionCandidates(name))
             {
                 var key = cand.Trim();
@@ -588,7 +969,19 @@ namespace UniversalGametypeEditor
 
 
         private static string TrimArg(ExpressionSyntax expr)
-                    => expr.ToString().Trim().Trim('"');
+        {
+            // Preserve quotes around string literals so token lookup
+            // (StringTable / LabelTable reverse-resolve) can distinguish
+            // a quoted name from a bare identifier. Other expressions get
+            // the legacy unquote behavior for back-compat with the
+            // identifier-flavored encoders.
+            if (expr is LiteralExpressionSyntax lit
+                && lit.IsKind(SyntaxKind.StringLiteralExpression))
+            {
+                return lit.ToString().Trim();
+            }
+            return expr.ToString().Trim().Trim('"');
+        }
 
         private static bool TryParseBoolLoose(string s, out bool value)
         {
@@ -646,6 +1039,239 @@ namespace UniversalGametypeEditor
             return GetBinaryString();
         }
 
+        public int DiagConditionCount => _conditions.Count;
+        public int DiagActionCount => _actions.Count;
+        public int DiagTriggerCount => _triggers.Count;
+
+        /// <summary>
+        /// Bit length of just the compiled script section (cond count +
+        /// cond records + act count + act records + trig count + trig
+        /// records). GetBinaryString() appends a placeholder tail (stats=0,
+        /// MegaloVars, weapon tunings, padding) which is NOT what the
+        /// in-place file write wants — that callsite needs to splice the
+        /// compiled section into the original file in place of the
+        /// original section, leaving the original tail (string table,
+        /// forge labels, …) intact.
+        /// </summary>
+        public int GetCompiledSectionBits()
+        {
+            int condBits = _conditions.Sum(c =>
+                c.Parameters.Count > 0 ? (c.Parameters[0]?.Length ?? 0) : 0);
+            int actBits = _actions.Sum(a =>
+                a.Parameters.Count > 0 ? (a.Parameters[0]?.Length ?? 0) : 0);
+            int trigBits = _triggers.Sum(t =>
+                t.Parameters.Count > 0 ? (t.Parameters[0]?.Length ?? 0) : 0);
+            return 10 + condBits + 11 + actBits + 9 + trigBits;
+        }
+
+        /// <summary>
+        /// Encode the MegaloVars segment (20 variable pools) from the
+        /// declarations at the top of the script. Layout mirrors
+        /// ScriptDecompiler.ParseReachMegaloVars exactly: 20 pools in a
+        /// fixed order, each with a count (variable count-bits) followed
+        /// by N slots, where each slot's per-type fields are:
+        ///   number  : NumericTypeRef variant + 2-bit locality
+        ///   timer   : NumericTypeRef variant (no locality)
+        ///   team    : 4-bit team index + 2-bit locality
+        ///   player  : 2-bit locality
+        ///   object  : 2-bit locality
+        /// `local` priority maps to 0, `low`→1, `high`→2.
+        /// Slot ordering is by the `<scope><type><N>` index (e.g.
+        /// globalnumber0..3, then globalnumber4..). Missing slots are
+        /// filled with default zeroes so downstream indices remain stable.
+        /// </summary>
+        public static string EncodeReachMegaloVars(string script)
+        {
+            // Pool order and count-widths must match ParseReachMegaloVars.
+            (string Name, int CountBits, string Kind)[] pools =
+            {
+                ("globalnumbers", 4, "number"),
+                ("globaltimers",  4, "timer"),
+                ("globalteams",   4, "team"),
+                ("globalplayers", 4, "player"),
+                ("globalobjects", 5, "object"),
+                ("playernumbers", 4, "number"),
+                ("playertimers",  3, "timer"),
+                ("playerteams",   3, "team"),
+                ("playerplayers", 3, "player"),
+                ("playerobjects", 3, "object"),
+                ("objectnumbers", 4, "number"),
+                ("objecttimers",  3, "timer"),
+                ("objectteams",   2, "team"),
+                ("objectplayers", 3, "player"),
+                ("objectobjects", 3, "object"),
+                ("teamnumbers",   4, "number"),
+                ("teamtimers",    3, "timer"),
+                ("teamteams",     3, "team"),
+                ("teamplayers",   3, "player"),
+                ("teamobjects",   3, "object"),
+            };
+
+            // Parse declarations from the script. Each top-level
+            // FieldDeclaration with a `[Priority(...)]` attribute (or a
+            // bare `Timer x = N;`) names a slot whose pool we infer from
+            // the prefix portion of the identifier.
+            //   global<type><N>   → globalNs pool
+            //   player<type><N>   → player<type>s pool, etc.
+            // Slot index N maps directly to the pool's slot position.
+            var slots = new Dictionary<string, Dictionary<int, (int locality, string init)>>(
+                StringComparer.OrdinalIgnoreCase);
+            foreach (var (name, _, _) in pools)
+                slots[name] = new Dictionary<int, (int, string)>();
+
+            var preprocessed = PreprocessDialect(script);
+            var tree = CSharpSyntaxTree.ParseText(preprocessed);
+            var root = tree.GetCompilationUnitRoot();
+
+            // Walk all top-level field/local declarations under any
+            // namespace/class scaffolding (PreprocessDialect wraps the
+            // user's script in synthetic class scopes).
+            var allFieldDecls = root.DescendantNodes()
+                .OfType<FieldDeclarationSyntax>()
+                .ToList();
+            var allLocalDecls = root.DescendantNodes()
+                .OfType<LocalDeclarationStatementSyntax>()
+                .ToList();
+
+            foreach (var fd in allFieldDecls)
+                CaptureDecl(fd.AttributeLists, fd.Declaration, slots, pools);
+            foreach (var ld in allLocalDecls)
+                CaptureDecl(ld.AttributeLists, ld.Declaration, slots, pools);
+
+            // Emit the 20 pools.
+            var sb = new System.Text.StringBuilder();
+            foreach (var (name, countBits, kind) in pools)
+            {
+                var pool = slots[name];
+                int maxIdx = pool.Count == 0 ? -1 : pool.Keys.Max();
+                int count = maxIdx + 1;
+                // Cap to the pool's maximum (count-bits says how many slots can be addressed).
+                int cap = (1 << countBits) - 1;
+                if (count > cap) count = cap;
+                sb.Append(Convert.ToString(count, 2).PadLeft(countBits, '0'));
+
+                for (int i = 0; i < count; i++)
+                {
+                    pool.TryGetValue(i, out var slot);
+                    int loc = slot.locality;
+                    string init = slot.init ?? "0";
+                    switch (kind)
+                    {
+                        case "number":
+                            sb.Append(EncodeNumericTypeRef(init));
+                            sb.Append(Convert.ToString(loc & 0x3, 2).PadLeft(2, '0'));
+                            break;
+                        case "timer":
+                            sb.Append(EncodeNumericTypeRef(init));
+                            break;
+                        case "team":
+                        {
+                            int teamIdx = 0;
+                            if (!int.TryParse(init, out teamIdx))
+                            {
+                                var tm = System.Text.RegularExpressions.Regex.Match(init,
+                                    @"team_(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                                if (tm.Success) int.TryParse(tm.Groups[1].Value, out teamIdx);
+                            }
+                            sb.Append(Convert.ToString(teamIdx & 0xF, 2).PadLeft(4, '0'));
+                            sb.Append(Convert.ToString(loc & 0x3, 2).PadLeft(2, '0'));
+                            break;
+                        }
+                        case "player":
+                        case "object":
+                            sb.Append(Convert.ToString(loc & 0x3, 2).PadLeft(2, '0'));
+                            break;
+                    }
+                }
+            }
+            return sb.ToString();
+        }
+
+        // Helpers used by EncodeReachMegaloVars.
+        private static void CaptureDecl(
+            SyntaxList<AttributeListSyntax> attrs,
+            VariableDeclarationSyntax decl,
+            Dictionary<string, Dictionary<int, (int locality, string init)>> slots,
+            (string Name, int CountBits, string Kind)[] pools)
+        {
+            int locality = 1; // low
+            foreach (var al in attrs)
+            {
+                foreach (var a in al.Attributes)
+                {
+                    if (!a.Name.ToString().Equals("Priority", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (a.ArgumentList == null || a.ArgumentList.Arguments.Count == 0) continue;
+                    string arg = a.ArgumentList.Arguments[0].ToString().Trim('"').ToLowerInvariant();
+                    locality = arg switch
+                    {
+                        "local" => 0,
+                        "low" => 1,
+                        "high" => 2,
+                        _ => 1,
+                    };
+                }
+            }
+
+            string typeName = decl.Type.ToString();
+            // Map C# Type name → pool kind suffix.
+            string? kindSuffix = typeName switch
+            {
+                "Number" => "number",
+                "Timer"  => "timer",
+                "Team"   => "team",
+                "Player" => "player",
+                "Object" => "object",
+                _ => null,
+            };
+            if (kindSuffix == null) return;
+
+            foreach (var v in decl.Variables)
+            {
+                string ident = v.Identifier.Text;
+                // Identifier shape: `<scope><kindplural-stem><N>` where the
+                // stem matches the pool name minus its final "s". Example:
+                //   globalnumber0   → globalnumbers   (idx 0)
+                //   playernumber3   → playernumbers   (idx 3)
+                //   teamtimer1      → teamtimers      (idx 1)
+                string poolName = null!;
+                int idx = -1;
+                foreach (var (pName, _, pKind) in pools)
+                {
+                    if (pKind != kindSuffix) continue;
+                    string stem = pName.EndsWith("s") ? pName.Substring(0, pName.Length - 1) : pName;
+                    if (ident.StartsWith(stem, StringComparison.OrdinalIgnoreCase)
+                        && int.TryParse(ident.Substring(stem.Length), out int n))
+                    {
+                        poolName = pName;
+                        idx = n;
+                        break;
+                    }
+                }
+                if (poolName == null || idx < 0) continue;
+
+                string init = v.Initializer?.Value.ToString().Trim() ?? "0";
+                slots[poolName][idx] = (locality, init);
+            }
+        }
+
+        private static string EncodeNumericTypeRef(string token)
+        {
+            // Lightweight standalone encoder for MegaloVars initial values.
+            // Mirrors ConvertNumericTypeRefToBinary's literal path: emit
+            // Tag6(Int16) + 16-bit signed payload. The decoder renders
+            // initial values from the schema enum so any plain integer
+            // round-trips here. Non-numeric tokens (e.g. "no_number")
+            // map to zero — matches the decoder's rendering for fresh slots.
+            string Tag6(int t) => Convert.ToString(t, 2).PadLeft(6, '0');
+            string ToS16(int v) => Convert.ToString(v & 0xFFFF, 2).PadLeft(16, '0');
+            if (int.TryParse(token, out int lit))
+                return Tag6(0) + ToS16(lit);                 // 0 = Int16 variant
+            // Strip a leading minus on a numeric.
+            if (token.StartsWith("-") && int.TryParse(token.Substring(1), out int neg))
+                return Tag6(0) + ToS16(-neg);
+            return Tag6(0) + ToS16(0);
+        }
+
         private int ConvertToObjectType(string typeName)
         {
             if (Enum.TryParse(typeof(ObjectType), typeName, true, out var result) && result != null)
@@ -663,6 +1289,18 @@ namespace UniversalGametypeEditor
             // Run the analyzer to process triggers
             RunAnalyzer(tree);
 
+            // Pre-prepass: process top-level variable declarations BEFORE
+            // any function body is compiled. The decompiler emits its
+            // global declaration block at the top of the file (e.g.
+            // `[Priority("low")] Number globalnumber0 = 0;`) and then
+            // re-declares those same names inside trigger bodies as a
+            // documentation hint. Without this pass, the inline-function
+            // prepass would compile trigger bodies first, register slots
+            // 0..N for the inner shadow decls, EndScope() would remove
+            // them, and the top-level decls that follow would re-allocate
+            // fresh slots starting at N+1 — duplicating storage.
+            Prepass_RegisterTopLevelVariables(root);
+
             Prepass_RegisterInlineFunctions(root);
 
 
@@ -670,11 +1308,15 @@ namespace UniversalGametypeEditor
             foreach (var member in root.Members)
             {
                 ProcessMember(member);
+                // Drain any nested-foreach triggers reserved while walking
+                // this member's statements. We drain after EACH member so
+                // per-trigger action ranges remain contiguous.
+                DrainPendingForeachTriggers();
             }
 
             // Compile any nested triggers reserved during statement processing.
             DrainPendingTriggers();
-
+            DrainPendingForeachTriggers();
         }
 
         private void RunAnalyzer(SyntaxTree tree)
@@ -836,6 +1478,16 @@ namespace UniversalGametypeEditor
                         {
                             ProcessTrigger(localFunction);
                         }
+                        else if (localFunction.ReturnType?.ToString() == "void"
+                                 && TryMapEventWrapper(localFunction.Identifier.Text, out _))
+                        {
+                            // Top-level event wrapper (void __OnTick_N(),
+                            // void local(), etc.) — emit as a Do trigger
+                            // with the matching attribute. Note: this kind
+                            // of function was excluded from the inline-func
+                            // prepass, so we own its compilation.
+                            ProcessTrigger(localFunction);
+                        }
                         else if (localFunction.ReturnType?.ToString() == "void")
                         {
                             // inline function definition: already compiled in pre-pass
@@ -849,24 +1501,12 @@ namespace UniversalGametypeEditor
                 }
                 else if (globalStatement.Statement is LocalDeclarationStatementSyntax localDeclaration)
                 {
-                    foreach (var variable in localDeclaration.Declaration.Variables)
-                    {
-                        string varName = variable.Identifier.Text;
-                        string type = localDeclaration.Declaration.Type.ToString();
-                        if (type == "Object")
-                        {
-                            var gameObject = _entityManager.CreateObject(varName);
-                            int index = _entityManager.GetObjectIndex(gameObject);
-                            var variableInfo = new VariableInfo(type, index, 1); // Default to low priority
-                            _variableToIndexMap[varName] = variableInfo;
-                            _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
-                            Debug.WriteLine($"Initialized global Object variable '{varName}' at global.object[{index}]");
-                        }
-                        else
-                        {
-                            Debug.WriteLine($"Unhandled global variable type: {type}");
-                        }
-                    }
+                    // Dispatch to ProcessLocalDeclaration so all variable
+                    // types (Object/Number/Timer/Player/Team) and the
+                    // [Priority(...)] attribute are handled uniformly.
+                    int dummyActionCount = 0;
+                    int dummyActionOffset = 0;
+                    ProcessLocalDeclaration(localDeclaration, ref dummyActionCount, ref dummyActionOffset);
                 }
                 else
                 {
@@ -888,19 +1528,36 @@ namespace UniversalGametypeEditor
             if (expression is AssignmentExpressionSyntax assignment)
             {
                 Debug.WriteLine($"Assignment: {assignment}");
+                int before = _actions.Count;
                 ProcessAssignment(assignment, ref actionOffset);
+                actionCount += (_actions.Count - before);
             }
             else if (expression is InvocationExpressionSyntax invocation)
             {
                 Debug.WriteLine($"Invocation: {invocation}");
+                int before = _actions.Count;
                 ProcessInvocation(invocation, ref actionOffset);
-                actionCount++;
+                int delta = _actions.Count - before;
+                // ProcessInvocation always inserts at least one action now
+                // (the resolved one or a None-placeholder). Use the actual
+                // delta so callers' actionCount stays accurate.
+                actionCount += delta > 0 ? delta : 1;
             }
             else if (expression is BinaryExpressionSyntax binaryExpression)
             {
                 Debug.WriteLine($"Binary Expression: {binaryExpression}");
                 int conditionCount = 0;
                 ProcessCondition(binaryExpression, ref conditionCount, ref actionOffset, ref actionCount);
+            }
+            else
+            {
+                // Bare identifier / element access / member access etc. used
+                // as a statement — treat as a no-op placeholder action so the
+                // count stays aligned.
+                Debug.WriteLine($"Unhandled expression form '{expression}' — emitting placeholder.");
+                EmitPlaceholderAction(expression.ToString());
+                actionOffset++;
+                actionCount++;
             }
         }
 
@@ -935,15 +1592,17 @@ namespace UniversalGametypeEditor
         {
             Debug.WriteLine($"Processing If Statement: {ifStatement.Condition}");
 
-            // If this is a top-level "if", compile it as an Inline action
+            // Non-last `if` in a block: compile as an Inline (action 99)
+            // record. This is MCC's compiler-optimization path — the
+            // resulting .bin bits won't byte-match vanilla Bungie files (which
+            // use sibling triggers + RunTrigger), but on re-decompile it
+            // produces VISUALLY-identical script source, which is the
+            // round-trip property we care about for the editor.
             if (forceInline)
             {
-                // Remember the start indices before compiling this if
                 int condStart = _conditions.Count;
                 int actStart = _actions.Count;
 
-
-                // Base for LOCAL condition action offsets inside this inline.
                 _actionBaseStack.Push(actStart);
                 try
                 {
@@ -951,17 +1610,14 @@ namespace UniversalGametypeEditor
                     int bodyActionCount = 0;
                     int bodyConditionCount = 0;
 
-                    // Compile condition into the global pool (temporarily)
                     ProcessCondition(ifStatement.Condition, ref ifCondCount, ref actionOffset, ref conditionOffset, 0);
 
-                    // Compile body into the global pool (temporarily)
                     if (ifStatement.Statement is BlockSyntax block)
                     {
                         ProcessStatementList(block.Statements, ref bodyActionCount, ref bodyConditionCount, ref actionOffset, ref conditionOffset, false);
                     }
                     else
                     {
-                        // Single statement body counts as last-in-block by definition.
                         ProcessStatement(ifStatement.Statement, ref bodyActionCount, ref bodyConditionCount, ref actionOffset, ref conditionOffset, false, true);
                     }
                 }
@@ -970,31 +1626,26 @@ namespace UniversalGametypeEditor
                     _actionBaseStack.Pop();
                 }
 
-
-
-                // Extract the newly-added conditions/actions from the pools
+                // Extract the conds/acts compiled into the body so we can stash
+                // them for the deferred-Inline patch. The placeholder Inline
+                // action goes into the parent's action stream now; offsets
+                // are patched after the parent's range is finalized.
                 var extractedConds = _conditions.GetRange(condStart, _conditions.Count - condStart);
                 _conditions.RemoveRange(condStart, _conditions.Count - condStart);
 
                 var extractedActs = _actions.GetRange(actStart, _actions.Count - actStart);
                 _actions.RemoveRange(actStart, _actions.Count - actStart);
 
-                // Roll back cursors because we removed what we just compiled
                 conditionOffset = condStart;
                 actionOffset = actStart;
 
-                // Insert a placeholder Inline action into the TOP-LEVEL action stream
-                // (we'll patch offsets after we append the extracted pools later)
                 string placeholder = BuildInlineBinary(0, 0, 0, 0);
                 _actions.Insert(actStart, new ActionObject("Inline", new List<string> { placeholder }));
-
                 int inlineIndex = actStart;
 
-                // This Inline is one top-level action
                 actionCount += 1;
                 actionOffset += 1;
 
-                // Stash the extracted pools for later, and remember where to patch the Inline
                 _deferredInlines.Add(new InlinePatch
                 {
                     InlineActionIndex = inlineIndex,
@@ -1002,13 +1653,21 @@ namespace UniversalGametypeEditor
                     Actions = extractedActs
                 });
 
-                Debug.WriteLine($"Top-level if compiled as Inline placeholder at action index {inlineIndex}");
+                Debug.WriteLine($"Non-last if compiled as Inline (action 99) at index {inlineIndex}");
                 return;
             }
 
             // ---- Non-top-level if: keep your existing behavior (nested-if semantics) ----
+            // Allocate a fresh OrSequence for this if's condition. The
+            // decoder groups conditions by OrSequence and OR's within a
+            // group / AND's across groups — so two ifs gating the same
+            // action (`if(a){if(b){X}}`, both with coff=X) need DIFFERENT
+            // OrSequences to AND, otherwise they collapse into `if(a||b){X}`.
+            // Use a per-trigger counter advanced on every fresh top-level
+            // cond emission.
             int nestedIfCondCount = 0;
-            ProcessCondition(ifStatement.Condition, ref nestedIfCondCount, ref actionOffset, ref conditionOffset, 0);
+            int orSeq = _orSeqCounter++;
+            ProcessCondition(ifStatement.Condition, ref nestedIfCondCount, ref actionOffset, ref conditionOffset, orSeq);
             conditionCount += nestedIfCondCount;
 
             int nestedBodyActions = 0;
@@ -1052,8 +1711,27 @@ namespace UniversalGametypeEditor
             {
                 int a = 0;
                 int c = 0;
-                bool isLast = (i == statements.Count - 1);
-                ProcessStatement(statements[i], ref a, ref c, ref actionOffset, ref conditionOffset, isTopLevel, isLast);
+                // Per user-confirmed encoding rule: an `if` statement only
+                // needs to be wrapped in an Inline action when ANOTHER `if`
+                // appears later in the same block. A lone if (no following
+                // if) can be encoded as a plain trigger-scoped condition
+                // gating only the actions in its body — the megalo runtime
+                // attaches each condition to a specific action via the
+                // condition's actionOffset field, so subsequent unrelated
+                // statements aren't bled into. Wrapping in an Inline only
+                // matters when two if-blocks would otherwise share the
+                // same condition range.
+                // NEVER force-inline. Conditions target a SPECIFIC action via
+                // their coff field (the local action offset), so an `if`
+                // emitted as a plain condition only gates the first action
+                // of its body — it does NOT leak into subsequent siblings.
+                // The previous "wrap if N in Inline if any if follows" rule
+                // was based on a misunderstanding and reordered the cond
+                // pool (Inline-deferral appends conds AFTER the parent's
+                // run), breaking re-decompile alignment. Always emit as a
+                // plain nested-if; pass `isLastInBlock=true` so
+                // ProcessIfStatement takes the nested-if path.
+                ProcessStatement(statements[i], ref a, ref c, ref actionOffset, ref conditionOffset, isTopLevel, isLastInBlock: true);
                 actionCount += a;
                 conditionCount += c;
             }
@@ -1091,13 +1769,11 @@ namespace UniversalGametypeEditor
 
                 case IfStatementSyntax ifStatement:
                     {
-                        // IMPORTANT RULE:
-                        // - Plain (non-inline) if conditions in this format will keep gating actions that follow them
-                        //   in the same container, because there is no explicit "end if".
-                        // - Therefore: only emit a plain if when it is the LAST statement in its block.
-                        //   Otherwise emit an Inline.
-                        bool mustInline = !isLastInBlock || ifStatement.Else != null;
-                        ProcessIfStatement(ifStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, isTopLevel, mustInline);
+                        // Always nested-if path. ProcessStatementList passes
+                        // isLastInBlock=true unconditionally; the per-cond
+                        // coff field points to the body's first action so no
+                        // bleed occurs.
+                        ProcessIfStatement(ifStatement, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, isTopLevel, forceInline: false);
                         break;
                     }
 
@@ -1144,11 +1820,172 @@ namespace UniversalGametypeEditor
                     ProcessStatementList(blockStmt.Statements, ref actionCount, ref conditionCount, ref actionOffset, ref conditionOffset, false);
                     break;
 
+                case ForEachStatementSyntax foreachStmt:
+                    // `foreach (var current_player in __players) { ... }`
+                    // (and the __players/__teams/__objects/__objectsWithLabel
+                    // /__objectsWithFilter/__playersRandomly variants emitted
+                    // by PreprocessDialect) compile as a Foreach* trigger.
+                    // Always treat this as a "nested" foreach when called
+                    // from ProcessStatement — top-level foreach goes through
+                    // ProcessMember's GlobalStatement branch, which routes
+                    // here too but nests inside an empty outer scope. To
+                    // ensure we still emit a proper Foreach trigger record
+                    // either way, use nested=true and emit a RunTrigger
+                    // action; it'll be a top-level RunTrigger with no
+                    // wrapping trigger when called outside a parent body.
+                    {
+                        bool isNested = _actionBaseStack.Count > 0;
+                        if (isNested)
+                        {
+                            ProcessForeachStatement(foreachStmt, nested: true, outerActionOffset: actionOffset);
+                            // Nested foreach emits a RunTrigger action into
+                            // the outer pool. ProcessForeachStatement uses a
+                            // local `dummyOffset` for the RunTrigger emit so
+                            // the parent's cursor isn't bumped automatically
+                            // — bump it here so subsequent conditions in the
+                            // parent compute their coff against the right
+                            // action index.
+                            actionCount++;
+                            actionOffset++;
+                        }
+                        else
+                        {
+                            ProcessForeachStatement(foreachStmt, nested: false);
+                        }
+                    }
+                    break;
+
                 default:
                     Debug.WriteLine($"Unhandled statement type: {statement.GetType().Name}");
                     break;
             }
         }
+
+        // Foreach triggers reserved while walking parent trigger bodies.
+        // Each entry remembers the BlockSyntax body, the trigger record
+        // it'll fill, the trigger type/attr, and (for Labeled) the LabelRef
+        // token. They're drained by DrainPendingForeachTriggers() AFTER the
+        // outer trigger finishes so its action range stays contiguous.
+        private readonly record struct PendingForeachTrigger(
+            BlockSyntax? Body,
+            int Index,
+            string TriggerType,
+            string TriggerAttribute,
+            string? LabelToken);
+
+        private readonly Queue<PendingForeachTrigger> _pendingForeachTriggers = new();
+
+        /// <summary>
+        /// Compile a `foreach (var X in __collection) { body }` statement
+        /// as a Foreach* trigger (Reach TriggerType = Player/RandomPlayer/
+        /// Team/Object/Labeled). The collection identifier is the sentinel
+        /// emitted by PreprocessDialect — recognized by name:
+        ///   __players              → Player
+        ///   __playersRandomly      → RandomPlayer
+        ///   __teams                → Team
+        ///   __objects              → Object
+        ///   __objectsWithLabel(N)  → Labeled (LabelRef N)
+        ///   __objectsWithFilter(F) → Labeled (FilterRef F) — placeholder
+        ///
+        /// When `nested` is true, the body is NOT compiled now — instead a
+        /// trigger slot is reserved, a `RunTrigger(N)` action is emitted
+        /// in the outer container, and the body is queued for later.
+        /// This matches LocalFunctionStatementSyntax's nested-trigger model
+        /// and keeps the outer trigger's action range contiguous.
+        /// </summary>
+        private void ProcessForeachStatement(ForEachStatementSyntax foreachStmt, bool nested = false, int outerActionOffset = 0)
+        {
+            var coll = foreachStmt.Expression;
+            string triggerType = "Object"; // default fallback
+            string? labelToken = null;
+
+            if (coll is IdentifierNameSyntax id)
+            {
+                triggerType = id.Identifier.Text switch
+                {
+                    "__players"          => "Player",
+                    "__playersRandomly"  => "RandomPlayer",
+                    "__teams"            => "Team",
+                    "__objects"          => "Object",
+                    _                    => "Object",
+                };
+            }
+            else if (coll is InvocationExpressionSyntax inv && inv.Expression is IdentifierNameSyntax invName)
+            {
+                if (invName.Identifier.Text == "__objectsWithLabel")
+                {
+                    triggerType = "Labeled";
+                    if (inv.ArgumentList.Arguments.Count > 0)
+                    {
+                        // Accept "label[N]", a numeric literal, a quoted
+                        // name, or a bare identifier.
+                        string raw = inv.ArgumentList.Arguments[0].ToString().Trim();
+                        var labelMatch = System.Text.RegularExpressions.Regex.Match(raw, @"label\[(\d+)\]");
+                        if (labelMatch.Success) labelToken = labelMatch.Groups[1].Value;
+                        else labelToken = raw;
+                    }
+                }
+                else if (invName.Identifier.Text == "__objectsWithFilter")
+                {
+                    // Reach has no FilterRef — emit a Labeled trigger with no
+                    // label so counts still align. (H2A would use type 6 +
+                    // FilterRef, not handled here.)
+                    triggerType = "Labeled";
+                    labelToken = "none";
+                }
+            }
+
+            BlockSyntax? body = foreachStmt.Statement is BlockSyntax b ? b : null;
+
+            if (!nested)
+            {
+                CompileTriggerFromBody(body, triggerType, triggerAttribute: "OnTick", labelToken: labelToken);
+                return;
+            }
+
+            // Nested foreach: reserve a slot, emit RunTrigger in the outer
+            // action stream, queue body for later.
+            int idx = _triggers.Count;
+            _triggers.Add(new TriggerObject(triggerType, new List<string> { "" }));
+
+            _pendingForeachTriggers.Enqueue(new PendingForeachTrigger(
+                body, idx, triggerType, "OnTick", labelToken));
+
+            // Emit a synthetic RunTrigger(<idx>) action in the OUTER pool.
+            // Reuse the existing invocation path so action-encoding stays
+            // consistent with the manual `Trigger trigger_N()` model.
+            var inv2 = SyntaxFactory.InvocationExpression(
+                SyntaxFactory.IdentifierName("RunTrigger"),
+                SyntaxFactory.ArgumentList(
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.Argument(SyntaxFactory.IdentifierName($"Trigger{idx}"))
+                    )
+                )
+            );
+            int dummyOffset = outerActionOffset;
+            ProcessInvocation(inv2, ref dummyOffset);
+        }
+
+        /// <summary>
+        /// Compile the bodies of any foreach triggers that were reserved
+        /// while walking outer trigger bodies. Run AFTER each top-level
+        /// trigger's compilation so the outer's action range stays
+        /// contiguous in the global pool.
+        /// </summary>
+        private void DrainPendingForeachTriggers()
+        {
+            while (_pendingForeachTriggers.Count > 0)
+            {
+                var p = _pendingForeachTriggers.Dequeue();
+                CompileTriggerFromBody(
+                    p.Body,
+                    p.TriggerType,
+                    p.TriggerAttribute,
+                    p.LabelToken,
+                    fixedIndex: p.Index);
+            }
+        }
+
 
 
         public class InlineActionCache
@@ -1309,12 +2146,30 @@ namespace UniversalGametypeEditor
 
                 Debug.WriteLine($"Variable '{varName}' of type '{actualType}' with priority '{networkingPriority}'");
 
-                if (_variableToIndexMap.TryGetValue(varName, out var existingVariable))
+                // A name that was already registered (top-level or earlier
+                // scope) is a SHADOW redeclaration — the decompiler emits
+                // these inside trigger bodies as documentation. Reuse the
+                // existing slot instead of allocating a new one. Make the
+                // existing global slot visible inside this scope so
+                // references resolve.
+                if (_variableToIndexMap.TryGetValue(varName, out var existingVariable)
+                    || _allDeclaredVariables.TryGetValue(varName, out existingVariable))
                 {
-                    if (existingVariable.Type == actualType && existingVariable.Priority != priorityValue)
+                    if (existingVariable.Type == actualType
+                        && existingVariable.Priority != priorityValue
+                        && _scopeStack.Count == 0)
                     {
                         throw new InvalidOperationException($"Variable '{varName}' of type '{actualType}' already exists with a different priority.");
                     }
+                    _variableToIndexMap[varName] = existingVariable;
+                    // DO NOT push shadow re-declarations onto the scope stack.
+                    // Doing so would cause EndScope() to remove the entry from
+                    // _variableToIndexMap when the trigger body finishes,
+                    // wiping out the top-level prepass binding and forcing
+                    // subsequent triggers to fall through to Int16/22b literal
+                    // encoding (~12 extra bits per VarType reference).
+                    // The global map already owns this name; the trigger body
+                    // just needs to RESOLVE the name, not own its lifetime.
                 }
                 else
                 {
@@ -1328,7 +2183,7 @@ namespace UniversalGametypeEditor
                             int index = _entityManager.GetObjectIndex(gameObject);
                             var variableInfo = new VariableInfo(actualType, index, priorityValue);
                             _variableToIndexMap[varName] = variableInfo;
-                            _scopeStack.Peek()[varName] = variableInfo;
+                            if (_scopeStack.Count > 0) _scopeStack.Peek()[varName] = variableInfo;
                             _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
                             Debug.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {priorityValue}");
 
@@ -1342,7 +2197,7 @@ namespace UniversalGametypeEditor
                             int index = _entityManager.GetObjectIndex(gameObject);
                             var variableInfo = new VariableInfo(actualType, index, priorityValue);
                             _variableToIndexMap[varName] = variableInfo;
-                            _scopeStack.Peek()[varName] = variableInfo;
+                            if (_scopeStack.Count > 0) _scopeStack.Peek()[varName] = variableInfo;
                             _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
                             Debug.WriteLine($"Initialized Object variable '{varName}' at global.object[{index}] with networking priority {priorityValue}");
                         }
@@ -1357,7 +2212,7 @@ namespace UniversalGametypeEditor
                             var numberIndex = _entityManager.CreateNumber(value);
                             var variableInfo = new VariableInfo(actualType, numberIndex, priorityValue);
                             _variableToIndexMap[varName] = variableInfo;
-                            _scopeStack.Peek()[varName] = variableInfo;
+                            if (_scopeStack.Count > 0) _scopeStack.Peek()[varName] = variableInfo;
                             _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
                             Debug.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {priorityValue}");
 
@@ -1371,10 +2226,36 @@ namespace UniversalGametypeEditor
                             var numberIndex = _entityManager.CreateNumber(value);
                             var variableInfo = new VariableInfo(actualType, numberIndex, priorityValue);
                             _variableToIndexMap[varName] = variableInfo;
-                            _scopeStack.Peek()[varName] = variableInfo;
+                            if (_scopeStack.Count > 0) _scopeStack.Peek()[varName] = variableInfo;
                             _allDeclaredVariables[varName] = variableInfo; // Track all declared variables
                             Debug.WriteLine($"Initialized Number variable '{varName}' at global.number[{numberIndex}] with networking priority {priorityValue}");
                         }
+                    }
+                    else if (actualType == "Player" || actualType == "Team" || actualType == "Timer")
+                    {
+                        // Track the variable in the symbol table so references
+                        // resolve, but don't allocate engine slots — those
+                        // are emitted via ProcessGlobalVariables (which iterates
+                        // _allDeclaredVariables by Type).
+                        int slotIdx;
+                        switch (actualType)
+                        {
+                            case "Player":
+                                var p = _entityManager.CreatePlayer(varName);
+                                slotIdx = _entityManager.GetPlayerIndex(p);
+                                break;
+                            case "Team":
+                                slotIdx = _allDeclaredVariables.Count(kv => kv.Value.Type == "Team");
+                                break;
+                            default: // Timer
+                                slotIdx = _allDeclaredVariables.Count(kv => kv.Value.Type == "Timer");
+                                break;
+                        }
+                        var info = new VariableInfo(actualType, slotIdx, priorityValue);
+                        _variableToIndexMap[varName] = info;
+                        if (_scopeStack.Count > 0) _scopeStack.Peek()[varName] = info;
+                        _allDeclaredVariables[varName] = info;
+                        Debug.WriteLine($"Initialized {actualType} variable '{varName}' at slot {slotIdx} with networking priority {priorityValue}");
                     }
                     else
                     {
@@ -1391,12 +2272,68 @@ namespace UniversalGametypeEditor
         private
 void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffset)
         {
-            // Support: var = SomeActionThatHasOutParam(...)
-            // Example: weap = GetWeapon(current_player, GetPrimary);
-            if (assignment.Left is IdentifierNameSyntax leftId &&
-                assignment.Right is InvocationExpressionSyntax rightInv)
+            // Special form: `<receiver>.grenades(<type>) op= <operand>`
+            //   → action 74 Player_Grenades_SET(Player, Type1, Operator, Operand)
+            // The decoder emits this assignment shape (LHS is an
+            // InvocationExpression `.grenades(type)`), so we mirror it here.
+            if (assignment.Left is InvocationExpressionSyntax grenInv
+                && grenInv.Expression is MemberAccessExpressionSyntax grenMa
+                && grenMa.Name.Identifier.Text.Equals("grenades", StringComparison.OrdinalIgnoreCase))
             {
-                string varName = leftId.Identifier.Text;
+                string opTokG = assignment.Kind() switch
+                {
+                    SyntaxKind.SimpleAssignmentExpression => "Set",
+                    SyntaxKind.AddAssignmentExpression => "Add",
+                    SyntaxKind.SubtractAssignmentExpression => "Subtract",
+                    SyntaxKind.MultiplyAssignmentExpression => "Multiply",
+                    SyntaxKind.DivideAssignmentExpression => "Divide",
+                    SyntaxKind.ModuloAssignmentExpression => "Modulo",
+                    _ => "Set",
+                };
+                if (_megaloActionsById.TryGetValue(74, out var grenAction))
+                {
+                    string receiver = grenMa.Expression.ToString();
+                    string typeArg  = grenInv.ArgumentList.Arguments.Count > 0
+                        ? grenInv.ArgumentList.Arguments[0].ToString()
+                        : "frag";
+                    string operandTok = assignment.Right.ToString();
+                    var args = new List<string> { receiver, typeArg, opTokG, operandTok };
+                    try
+                    {
+                        var pBits = EncodeMegaloActionParams(grenAction, args, varOut: null);
+                        string actionIdBits = ConvertToBinary(grenAction.Id, 7);
+                        string binaryAction = actionIdBits + string.Join("", pBits);
+                        _actions.Add(new ActionObject(grenAction.Name, new List<string> { binaryAction }));
+                        actionOffset++;
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        _encoderDiagnostics.Add(new CompilerDiagnostic(
+                            CompilerDiagnosticSeverity.Warning,
+                            $"grenades-setter '{assignment}' encoding failed: {ex.Message}; emitting placeholder.",
+                            1, 1));
+                        EmitPlaceholderAction(grenAction.Name);
+                        actionOffset++;
+                        return;
+                    }
+                }
+            }
+
+            // Support: <lhs> = SomeActionThatHasOutParam(...)
+            // Examples:
+            //   weap = GetWeapon(current_player, GetPrimary);
+            //   current_player.playerobject0 = current_player.biped.place_at_me(warthog, ...);
+            //
+            // For dotted LHS (member access) the OUT slot encoder (e.g.
+            // ConvertObjectTypeRefToBinary) accepts the full dotted form and
+            // routes to the right ObjectTypeRef variant — we just stringify
+            // the LHS and pass it as varOut.
+            if (assignment.Right is InvocationExpressionSyntax rightInv
+                && (assignment.Left is IdentifierNameSyntax
+                    || assignment.Left is MemberAccessExpressionSyntax))
+            {
+                string varName = assignment.Left.ToString();
                 Debug.WriteLine($"Processing assignment-as-out: {varName} = {rightInv}");
                 ProcessInvocation(rightInv, ref actionOffset, varName);
                 return;
@@ -1404,11 +2341,16 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
 
             // Support: var = some_var_type_expression;
             // Example: newBip = current_player.biped;
-            // This compiles to the Megalo "Set" action (formerly Megl.SET):
+            // Also handles member-access LHS (e.g. current_player.score = X)
+            // and element-access LHS (e.g. hudwidgets[0] = X) by stringifying
+            // the full LHS as the base token of the Set action. This compiles
+            // to the Megalo "Set" action (formerly Megl.SET):
             //   Set(Base=<left>, Operand=<right>, Operator=Set)
-            if (assignment.Left is IdentifierNameSyntax leftVar)
+            if (assignment.Left is IdentifierNameSyntax
+                || assignment.Left is MemberAccessExpressionSyntax
+                || assignment.Left is ElementAccessExpressionSyntax)
             {
-                string baseTok = leftVar.ToString();
+                string baseTok = assignment.Left.ToString();
                 string operandTok = assignment.Right.ToString();
 
                 // Map assignment operators to SetterOperator tokens (must match enum names)
@@ -1430,26 +2372,115 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
 
                 try
                 {
-                    MegaloAction setAction = ResolveActionByName("Set");
-                    var args = new List<string> { baseTok, operandTok, opTok };
+                    // Setter routing: when the LHS is `target.<prop>` and
+                    // <prop> is one of the canonical RVT setter names
+                    // (score/money/shields/health/max_shields/max_health/
+                    // grenades), the assignment compiles to a SPECIFIC
+                    // megalo action — NOT generic Megl_SET (id=9). The
+                    // decompiler's _rvtActionSetters table is the inverse
+                    // mapping: id → property-name.
+                    //
+                    // Layout for these setters (from MegaloTables):
+                    //   target (param 0 — the receiver typeref)
+                    //   operator (param 1 — SetterOperator)
+                    //   operand (param 2 — NumericTypeRef)
+                    // Action 74 (grenades) has 4 params: player, type, op, operand.
+                    string? setterProp = null;
+                    if (assignment.Left is MemberAccessExpressionSyntax setterMa)
+                    {
+                        var name = setterMa.Name.Identifier.Text;
+                        if (name.Equals("score", StringComparison.OrdinalIgnoreCase)
+                            || name.Equals("money", StringComparison.OrdinalIgnoreCase)
+                            || name.Equals("shields", StringComparison.OrdinalIgnoreCase)
+                            || name.Equals("health", StringComparison.OrdinalIgnoreCase)
+                            || name.Equals("max_shields", StringComparison.OrdinalIgnoreCase)
+                            || name.Equals("max_health", StringComparison.OrdinalIgnoreCase))
+                            setterProp = name.ToLowerInvariant();
+                    }
 
-                    List<string> paramBits = EncodeMegaloActionParams(setAction, args, varOut: null);
+                    int setterActionId = setterProp switch
+                    {
+                        "score"       => 1,
+                        "money"       => 38,
+                        "shields"     => 64,
+                        "health"      => 65,
+                        "max_shields" => 67,
+                        "max_health"  => 68,
+                        _             => 0,
+                    };
+
+                    MegaloAction setAction;
+                    if (setterActionId != 0 && _megaloActionsById.TryGetValue(setterActionId, out var byId))
+                        setAction = byId;
+                    else
+                        setAction = ResolveActionByName("Set");
+
+                    // For score/money/shields/health/max_shields/max_health,
+                    // the receiver is the LHS's expression (`target` part of
+                    // `target.score`), NOT the full LHS string. Strip the
+                    // member name to get just the receiver.
+                    string receiverTok = baseTok;
+                    if (setterProp != null && assignment.Left is MemberAccessExpressionSyntax setterMa2)
+                        receiverTok = setterMa2.Expression.ToString();
+
+                    // Schema arg order differs between Megl_SET and the
+                    // dedicated setter actions:
+                    //   Megl_SET (id=9):           Base, Operand, Operator
+                    //   Players_Score_SET (id=1):  Targets, Operator, Operand
+                    //   Player_ReqMoney_SET (38):  Player,  Operator, Operand
+                    //   Obj_Shields_SET (64) etc.: Object,  Operator, Operand
+                    // Match the schema by ordering args per action.
+                    var args = setterActionId == 0
+                        ? new List<string> { receiverTok, operandTok, opTok }
+                        : new List<string> { receiverTok, opTok, operandTok };
+
+                    List<string> paramBits;
+                    try
+                    {
+                        paramBits = EncodeMegaloActionParams(setAction, args, varOut: null);
+                    }
+                    catch (Exception encEx)
+                    {
+                        Debug.WriteLine($"Set() encoding failed for '{assignment}': {encEx.Message}; emitting placeholder.");
+                        _encoderDiagnostics.Add(new CompilerDiagnostic(
+                            CompilerDiagnosticSeverity.Warning,
+                            $"Setter assignment '{assignment}' (id={setAction.Id} {setAction.Name}) param encoding failed: {encEx.Message}; emitting placeholder None.",
+                            1, 1));
+                        EmitPlaceholderAction(setAction.Name);
+                        actionOffset++;
+                        return;
+                    }
                     string actionIdBits = ConvertToBinary(setAction.Id, 7);
                     string binaryAction = actionIdBits + string.Join("", paramBits);
 
                     _actions.Add(new ActionObject(setAction.Name, new List<string> { binaryAction }));
+
+                    if (CompilerActionTrace != null)
+                    {
+                        int payBits = paramBits.Sum(p => p?.Length ?? 0);
+                        var pbDetail = string.Join(",",
+                            setAction.Params.Select((p, idx) => $"{p.Name}:{p.TypeRef}({(idx < paramBits.Count ? paramBits[idx]?.Length ?? 0 : -1)}b)"));
+                        CompilerActionTrace.AppendLine(
+                            $"  enc act #{_actions.Count - 1} {setAction.Name}(id={setAction.Id}) hdr=7b pay={payBits}b total={7 + payBits}b" +
+                            $" args=[{string.Join(", ", args)}] params=[{pbDetail}] [setter]");
+                    }
+
                     actionOffset++;
 
-                    Debug.WriteLine($"Compiled assignment via Set(): {baseTok} {assignment.OperatorToken} {operandTok}");
+                    Debug.WriteLine($"Compiled assignment via {setAction.Name} (id={setAction.Id}): {baseTok} {assignment.OperatorToken} {operandTok}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Failed to compile assignment '{assignment}': {ex.Message}");
+                    Debug.WriteLine($"Failed to compile assignment '{assignment}': {ex.Message}; emitting placeholder.");
+                    EmitPlaceholderAction("Set");
+                    actionOffset++;
                 }
                 return;
             }
 
-            Debug.WriteLine($"Unhandled assignment form: {assignment}");
+            Debug.WriteLine($"Unhandled assignment form: {assignment} — emitting placeholder.");
+            EmitPlaceholderAction("<assign>");
+            actionOffset++;
         }
 
 
@@ -1471,30 +2502,134 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             if (string.IsNullOrWhiteSpace(scriptName))
             {
                 Debug.WriteLine("Unsupported invocation form.");
+                EmitPlaceholderAction("<no-name>");
+                actionOffset++;
                 return;
             }
 
+            // Member-access calls (e.g. `current_player.set_loadout_palette(2)`)
+            // come in as "receiver.method". Pull the trailing method name as
+            // a candidate action and reroute the receiver as the first arg.
+            string? memberMethod = null;
+            string? memberReceiver = null;
+            if (invocation.Expression is MemberAccessExpressionSyntax ma)
+            {
+                memberMethod = ma.Name.Identifier.Text;
+                memberReceiver = ma.Expression.ToString();
+            }
+
             var args = invocation.ArgumentList.Arguments.Select(a => TrimArg(a.Expression)).ToList();
+
+            // Member-access calls of the form `receiver.method(args...)`
+            // need the receiver injected into the positional args list
+            // because most action schemas have the receiver as their first
+            // (or near-first) param. The schema walker just consumes args
+            // in order, so we need the receiver AT THE RIGHT INDEX.
+            //
+            // Default position: args[0] (receiver is the action's "self"
+            // target — applies to set_hidden, set_waypoint_text,
+            // set_garbage_collection_disabled, attach_to, detach, delete,
+            // is_of_type, …).
+            //
+            // Special case: place_at_me (Megl_Create, id=2) renders as
+            //   OUT = PlaceAt.place_at_me(Type1, Label, …)
+            // so receiver goes to args[1] (after Type1).
+            if (!string.IsNullOrEmpty(memberReceiver))
+            {
+                bool isPlaceAtMe =
+                    string.Equals(memberMethod, "place_at_me", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(scriptName, "place_at_me", StringComparison.OrdinalIgnoreCase);
+                int insertAt = isPlaceAtMe ? 1 : 0;
+                if (insertAt > args.Count) insertAt = args.Count;
+                args.Insert(insertAt, memberReceiver);
+            }
 
             MegaloAction action;
             try
             {
                 action = ResolveActionByName(scriptName);
             }
-            catch (Exception ex)
+            catch
             {
-                Debug.WriteLine(ex.Message);
-                return;
+                // Fall through to member-method resolution if applicable.
+                action = default;
+                bool resolved = false;
+                if (!string.IsNullOrEmpty(memberMethod))
+                {
+                    try
+                    {
+                        action = ResolveActionByName(memberMethod);
+                        resolved = true;
+                        // Receiver was already injected by the
+                        // member-access pre-pass above — don't prepend
+                        // again here, it would double-up.
+                    }
+                    catch
+                    {
+                        resolved = false;
+                    }
+                }
+                if (!resolved)
+                {
+                    string msg = $"Action '{scriptName}' not found — emitting placeholder None action. Compiled section will be short and re-decompile will desync.";
+                    Debug.WriteLine(msg);
+                    _encoderDiagnostics.Add(new CompilerDiagnostic(
+                        CompilerDiagnosticSeverity.Warning, msg, 1, 1));
+                    EmitPlaceholderAction(scriptName);
+                    actionOffset++;
+                    return;
+                }
             }
 
             // Encode action id + params based on MegaloTables schema
-            var paramBits = EncodeMegaloActionParams(action, args, varOut);
+            List<string> paramBits;
+            try
+            {
+                paramBits = EncodeMegaloActionParams(action, args, varOut);
+            }
+            catch (Exception ex)
+            {
+                string msg = $"Action '{action.Name}' (id={action.Id}) param encoding failed: {ex.Message}; emitting placeholder None.";
+                Debug.WriteLine(msg);
+                _encoderDiagnostics.Add(new CompilerDiagnostic(
+                    CompilerDiagnosticSeverity.Warning, msg, 1, 1));
+                EmitPlaceholderAction(action.Name);
+                actionOffset++;
+                return;
+            }
             string actionNumberBinary = ConvertToBinary(action.Id, 7);
             string binaryAction = actionNumberBinary + string.Join("", paramBits);
 
             _actions.Add(new ActionObject(action.Name, new List<string> { binaryAction }));
             Debug.WriteLine($"Added action: {scriptName}({binaryAction})");
+
+            if (CompilerActionTrace != null)
+            {
+                int payBits = paramBits.Sum(p => p?.Length ?? 0);
+                var pbDetail = string.Join(",",
+                    action.Params.Select((p, idx) => $"{p.Name}:{p.TypeRef}({(idx < paramBits.Count ? paramBits[idx]?.Length ?? 0 : -1)}b)"));
+                CompilerActionTrace.AppendLine(
+                    $"  enc act #{_actions.Count - 1} {action.Name}(id={action.Id}) hdr=7b pay={payBits}b total={7 + payBits}b" +
+                    $" args=[{string.Join(", ", args)}] params=[{pbDetail}]");
+            }
+
             actionOffset++;
+        }
+
+        // Per-action encoder trace (collects per-call widths). Set by the
+        // CLI harness, ignored otherwise.
+        public static System.Text.StringBuilder? CompilerActionTrace { get; set; }
+
+        // Emit a 7-bit action header for the "None" action (id=0). Used as
+        // a placeholder when an invocation can't be resolved or its params
+        // can't be encoded — we still need to bump the global action count
+        // so trigger and condition offsets stay aligned with the source.
+        private void EmitPlaceholderAction(string sourceName)
+        {
+            string idBits = ConvertToBinary(0, 7); // action id 0 == "None"
+            _actions.Add(new ActionObject($"None /* {sourceName} */", new List<string> { idBits }));
+            if (CompilerActionTrace != null)
+                CompilerActionTrace.AppendLine($"  enc act #{_actions.Count - 1} None /* {sourceName} */ hdr=7b pay=0b total=7b (PLACEHOLDER)");
         }
 
         private List<string> EncodeMegaloActionParams(MegaloAction action, List<string> args, string? varOut)
@@ -1513,6 +2648,27 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
                 else if (IsVector3Type(p.TypeRef))
                 {
                     token = ConsumeVector3Token(args, ref i);
+                }
+                else if (p.TypeRef.StartsWith("Enumref:Tokens", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Tokens{1,2,3} composite: the new flat decompile syntax
+                    // splices the (string, payload, payload, …) directly
+                    // into the parent action's arg list, so we consume
+                    // ALL remaining args here and rewrap them as the
+                    // legacy `tokens(...)` form that EncodeTokensParam
+                    // expects. Backward-compat: if the caller still wrote
+                    // `tokens(...)` explicitly, pass it through unchanged.
+                    if (i < args.Count
+                        && args[i].TrimStart().StartsWith("tokens(", StringComparison.OrdinalIgnoreCase))
+                    {
+                        token = args[i++];
+                    }
+                    else
+                    {
+                        var rest = new List<string>(args.Count - i);
+                        while (i < args.Count) rest.Add(args[i++]);
+                        token = "tokens(" + string.Join(", ", rest) + ")";
+                    }
                 }
                 else
                 {
@@ -1642,6 +2798,130 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
 
         private string EncodeParamByTypeRef(string typeRef, string? token)
         {
+            // IncidentPlayers — 2-bit variant + sub-field payload:
+            //   00 Team       : TeamTypeRef sub-field
+            //   01 Players    : PlayerTypeRef sub-field
+            //   10 AllPlayers : no sub-field
+            //   11 Unlabelled : no sub-field
+            // Decoder ScriptDecompiler.cs:969-983 reads these variants;
+            // we mirror the encode side here.
+            if (typeRef.Equals("Enumref:IncidentPlayers", StringComparison.OrdinalIgnoreCase))
+            {
+                string ip = (token ?? string.Empty).Trim();
+                string ipNorm = ip.Replace("__", "_").Replace(" ", "_");
+                // No-payload variant names.
+                if (ipNorm.Equals("all_players", StringComparison.OrdinalIgnoreCase)
+                    || ipNorm.Equals("AllPlayers", StringComparison.OrdinalIgnoreCase)
+                    || ipNorm.Equals("everyone", StringComparison.OrdinalIgnoreCase))
+                    return "10";
+                if (ipNorm.Equals("Unlabelled", StringComparison.OrdinalIgnoreCase)
+                    || ipNorm.Equals("no__players", StringComparison.OrdinalIgnoreCase)
+                    || ipNorm.Equals("no_players", StringComparison.OrdinalIgnoreCase))
+                    return "11";
+                // Player-shaped operand → Players(01) + PlayerTypeRef.
+                if (ip.Equals("current_player", StringComparison.OrdinalIgnoreCase)
+                    || ip.Equals("no_player", StringComparison.OrdinalIgnoreCase)
+                    || ip.Equals("NoPlayer", StringComparison.OrdinalIgnoreCase)
+                    || ip.StartsWith("globalplayer", StringComparison.OrdinalIgnoreCase)
+                    || ip.StartsWith("GlobalPlayer", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "01" + ConvertPlayerTypeRefToBinary(ip, 0);
+                }
+                // Team-shaped operand → Team(00) + TeamTypeRef.
+                if (ip.Equals("current_team", StringComparison.OrdinalIgnoreCase)
+                    || ip.Equals("no_team", StringComparison.OrdinalIgnoreCase)
+                    || ip.Equals("NoTeam", StringComparison.OrdinalIgnoreCase)
+                    || ip.StartsWith("globalteam", StringComparison.OrdinalIgnoreCase)
+                    || ip.StartsWith("GlobalTeam", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "00" + ConvertTeamTypeRefToBinary(ip, 0);
+                }
+                _encoderDiagnostics.Add(new CompilerDiagnostic(
+                    CompilerDiagnosticSeverity.Warning,
+                    $"IncidentPlayers token '{ip}' didn't match any variant — emitting AllPlayers (10).",
+                    1, 1));
+                return "10";
+            }
+
+            // SetterOperator — 4-bit enum per the canonical MegaloSchema.
+            // The decompiler emits these as op tokens like Set/Add/Subtract.
+            // ID values come from MegaloSchema's SetterOperator EnumDef:
+            //   0=Add, 1=Subtract, 2=Multiply, 3=Divide, 4=Set,
+            //   5=Modulo, 6=AND, 7=OR, 8=XOR, 9=NOT, 10=LeftShift,
+            //   11=RightShift, 12=Absolute.
+            if (typeRef.Equals("Enumref:SetterOperator", StringComparison.OrdinalIgnoreCase))
+            {
+                string op = (token ?? "Set").Trim();
+                int opVal = op switch
+                {
+                    "Add" or "+="           => 0,
+                    "Subtract" or "-="      => 1,
+                    "Multiply" or "*="      => 2,
+                    "Divide" or "/="        => 3,
+                    "Set" or "="            => 4,
+                    "Modulo" or "%="        => 5,
+                    "BinaryAND" or "&="     => 6,
+                    "BinaryOR"  or "|="     => 7,
+                    "BinaryXOR" or "^="     => 8,
+                    "BinaryNOT" or "~="     => 9,
+                    "LeftShift" or "<<="    => 10,
+                    "RightShift" or ">>="   => 11,
+                    "Absolute" or "abs"     => 12,
+                    _                        => 4,
+                };
+                return ConvertToBinary(opVal, 4);
+            }
+
+            // GetterOperator — 3-bit enum (Megl.If comparator). Decompiler
+            // emits operator tokens "<", ">", "==", "<=", ">=", "!=".
+            if (typeRef.Equals("Enumref:GetterOperator", StringComparison.OrdinalIgnoreCase))
+            {
+                string op = (token ?? "==").Trim();
+                int opVal = op switch
+                {
+                    "<"  or "LessThan"          => 0,
+                    ">"  or "GreaterThan"       => 1,
+                    "==" or "Equals"            => 2,
+                    "<=" or "LessThanEquals"    => 3,
+                    ">=" or "GreaterThanEquals" => 4,
+                    "!=" or "NotEquals"         => 5,
+                    _                            => 2,
+                };
+                return ConvertToBinary(opVal, 3);
+            }
+
+            // Tokens1 / Tokens2 / Tokens3 — Container of (String index + StringVarsN tag + N×StringToken).
+            // Decoder emits `tokens(str[N], ...)`. Only handle simple single-arg
+            // `tokens(str[N])` (svTag=0) for now — that covers Reach
+            // set_waypoint_text round-trip. Multi-token (player/team/object/
+            // number/timer references) is encoded with svTag=N + N×3-bit
+            // StringToken tags + variable-width payloads.
+            if (typeRef.StartsWith("Enumref:Tokens", StringComparison.OrdinalIgnoreCase))
+            {
+                bool isTok1 = typeRef.Equals("Enumref:Tokens1", StringComparison.OrdinalIgnoreCase);
+                int stringBits = 7;  // Reach; H2A is 8 — current compiler is Reach-only.
+                int varsBits   = isTok1 ? 1 : 2;
+                return EncodeTokensParam(token, stringBits, varsBits);
+            }
+
+            // SpawnObjectFlags is a Container of 3 individual Bool bits
+            // (NeverGarbageCollect, SuppressEffect, AbsoluteOrientation).
+            // Decoder emits `0` (none set) or pipe-delimited names.
+            if (typeRef.Equals("Enumref:SpawnObjectFlags", StringComparison.OrdinalIgnoreCase))
+            {
+                int n = 0, s = 0, a = 0;
+                var t = (token ?? string.Empty).Trim();
+                // Accept both new lowercase snake_case forms emitted by
+                // the decompiler AND legacy PascalCase forms for back-compat.
+                if (t.IndexOf("never_garbage_collect", StringComparison.OrdinalIgnoreCase) >= 0
+                    || t.IndexOf("NeverGarbageCollect", StringComparison.OrdinalIgnoreCase) >= 0) n = 1;
+                if (t.IndexOf("suppress_effect", StringComparison.OrdinalIgnoreCase) >= 0
+                    || t.IndexOf("SuppressEffect", StringComparison.OrdinalIgnoreCase) >= 0) s = 1;
+                if (t.IndexOf("absolute_orientation", StringComparison.OrdinalIgnoreCase) >= 0
+                    || t.IndexOf("AbsoluteOrientation", StringComparison.OrdinalIgnoreCase) >= 0) a = 1;
+                return $"{n}{s}{a}";
+            }
+
             // Handle known composite encodings first
             if (typeRef.Equals("Enumref:Bool", StringComparison.OrdinalIgnoreCase))
             {
@@ -1698,12 +2978,25 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
 
             if (typeRef.Equals("Enumref:ObjectType", StringComparison.OrdinalIgnoreCase))
             {
-                // This project historically encodes ObjectType as 12 bits.
+                // 12-bit ObjectType value. The decompiler renders these via
+                // the RvtObjectTypes table (id -> name), so the encoder must
+                // do the inverse lookup or otherwise we'd silently emit 0
+                // (=spartan) for everything that isn't in the legacy
+                // ObjectType enum.
                 if (token == null) return ConvertToBinary(0, 12);
+                if (int.TryParse(token, out int litN))
+                    return ConvertToBinary(litN, 12);
+                foreach (var kv in RvtObjectTypes.Names)
+                {
+                    if (string.Equals(kv.Value, token, StringComparison.OrdinalIgnoreCase))
+                        return ConvertToBinary(kv.Key, 12);
+                }
                 if (Enum.TryParse(typeof(ObjectType), token, true, out var objEnum) && objEnum != null)
                     return ConvertToBinary((int)objEnum, 12);
-                if (int.TryParse(token, out int n))
-                    return ConvertToBinary(n, 12);
+                _encoderDiagnostics.Add(new CompilerDiagnostic(
+                    CompilerDiagnosticSeverity.Warning,
+                    $"ObjectType '{token}' not found in RvtObjectTypes table — emitting 0 (spartan).",
+                    1, 1));
                 return ConvertToBinary(0, 12);
             }
 
@@ -1711,6 +3004,26 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             {
                 // Keep your existing label encoding (1-bit "no label" flag + optional 4-bit label id)
                 return EncodeLabelRef(token);
+            }
+
+            // WidgetRef: 1-bit tag + variant.
+            //   variant 0 (Widget): 1 + 2-bit hudwidgets slot
+            //   variant 1 (NoWidget): 1 bit only
+            // Decompiler emits `hudwidgets[N]` for slot references; bare
+            // identifiers fall through to NoWidget.
+            if (typeRef.Equals("Enumref:WidgetRef", StringComparison.OrdinalIgnoreCase))
+            {
+                string t = (token ?? "").Trim();
+                var hwM = System.Text.RegularExpressions.Regex.Match(t,
+                    @"^hudwidgets\s*\[\s*(\d+)\s*\]$",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (hwM.Success && int.TryParse(hwM.Groups[1].Value, out int hwIdx))
+                    return "0" + Convert.ToString(hwIdx & 0x3, 2).PadLeft(2, '0');
+                if (t.Equals("NoWidget", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(t))
+                    return "1";
+                if (int.TryParse(t, out int hwLit))
+                    return "0" + Convert.ToString(hwLit & 0x3, 2).PadLeft(2, '0');
+                return "1";
             }
 
             // Fallback: encode as plain enum (bit-width inferred from max value)
@@ -1721,6 +3034,253 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             }
 
             throw new InvalidOperationException($"Unsupported param typeRef: '{typeRef}'.");
+        }
+
+        // Reverse of ScriptDecompiler.EscapeStringLiteral — unescape a
+        // C# double-quoted literal's body (the contents between the quotes).
+        private static string UnescapeStringLiteral(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s ?? string.Empty;
+            var sb = new System.Text.StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (c == '\\' && i + 1 < s.Length)
+                {
+                    char n = s[++i];
+                    switch (n)
+                    {
+                        case '\\': sb.Append('\\'); break;
+                        case '"':  sb.Append('"');  break;
+                        case 'n':  sb.Append('\n'); break;
+                        case 'r':  sb.Append('\r'); break;
+                        case 't':  sb.Append('\t'); break;
+                        case 'u':
+                            if (i + 4 < s.Length && int.TryParse(s.Substring(i + 1, 4),
+                                System.Globalization.NumberStyles.HexNumber,
+                                System.Globalization.CultureInfo.InvariantCulture,
+                                out int u))
+                            {
+                                sb.Append((char)u);
+                                i += 4;
+                            }
+                            else sb.Append(n);
+                            break;
+                        default: sb.Append(n); break;
+                    }
+                }
+                else sb.Append(c);
+            }
+            return sb.ToString();
+        }
+
+        // Encode `tokens(str[N] [, payload, ...])` as the megalo Tokens
+        // container layout: [stringIndex (7 or 8 bits)][svTag (varsBits)]
+        // [N×StringToken]. The decoder emits this token form at
+        // ScriptDecompiler.cs:2744. We support the no-payload case fully and
+        // best-effort emit svTag=0 + zero tokens when payloads are present
+        // but unparseable — in that case we surface a diagnostic so the
+        // miss is visible.
+        private string EncodeTokensParam(string? token, int stringBits, int varsBits)
+        {
+            string raw = (token ?? string.Empty).Trim();
+            // Strip the helper prefix `tokens(` and trailing `)`
+            if (raw.StartsWith("tokens(", StringComparison.OrdinalIgnoreCase) && raw.EndsWith(")"))
+                raw = raw.Substring("tokens(".Length, raw.Length - "tokens(".Length - 1);
+
+            // Split top-level by commas (no nested parens at this level for str[N]).
+            var parts = SplitTopLevelCommas(raw);
+            int stringIndex = 0;
+            if (parts.Count > 0)
+            {
+                var first = parts[0].Trim();
+                // Accept all three forms:
+                //   str[N]              — index, legacy decompile output
+                //   N                   — bare numeric index
+                //   "actual content"    — resolved string literal
+                //                         (reverse-lookup via StringTable)
+                var m = System.Text.RegularExpressions.Regex.Match(first, @"^str\s*\[\s*(\d+)\s*\]$",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (m.Success)
+                {
+                    int.TryParse(m.Groups[1].Value, out stringIndex);
+                }
+                else if (first.Length >= 2 && first[0] == '"' && first[first.Length - 1] == '"')
+                {
+                    string content = UnescapeStringLiteral(first.Substring(1, first.Length - 2));
+                    stringIndex = -1;
+                    for (int i = 0; i < StringTable.Count; i++)
+                    {
+                        if (string.Equals(StringTable[i], content, StringComparison.Ordinal))
+                        {
+                            stringIndex = i;
+                            break;
+                        }
+                    }
+                    if (stringIndex < 0)
+                    {
+                        _encoderDiagnostics.Add(new CompilerDiagnostic(
+                            CompilerDiagnosticSeverity.Warning,
+                            $"tokens(\"{content}\"): string not found in StringTable; encoding as index 0.",
+                            0, 0));
+                        stringIndex = 0;
+                    }
+                }
+                else if (!int.TryParse(first, out stringIndex))
+                {
+                    stringIndex = 0;
+                }
+            }
+
+            string idxBits = ConvertToBinary(stringIndex, stringBits);
+            int payloadCount = Math.Max(0, parts.Count - 1);
+            // svTag picks how many StringToken bodies follow:
+            //   Tokens1: 0=None, 1=Vars1 (1 token)
+            //   Tokens2: 0=None, 1=Vars1, 2=Vars2 (2 tokens), 3=Unlabelled (0)
+            //   Tokens3: 0=None, 1=Vars1, 2=Vars2, 3=Vars3 (3 tokens)
+            int svTag = payloadCount switch
+            {
+                0 => 0,
+                1 => 1,
+                2 => 2,
+                _ => 3,
+            };
+            string tagBits = ConvertToBinary(svTag, varsBits);
+            // Encode each StringToken body. Each is a 3-bit tag + variant
+            // payload, mirroring ScriptDecompiler.ReadStringToken at L2956:
+            //   0 → none (no payload)
+            //   1 → player(<PlayerTypeRef>)
+            //   2 → team(<TeamTypeRef>)
+            //   3 → object(<ObjectTypeRef>)
+            //   4 → number(<NumericTypeRef>)
+            //   5 → timer(<TimerTypeRef>)
+            //   6 → timer(<TimerTypeRef>)  (TimerVarAswell)
+            var sb = new System.Text.StringBuilder();
+            sb.Append(idxBits).Append(tagBits);
+            for (int p = 0; p < payloadCount; p++)
+            {
+                string st = parts[p + 1].Trim();
+                sb.Append(EncodeStringTokenBody(st));
+            }
+            return sb.ToString();
+        }
+
+        // Infer the StringToken payload kind from a bare token expression.
+        // Uses identifier shape: built-in receivers, dotted-receiver
+        // chains, short slot prefixes (`tmr<N>` → timer, etc.). Defaults
+        // to "number" when nothing else matches — most user variables in
+        // tokens(...) calls are score / counter values.
+        private static string InferStringTokenKind(string token)
+        {
+            string t = token.Trim();
+            // Dotted-receiver: kind is determined by the last segment's
+            // short prefix (.tmr → timer, .plr → player, .obj → object,
+            // .num → number, .tm → team, .player.X → player, …).
+            int lastDot = t.LastIndexOf('.');
+            if (lastDot >= 0)
+            {
+                string tail = t.Substring(lastDot + 1);
+                if (System.Text.RegularExpressions.Regex.IsMatch(tail, @"^tmr\d*$"))  return "timer";
+                if (System.Text.RegularExpressions.Regex.IsMatch(tail, @"^plr\d*$"))  return "player";
+                if (System.Text.RegularExpressions.Regex.IsMatch(tail, @"^obj\d*$"))  return "object";
+                if (System.Text.RegularExpressions.Regex.IsMatch(tail, @"^tm\d*$"))   return "team";
+                if (System.Text.RegularExpressions.Regex.IsMatch(tail, @"^num\d*$"))  return "number";
+                // Receiver-disambiguated long forms (player.num1 etc.) —
+                // rewrite ran first, but on raw user input we may still
+                // see them.
+            }
+            // Built-in references.
+            if (System.Text.RegularExpressions.Regex.IsMatch(t,
+                @"^(current_player|no_player|hud_player|hud_target_player|object_killer|globalplayer\d+|temp_player_\d+|player\d+)$"))
+                return "player";
+            if (System.Text.RegularExpressions.Regex.IsMatch(t,
+                @"^(current_team|no_team|neutral_team|globalteam\d+|temp_team_\d+|team\d+)$"))
+                return "team";
+            if (System.Text.RegularExpressions.Regex.IsMatch(t,
+                @"^(current_object|no_object|target_object|killed_object|killer_object|globalobject\d+|temp_obj_\d+)$"))
+                return "object";
+            // Short slot bare form.
+            if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^tmr\d+$"))  return "timer";
+            if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^plr\d+$"))  return "player";
+            if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^obj\d+$"))  return "object";
+            if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^tm\d+$"))   return "team";
+            return "number";
+        }
+
+        // Encode a single StringToken — 3-bit tag + variant payload. Mirrors
+        // the decompiler's ReadStringToken render forms. Two arg shapes
+        // are accepted:
+        //   • Wrapped legacy form: `player(...)`, `team(...)`, `object(...)`,
+        //     `number(...)`, `timer(...)`, `none`.
+        //   • Bare flat form: `current_player`, `score_to_win`, `tmr1`, …
+        //     The kind is inferred from the identifier shape (built-in
+        //     receiver names / dotted-receiver chains / short prefixes).
+        private string EncodeStringTokenBody(string token)
+        {
+            string Tag3(int t) => Convert.ToString(t, 2).PadLeft(3, '0');
+            if (string.IsNullOrEmpty(token) || token.Equals("none", StringComparison.OrdinalIgnoreCase))
+                return Tag3(0);
+
+            string head, inner;
+            int paren = token.IndexOf('(');
+            if (paren < 0 || !token.EndsWith(")"))
+            {
+                // Bare payload — infer the kind from the expression.
+                head  = InferStringTokenKind(token);
+                inner = token;
+            }
+            else
+            {
+                head  = token.Substring(0, paren).Trim();
+                inner = token.Substring(paren + 1, token.Length - paren - 2).Trim();
+            }
+
+            try
+            {
+                switch (head.ToLowerInvariant())
+                {
+                    case "player":  return Tag3(1) + ConvertPlayerTypeRefToBinary(inner, 0);
+                    case "team":    return Tag3(2) + ConvertTeamTypeRefToBinary(inner, 0);
+                    case "object":  return Tag3(3) + ConvertObjectTypeRefToBinary(inner, 0, 1);
+                    case "number":  return Tag3(4) + ConvertNumericTypeRefToBinary(inner, 0);
+                    case "timer":   return Tag3(5) + ConvertTimerTypeRefToBinary(inner, 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                _encoderDiagnostics.Add(new CompilerDiagnostic(
+                    CompilerDiagnosticSeverity.Warning,
+                    $"StringToken '{token}' payload encoding failed: {ex.Message}; emitting tag 0 (none).",
+                    1, 1));
+                return Tag3(0);
+            }
+
+            _encoderDiagnostics.Add(new CompilerDiagnostic(
+                CompilerDiagnosticSeverity.Warning,
+                $"StringToken kind '{head}' not recognized; emitting tag 0 (none).",
+                1, 1));
+            return Tag3(0);
+        }
+
+        private static List<string> SplitTopLevelCommas(string s)
+        {
+            var result = new List<string>();
+            if (string.IsNullOrEmpty(s)) return result;
+            int depth = 0;
+            int start = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (c == '(' || c == '[') depth++;
+                else if (c == ')' || c == ']') depth--;
+                else if (c == ',' && depth == 0)
+                {
+                    result.Add(s.Substring(start, i - start));
+                    start = i + 1;
+                }
+            }
+            result.Add(s.Substring(start));
+            return result;
         }
 
         private string EncodeEnumByName(string enumName, string? token)
@@ -1749,9 +3309,60 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
 
             if (enumType == null)
             {
-                // Unknown enum: safest is zero-width -> return empty
-                // but we must still emit something. Use 0 bits (empty) so we don't silently corrupt layouts.
-                // If this trips, add a concrete encoder for this TypeRef.
+                // No C# enum type with this name. Fall back to the schema-
+                // driven tables the decompiler uses, in priority order:
+                //   1) ScriptDecompiler.ExternalEnumBits — flat-int widths
+                //      for `type="External"` / `type="Int"` refs (Sound,
+                //      Incident, NameIndex, ObjectType, …). Encode the
+                //      token as a raw N-bit unsigned integer.
+                //   2) MegaloSchema.Enums — variant tables. Match the
+                //      token against variant Names; if matched, emit the
+                //      variant tag bits. (Sub-fields of variants aren't
+                //      encoded here yet — those need a per-variant
+                //      encoder. For now we only round-trip variants with
+                //      no sub-fields, which covers AllPlayers, common
+                //      Bool-like enums, etc.)
+                if (ScriptDecompiler.ExternalEnumBits.TryGetValue(enumName, out int extBits))
+                {
+                    if (string.IsNullOrWhiteSpace(token))
+                        return ConvertToBinary(0, extBits);
+                    if (int.TryParse(token, out int extInt))
+                        return ConvertToBinary(extInt, extBits);
+                    return ConvertToBinary(0, extBits);
+                }
+                if (MegaloSchema.Enums.TryGetValue(enumName, out var schemaEnum))
+                {
+                    if (string.IsNullOrWhiteSpace(token))
+                        return ConvertToBinary(0, schemaEnum.Bits);
+                    // Reverse the decoder's ToSnakeCase rate-token rewrite:
+                    //   "-100%" → "rate_minus_100", "25%" → "rate_25".
+                    // We try to map a `rate_…` token back to the percent-form
+                    // variant name before falling through to plain match.
+                    string? ratePercent = null;
+                    if (token.StartsWith("rate_", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string body = token.Substring("rate_".Length);
+                        if (body.StartsWith("minus_", StringComparison.OrdinalIgnoreCase))
+                            ratePercent = "-" + body.Substring("minus_".Length) + "%";
+                        else
+                            ratePercent = body + "%";
+                    }
+                    // Try variant name match (e.g. "AllPlayers", "all_players").
+                    string norm = token.Trim().Replace("_", "");
+                    foreach (var v in schemaEnum.Variants)
+                    {
+                        if (string.Equals(v.Name, token, StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(v.Name?.Replace("_",""), norm, StringComparison.OrdinalIgnoreCase)
+                            || (ratePercent != null && string.Equals(v.Name, ratePercent, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            return ConvertToBinary(v.Id, schemaEnum.Bits);
+                        }
+                    }
+                    if (int.TryParse(token, out int variantInt))
+                        return ConvertToBinary(variantInt, schemaEnum.Bits);
+                    return ConvertToBinary(0, schemaEnum.Bits);
+                }
+
                 throw new InvalidOperationException($"Enum type '{enumName}' not found. Add it or add a custom encoder for '{enumName}'.");
             }
 
@@ -2014,17 +3625,85 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             return maybeVar;
         }
 
+        /// <summary>
+        /// Forge label table used to resolve named label references in the
+        /// script (e.g. <c>@"flag_home"</c> → index 3). Populated by the
+        /// caller before compiling — typically copied from whatever
+        /// GametypeReader parsed out of the original .bin's Labels section.
+        ///
+        /// Matching is case-insensitive. Unknown names fall back to the
+        /// "label not present" encoding (1-bit flag = 1) with a diagnostic
+        /// so the scripter sees the typo.
+        /// </summary>
+        public List<string> LabelTable { get; } = new List<string>();
+
+        // Main string table for reverse-lookup: when the script uses
+        // `tokens("Score Win")` instead of `tokens(str[N])`, encoder
+        // needs to find which N maps to "Score Win". Populated by
+        // callers from GametypeReader.Result.StringTable before compile.
+        public List<string> StringTable { get; } = new List<string>();
+
+        public readonly List<string> LabelResolutionWarnings = new List<string>();
+
+        /// Accepts any of:
+        ///   none / empty           → "not present" (1 bit: 1)
+        ///   numeric literal (0-15) → direct index
+        ///   @"name" / bareword     → resolved via LabelTable, case-insensitive
         private string EncodeLabelRef(string label)
         {
-            // Preserve prior behavior: 1 bit meaning "none/default", otherwise 0 + 4 bits label
             if (string.IsNullOrWhiteSpace(label) || label.Equals("none", StringComparison.OrdinalIgnoreCase))
                 return ConvertToBinary(1, 1);
 
-            if (int.TryParse(label, out int labelId))
-                return ConvertToBinary(0, 1) + ConvertToBinary(labelId, 4);
+            string token = label.Trim();
 
-            // Without the LabelRef enum table embedded here yet, fallback to 15.
-            return ConvertToBinary(0, 1) + ConvertToBinary(15, 4);
+            // @"flag_home" syntax — strip the @ prefix and quotes.
+            if (token.StartsWith("@\"", StringComparison.Ordinal) && token.EndsWith("\""))
+                token = token.Substring(2, token.Length - 3);
+            else if (token.StartsWith("@") && token.Length > 1)
+                token = token.Substring(1);
+            else if (token.StartsWith("\"") && token.EndsWith("\"") && token.Length >= 2)
+                token = token.Substring(1, token.Length - 2);
+
+            // `label[N]` syntax emitted by the decompiler when no name table
+            // is available. Encode directly as 0 (has-label) + 4-bit index.
+            var labelIdxMatch = System.Text.RegularExpressions.Regex.Match(
+                token, @"^label\s*\[\s*(\d+)\s*\]$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (labelIdxMatch.Success && int.TryParse(labelIdxMatch.Groups[1].Value, out int labelIdx))
+            {
+                if (labelIdx < 0 || labelIdx > 15)
+                    LabelResolutionWarnings.Add($"LabelRef index {labelIdx} out of range (0..15).");
+                return ConvertToBinary(0, 1) + ConvertToBinary(labelIdx & 0xF, 4);
+            }
+
+            if (int.TryParse(token, out int labelId))
+            {
+                if (labelId < 0 || labelId > 15)
+                    LabelResolutionWarnings.Add($"LabelRef index {labelId} out of range (0..15).");
+                return ConvertToBinary(0, 1) + ConvertToBinary(labelId & 0xF, 4);
+            }
+
+            // Name-based lookup.
+            if (LabelTable.Count > 0)
+            {
+                for (int i = 0; i < LabelTable.Count; i++)
+                {
+                    if (string.Equals(LabelTable[i], token, StringComparison.OrdinalIgnoreCase))
+                        return ConvertToBinary(0, 1) + ConvertToBinary(i, 4);
+                }
+                LabelResolutionWarnings.Add(
+                    $"Forge label '{token}' not found in LabelTable (known: [{string.Join(", ", LabelTable)}]).");
+            }
+            else
+            {
+                LabelResolutionWarnings.Add(
+                    $"Forge label '{token}' referenced but LabelTable is empty; "
+                    + "populate ScriptCompiler.LabelTable from the source .bin's Labels section.");
+            }
+
+            // Unknown name, no table — encode as "not present" so the compiled
+            // script doesn't reference an index we can't verify.
+            return ConvertToBinary(1, 1);
         }
 
 
@@ -2103,15 +3782,31 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
 
         private static bool TryMapEventWrapper(string name, out string attribute)
         {
+            // Decompiler-emitted event-wrapper names (lowercased / synthetic).
+            // Anonymous OnTick wrappers are emitted as `__OnTick_N` by the
+            // dialect preprocessor.
+            if (!string.IsNullOrEmpty(name) && name.StartsWith("__OnTick", StringComparison.Ordinal))
+            {
+                attribute = "OnTick";
+                return true;
+            }
             switch (name)
             {
-                case "Local": attribute = "OnLocal"; return true;
-                case "Init": attribute = "OnInit"; return true;
-                case "LocalInit": attribute = "OnLocalInit"; return true;
-                case "HostMigration": attribute = "OnHostMigration"; return true;
-                case "ObjectDeath": attribute = "OnObjectDeath"; return true;
-                case "Pregame": attribute = "OnPregame"; return true;
-                case "Call": attribute = "OnCall"; return true;
+                // Decompiler form (lowercased / snake_case)
+                case "local":           attribute = "OnLocal"; return true;
+                case "init":            attribute = "OnInit"; return true;
+                case "local_init":      attribute = "OnLocalInit"; return true;
+                case "host_migration":  attribute = "OnHostMigration"; return true;
+                case "object_death":    attribute = "OnObjectDeath"; return true;
+                case "pregame":         attribute = "OnPregame"; return true;
+                // PascalCase (legacy script form)
+                case "Local":           attribute = "OnLocal"; return true;
+                case "Init":            attribute = "OnInit"; return true;
+                case "LocalInit":       attribute = "OnLocalInit"; return true;
+                case "HostMigration":   attribute = "OnHostMigration"; return true;
+                case "ObjectDeath":     attribute = "OnObjectDeath"; return true;
+                case "Pregame":         attribute = "OnPregame"; return true;
+                case "Call":            attribute = "OnCall"; return true;
                 default: attribute = ""; return false;
             }
         }
@@ -2141,8 +3836,6 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
 
         private void ProcessTrigger(LocalFunctionStatementSyntax method, int? fixedIndex = null, string? defaultAttribute = null)
         {
-            _deferredInlines.Clear();
-
             // Default trigger type and attribute
             string triggerType = method.Identifier.Text;
             string triggerAttribute = defaultAttribute ?? "OnTick";
@@ -2153,8 +3846,17 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
                 triggerType = "Do";
                 triggerAttribute = wrapperAttr;
 
-                if (!_eventWrapperAttributes.Add(wrapperAttr))
-                    throw new InvalidOperationException($"Only one root trigger is allowed for event '{wrapperAttr}'.");
+                // Note: ALLOW multiple OnTick wrappers (`__OnTick_0`,
+                // `__OnTick_1` …) — the original Megalo file frequently
+                // contains many. Only enforce uniqueness for the once-
+                // per-game events (Init, LocalInit, …) where the engine
+                // requires a single root trigger.
+                if (!string.Equals(wrapperAttr, "OnTick", StringComparison.Ordinal)
+                    && !string.Equals(wrapperAttr, "OnCall", StringComparison.Ordinal))
+                {
+                    if (!_eventWrapperAttributes.Add(wrapperAttr))
+                        throw new InvalidOperationException($"Only one root trigger is allowed for event '{wrapperAttr}'.");
+                }
             }
 
 
@@ -2165,6 +3867,34 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
                 if (attribute.ArgumentList != null && attribute.ArgumentList.Arguments.Count > 0)
                     triggerAttribute = attribute.ArgumentList.Arguments[0].ToString().Trim('"');
             }
+
+            CompileTriggerFromBody(
+                method.Body,
+                triggerType,
+                triggerAttribute,
+                labelToken: null,
+                fixedIndex: fixedIndex);
+        }
+
+        /// <summary>
+        /// Shared trigger-emission core. Walks `body`, captures every
+        /// condition/action it generated into a trigger record with the
+        /// supplied (type, attribute, optional LabelRef token). Used by:
+        ///   • ProcessTrigger (Do triggers + event wrappers)
+        ///   • ProcessForeachStatement (Foreach* triggers)
+        /// `labelToken` is only honored for triggerType == "Labeled" and is
+        /// passed through EncodeLabelRef (accepts numeric, "label[N]", or
+        /// quoted name).
+        /// </summary>
+        private void CompileTriggerFromBody(
+            BlockSyntax? body,
+            string triggerType,
+            string triggerAttribute,
+            string? labelToken,
+            int? fixedIndex = null)
+        {
+            _deferredInlines.Clear();
+            _orSeqCounter = 0; // fresh OrSequence allocation per trigger.
 
             // IMPORTANT:
             // These are the start offsets that the trigger must reference.
@@ -2184,9 +3914,9 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             // Push a new scope onto the stack
             _scopeStack.Push(new Dictionary<string, VariableInfo>());
 
-            if (method.Body != null)
+            if (body != null)
             {
-                ProcessStatementList(method.Body.Statements, ref actionCount, ref conditionCount, ref actionOffsetCursor, ref conditionOffsetCursor, true);
+                ProcessStatementList(body.Statements, ref actionCount, ref conditionCount, ref actionOffsetCursor, ref conditionOffsetCursor, true);
             }
 
             // Compute counts from the *start offsets*, not the mutated cursors
@@ -2194,6 +3924,24 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             int finalActionCount = _actions.Count - startActionOffset;
 
             EndScope();
+
+            // Trigger-record bit widths (haloreachnew FUN_1801f700c):
+            //   condStart=9b condCount=10b actStart=10b actCount=11b
+            // Engine caps: 512 conditions, 1024 actions; the wider count
+            // fields don't help because the pool arrays themselves are
+            // fixed-size with no bounds checks (see GetBinaryString).
+            if (startConditionOffset > EngineMaxConditions - 1)
+                throw new InvalidOperationException(
+                    $"Trigger condition-start offset {startConditionOffset} would index past condition pool (max {EngineMaxConditions - 1}).");
+            if (startActionOffset > EngineMaxActions - 1)
+                throw new InvalidOperationException(
+                    $"Trigger action-start offset {startActionOffset} would index past action pool (max {EngineMaxActions - 1}).");
+            if (startConditionOffset + finalConditionCount > EngineMaxConditions)
+                throw new InvalidOperationException(
+                    $"Trigger condition range [{startConditionOffset}..{startConditionOffset + finalConditionCount}) overflows condition pool (cap {EngineMaxConditions}).");
+            if (startActionOffset + finalActionCount > EngineMaxActions)
+                throw new InvalidOperationException(
+                    $"Trigger action range [{startActionOffset}..{startActionOffset + finalActionCount}) overflows action pool (cap {EngineMaxActions}).");
 
             // Create the trigger binary representation
             string conditionOffsetBinary = ConvertToBinary(startConditionOffset, 9);
@@ -2204,9 +3952,17 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             string triggerTypeBinary = ConvertToBinary(Enum.Parse(typeof(TriggerTypeEnum), triggerType), 3);
             string triggerAttributeBinary = ConvertToBinary(Enum.Parse(typeof(TriggerAttributeEnum), triggerAttribute), 3);
 
+            // Reach trigger layout (per ScriptDecompiler.ParseTrigger):
+            //   Type(3) + Attribute(3) + [LabelRef if Type=Labeled]
+            //     + condOff(9) + condCount(10) + actOff(10) + actCount(11)
+            string labelBits = string.Empty;
+            if (string.Equals(triggerType, "Labeled", StringComparison.Ordinal))
+                labelBits = EncodeLabelRef(labelToken ?? "none");
+
             string binaryTrigger =
                 triggerTypeBinary +
                 triggerAttributeBinary +
+                labelBits +
                 conditionOffsetBinary +
                 conditionCountBinary +
                 actionOffsetBinary +
@@ -2251,12 +4007,64 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
 
 
 
+        // Engine pool caps — confirmed via RE of haloreachnew FUN_180055044
+        // (the megalo pool decoder). The arrays are fixed-size with NO bounds
+        // checks; going past these caps writes past the array end, corrupts
+        // the next pool's count field, and crashes. The wider file-format
+        // count fields (10/11/9 bits) are NOT usable — exceeding the engine
+        // cap is undefined behavior, not soft-rejection.
+        //
+        // Pool struct layout (haloreachnew):
+        //   triggers   @ +0x008..+0xF08  stride 0x0C  =  320 slots
+        //   conditions @ +0xF10..+0x2F10 stride 0x10  =  512 slots
+        //   actions    @ +0x2F18..+0x7F18 stride 0x14 = 1024 slots
+        private const int EngineMaxConditions = 512;
+        private const int EngineMaxActions    = 1024;
+        private const int EngineMaxTriggers   = 320;
+
+        // Soft-warn thresholds — surfaced as warnings so users see how close
+        // they are before they hit the wall.
+        private const int WarnConditionsThreshold = (int)(EngineMaxConditions * 0.9);  // 460
+        private const int WarnActionsThreshold    = (int)(EngineMaxActions    * 0.9);  // 921
+        private const int WarnTriggersThreshold   = (int)(EngineMaxTriggers   * 0.9);  // 288
+
+        public int DiagPoolConditions => _conditions.Count;
+        public int DiagPoolActions    => _actions.Count;
+        public int DiagPoolTriggers   => _triggers.Count;
+
         private string GetBinaryString()
         {
             // Count the number of conditions, actions, and triggers
             int conditionCount = _conditions.Count;
             int actionCount = _actions.Count;
             int triggerCount = _triggers.Count;
+
+            if (conditionCount > EngineMaxConditions)
+                throw new InvalidOperationException(
+                    $"Compiled {conditionCount} conditions; engine cap is {EngineMaxConditions}. Exceeding crashes the game (no bounds check). Reduce conditions or split across gametypes.");
+            if (actionCount > EngineMaxActions)
+                throw new InvalidOperationException(
+                    $"Compiled {actionCount} actions; engine cap is {EngineMaxActions}. Exceeding crashes the game (no bounds check). Reduce actions, inline-fold, or split across gametypes.");
+            if (triggerCount > EngineMaxTriggers)
+                throw new InvalidOperationException(
+                    $"Compiled {triggerCount} triggers; engine cap is {EngineMaxTriggers}. Exceeding crashes the game (no bounds check). Reduce triggers or split across gametypes.");
+
+            // Approaching-cap warnings.
+            if (actionCount > WarnActionsThreshold)
+                _encoderDiagnostics.Add(new CompilerDiagnostic(
+                    CompilerDiagnosticSeverity.Warning,
+                    $"Action pool: {actionCount}/{EngineMaxActions} ({100 * actionCount / EngineMaxActions}%).",
+                    0, 0));
+            if (conditionCount > WarnConditionsThreshold)
+                _encoderDiagnostics.Add(new CompilerDiagnostic(
+                    CompilerDiagnosticSeverity.Warning,
+                    $"Condition pool: {conditionCount}/{EngineMaxConditions} ({100 * conditionCount / EngineMaxConditions}%).",
+                    0, 0));
+            if (triggerCount > WarnTriggersThreshold)
+                _encoderDiagnostics.Add(new CompilerDiagnostic(
+                    CompilerDiagnosticSeverity.Warning,
+                    $"Trigger pool: {triggerCount}/{EngineMaxTriggers} ({100 * triggerCount / EngineMaxTriggers}%).",
+                    0, 0));
 
             // Convert the counts to binary strings
             string conditionCountBinary = Convert.ToString(conditionCount, 2).PadLeft(10, '0');
@@ -2407,6 +4215,265 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
         }
 
         // Replace the ProcessBinaryCondition method with this improved version
+        // Encode a Megl.If operand as a (VarType tag, payload) pair so the
+        // condition record matches the megalo VarType variant layout (3-bit
+        // tag + variant payload). Picks the right variant from the
+        // expression shape: dotted member access → ObjectVar; player/team/
+        // timer/no_object identifiers → matching variant; numeric literals
+        // and number-typed identifiers → NumericVar.
+        private (string tag, string payload) EncodeConditionOperand(ExpressionSyntax expr)
+        {
+            // Strip parentheses.
+            if (expr is ParenthesizedExpressionSyntax paren)
+                return EncodeConditionOperand(paren.Expression);
+
+            // Logical NOT: descend (cond record's NOT bit is set elsewhere
+            // by ProcessCondition; for the operand-level encoding we just
+            // unwrap and emit the inner operand).
+            if (expr is PrefixUnaryExpressionSyntax unary
+                && unary.OperatorToken.IsKind(SyntaxKind.ExclamationToken))
+                return EncodeConditionOperand(unary.Operand);
+
+            // Unary minus literal: `-12345` → NumericVar Int16 with signed
+            // 16-bit payload. Roslyn parses this as PrefixUnaryExpression
+            // (kind=UnaryMinusExpression) wrapping a numeric literal.
+            if (expr is PrefixUnaryExpressionSyntax neg
+                && neg.OperatorToken.IsKind(SyntaxKind.MinusToken)
+                && neg.Operand is LiteralExpressionSyntax negLit)
+            {
+                int v = 0;
+                int.TryParse(negLit.Token.ValueText, out v);
+                v = -v;
+                string nt = Convert.ToString((int)NumericTypeRefEnum.Int16, 2).PadLeft(6, '0');
+                return ("000", nt + ToSigned16Binary(v));
+            }
+
+            // ElementAccessExpression — the decompiler emits things like
+            // `script_option[N]`. Stringify and route through NumericTypeRef
+            // (which knows the script_option variant).
+            if (expr is ElementAccessExpressionSyntax eae)
+            {
+                string text = eae.ToString();
+                try
+                {
+                    return ("000", ConvertNumericTypeRefToBinary(text, 0));
+                }
+                catch (Exception ex)
+                {
+                    _encoderDiagnostics.Add(new CompilerDiagnostic(
+                        CompilerDiagnosticSeverity.Warning,
+                        $"Condition operand '{text}' (ElementAccessExpression) — no encoder ({ex.Message}); payload empty.",
+                        1, 1));
+                    return ("000", string.Empty);
+                }
+            }
+
+            // Member access: current_player.playerobject0, current_object.foo, etc.
+            // The receiver tells us the variable kind:
+            //   .playerobjectN / .objectobjectN / .teamobjectN / .biped → ObjectTypeRef
+            //   .playernumberN / .objectnumberN / .teamnumberN         → NumericTypeRef
+            //   .score / .money / .rating                              → NumericTypeRef
+            //   .playerteam* / .teamteam*                              → TeamTypeRef
+            //   .playertimer* / etc.                                   → TimerTypeRef
+            //   .playerplayer*                                         → PlayerTypeRef
+            if (expr is MemberAccessExpressionSyntax ma)
+            {
+                string text = ma.ToString();
+                string memberName = ma.Name.Identifier.Text;
+
+                // Numeric variants (player/object/team-scoped numbers + score/money/rating)
+                if (memberName.StartsWith("playernumber", StringComparison.OrdinalIgnoreCase)
+                    || memberName.StartsWith("objectnumber", StringComparison.OrdinalIgnoreCase)
+                    || memberName.StartsWith("teamnumber", StringComparison.OrdinalIgnoreCase)
+                    || memberName.Equals("score", StringComparison.OrdinalIgnoreCase)
+                    || memberName.Equals("money", StringComparison.OrdinalIgnoreCase)
+                    || memberName.Equals("rating", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        return ("000", ConvertNumericTypeRefToBinary(text, 0));
+                    }
+                    catch (Exception ex)
+                    {
+                        _encoderDiagnostics.Add(new CompilerDiagnostic(
+                            CompilerDiagnosticSeverity.Warning,
+                            $"Condition operand '{text}' couldn't encode as NumericTypeRef ({ex.Message}); payload empty.",
+                            1, 1));
+                        return ("000", string.Empty);
+                    }
+                }
+
+                // Player variants (player/object/team-scoped player slots).
+                // `current_object.objectplayer0`, `globalplayer0.playerplayer1`,
+                // `current_team.teamplayer2` → PlayerTypeRef variants 1/2/3.
+                if (memberName.StartsWith("playerplayer", StringComparison.OrdinalIgnoreCase)
+                    || memberName.StartsWith("objectplayer", StringComparison.OrdinalIgnoreCase)
+                    || memberName.StartsWith("teamplayer", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        return ("001", ConvertPlayerTypeRefToBinary(text, 0));
+                    }
+                    catch (Exception ex)
+                    {
+                        _encoderDiagnostics.Add(new CompilerDiagnostic(
+                            CompilerDiagnosticSeverity.Warning,
+                            $"Condition operand '{text}' couldn't encode as PlayerTypeRef ({ex.Message}); payload empty.",
+                            1, 1));
+                        return ("001", string.Empty);
+                    }
+                }
+                // Team-scoped sub-slots → TeamTypeRef variants.
+                if (memberName.StartsWith("playerteam", StringComparison.OrdinalIgnoreCase)
+                    || memberName.StartsWith("objectteam", StringComparison.OrdinalIgnoreCase)
+                    || memberName.StartsWith("teamteam", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        return ("011", ConvertTeamTypeRefToBinary(text, 0));
+                    }
+                    catch (Exception ex)
+                    {
+                        _encoderDiagnostics.Add(new CompilerDiagnostic(
+                            CompilerDiagnosticSeverity.Warning,
+                            $"Condition operand '{text}' couldn't encode as TeamTypeRef ({ex.Message}); payload empty.",
+                            1, 1));
+                        return ("011", string.Empty);
+                    }
+                }
+                // Timer-scoped sub-slots → TimerTypeRef variants.
+                if (memberName.StartsWith("playertimer", StringComparison.OrdinalIgnoreCase)
+                    || memberName.StartsWith("objecttimer", StringComparison.OrdinalIgnoreCase)
+                    || memberName.StartsWith("teamtimer", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        return ("100", ConvertTimerTypeRefToBinary(text, 0));
+                    }
+                    catch (Exception ex)
+                    {
+                        _encoderDiagnostics.Add(new CompilerDiagnostic(
+                            CompilerDiagnosticSeverity.Warning,
+                            $"Condition operand '{text}' couldn't encode as TimerTypeRef ({ex.Message}); payload empty.",
+                            1, 1));
+                        return ("100", string.Empty);
+                    }
+                }
+
+                // Default: try ObjectTypeRef (handles .biped, .playerobjectN,
+                // .objectobjectN, .teamobjectN, .playerplayerN.biped, etc.).
+                try
+                {
+                    return ("010", ConvertObjectTypeRefToBinary(text, 0, 1));
+                }
+                catch
+                {
+                    _encoderDiagnostics.Add(new CompilerDiagnostic(
+                        CompilerDiagnosticSeverity.Warning,
+                        $"Condition operand '{text}' couldn't encode as ObjectTypeRef — emitting empty payload (will desync).",
+                        1, 1));
+                    return ("010", string.Empty);
+                }
+            }
+
+            if (expr is IdentifierNameSyntax id)
+            {
+                string name = id.Identifier.Text;
+
+                // Resolved variable from the decl table.
+                if (_variableToIndexMap.TryGetValue(name, out VariableInfo varInfo))
+                {
+                    switch (varInfo.Type)
+                    {
+                        case "Number":
+                            return ("000", ConvertNumericTypeRefToBinary($"GlobalNumber{varInfo.Index}", 0));
+                        case "Object":
+                            return ("010", ConvertObjectTypeRefToBinary($"GlobalObject{varInfo.Index}", 0, 1));
+                        case "Player":
+                            return ("001", ConvertPlayerTypeRefToBinary($"GlobalPlayer{varInfo.Index}", 0));
+                        case "Team":
+                            return ("011", ConvertTeamTypeRefToBinary($"GlobalTeam{varInfo.Index}", 0));
+                        case "Timer":
+                            return ("100", ConvertTimerTypeRefToBinary($"GlobalTimer{varInfo.Index}", 0));
+                    }
+                }
+
+                // Bare globalnumberN / globalplayerN / globalobjectN /
+                // globalteamN / globaltimerN identifiers — common when the
+                // decompiler emits without going through the decl table.
+                if (name.StartsWith("globalnumber", StringComparison.OrdinalIgnoreCase)
+                    || name.StartsWith("GlobalNumber", StringComparison.OrdinalIgnoreCase))
+                    return ("000", ConvertNumericTypeRefToBinary(name, 0));
+
+                // Decompiler-synthesized temp identifiers used as condition
+                // operands. Route to the matching VarType variant.
+                if (name.StartsWith("temp_num_", StringComparison.OrdinalIgnoreCase))
+                    return ("000", ConvertNumericTypeRefToBinary(name, 0));
+                if (name.StartsWith("temp_obj_", StringComparison.OrdinalIgnoreCase))
+                    return ("010", ConvertObjectTypeRefToBinary(name, 0, 1));
+                if (name.StartsWith("temp_player_", StringComparison.OrdinalIgnoreCase))
+                    return ("001", ConvertPlayerTypeRefToBinary(name, 0));
+                if (name.StartsWith("temp_team_", StringComparison.OrdinalIgnoreCase))
+                    return ("011", ConvertTeamTypeRefToBinary(name, 0));
+
+                // Built-in NumericTypeRef no-payload variants (script_option /
+                // round-settings) — score_to_win, teams_enabled, round_time_limit,
+                // perfection_enabled, etc. ConvertNumericTypeRefToBinary
+                // accepts both `teams_enabled` and `teams__enabled`.
+                try
+                {
+                    return ("000", ConvertNumericTypeRefToBinary(name, 0));
+                }
+                catch
+                {
+                    // not a numeric — fall through to object/player/team checks.
+                }
+
+                // Built-in object/player/team identifiers.
+                if (name.Equals("no_object", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("NoObject", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("current_object", StringComparison.OrdinalIgnoreCase)
+                    || name.StartsWith("globalobject", StringComparison.OrdinalIgnoreCase)
+                    || name.StartsWith("GlobalObject", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ("010", ConvertObjectTypeRefToBinary(name, 0, 1));
+                }
+                if (name.Equals("current_player", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("no_player", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("NoPlayer", StringComparison.OrdinalIgnoreCase)
+                    || name.StartsWith("globalplayer", StringComparison.OrdinalIgnoreCase)
+                    || name.StartsWith("GlobalPlayer", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ("001", ConvertPlayerTypeRefToBinary(name, 0));
+                }
+                if (name.Equals("current_team", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("no_team", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("NoTeam", StringComparison.OrdinalIgnoreCase)
+                    || name.StartsWith("globalteam", StringComparison.OrdinalIgnoreCase)
+                    || name.StartsWith("GlobalTeam", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ("011", ConvertTeamTypeRefToBinary(name, 0));
+                }
+            }
+
+            // Literal — numeric Int16.
+            if (expr is LiteralExpressionSyntax lit)
+            {
+                int v = 0;
+                int.TryParse(lit.Token.ValueText, out v);
+                string nt = Convert.ToString((int)NumericTypeRefEnum.Int16, 2).PadLeft(6, '0');
+                return ("000", nt + ToSigned16Binary(v));
+            }
+
+            // Default: empty payload (decoder will desync — but we emit a
+            // diagnostic so it's visible).
+            _encoderDiagnostics.Add(new CompilerDiagnostic(
+                CompilerDiagnosticSeverity.Warning,
+                $"Condition operand '{expr}' (kind={expr.Kind()}) — no encoder; payload empty.",
+                1, 1));
+            return ("000", string.Empty);
+        }
+
         private void ProcessBinaryCondition(BinaryExpressionSyntax binaryExpression, ref int conditionCount, ref int actionOffset, ref int conditionOffset, int orSequence = 0, bool isNot = false)
         {
             // Determine operator type
@@ -2426,41 +4493,31 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
                     return;
             }
 
-            // Process left-hand side (typically a variable)
-            string leftVarType = "000"; // Default to NumericVar
-            string leftVarBinary = "";
-
-            if (binaryExpression.Left is IdentifierNameSyntax leftIdentifier)
+            // The decompiler emits megalo NOT-flagged comparisons as `!a OP b`
+            // (which C# parses as `(!a) OP b`). Peel a leading `!` off the
+            // LHS and apply it as the cond record's NOT flag — this is
+            // semantically `!(a OP b)`, not `(!a) OP b`.
+            ExpressionSyntax leftExpr  = binaryExpression.Left;
+            ExpressionSyntax rightExpr = binaryExpression.Right;
+            while (leftExpr is ParenthesizedExpressionSyntax lp) leftExpr = lp.Expression;
+            if (leftExpr is PrefixUnaryExpressionSyntax leftUnary
+                && leftUnary.OperatorToken.IsKind(SyntaxKind.ExclamationToken))
             {
-                string varName = leftIdentifier.Identifier.Text;
-                if (_variableToIndexMap.TryGetValue(varName, out VariableInfo varInfo))
-                {
-                    // Handle based on variable type
-                    if (varInfo.Type == "Number")
-                    {
-                        // NumericVar (000) + NumericTypeRef (GlobalNumber = 4)
-                        string numericTypeRefBinary = Convert.ToString((int)NumericTypeRefEnum.GlobalNumber, 2).PadLeft(6, '0');
-                        string globalNumberIndexBinary = Convert.ToString(varInfo.Index, 2).PadLeft(4, '0');
-                        leftVarBinary = numericTypeRefBinary + globalNumberIndexBinary;
-                        Debug.WriteLine($"Processing variable {varName} as global.number[{varInfo.Index}]");
-                    }
-                    // Add handling for other variable types if needed
-                }
+                isNot = !isNot;
+                leftExpr = leftUnary.Operand;
+                while (leftExpr is ParenthesizedExpressionSyntax lp2) leftExpr = lp2.Expression;
             }
 
-            // Process right-hand side (typically a literal)
-            string rightVarType = "000"; // Default to NumericVar
-            string rightVarBinary = "";
-
-            if (binaryExpression.Right is LiteralExpressionSyntax rightLiteral)
-            {
-                // For numeric literals, use Int16 NumericTypeRef (0)
-                string numericTypeRefBinary = Convert.ToString((int)NumericTypeRefEnum.Int16, 2).PadLeft(6, '0');
-                int literalValue = int.Parse(rightLiteral.Token.ValueText);
-                string literalValueBinary = Convert.ToString(literalValue, 2).PadLeft(16, '0');
-                rightVarBinary = numericTypeRefBinary + literalValueBinary;
-                Debug.WriteLine($"Processing literal value {literalValue}");
-            }
+            // Process LHS / RHS — pick VarType variant by operand shape:
+            //   NumericVar (000) — number variable or numeric literal
+            //   ObjectVar  (010) — member-access (current_player.playerobject0)
+            //                       or identifier resolving to ObjectTypeRef
+            //                       (current_object, no_object, GlobalObjectN)
+            //   PlayerVar  (001) — current_player / GlobalPlayerN / no_player
+            //   TeamVar    (011) — current_team / GlobalTeamN / no_team
+            //   TimerVar   (100) — GlobalTimerN
+            (string leftVarType, string leftVarBinary) = EncodeConditionOperand(leftExpr);
+            (string rightVarType, string rightVarBinary) = EncodeConditionOperand(rightExpr);
 
             // Convert the condition number to a 5-bit binary string (Megl.If = 1)
             string conditionNumberBinary = ConvertToBinary(1, 5);
@@ -2484,9 +4541,26 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             _conditions.Add(new ConditionObject("Megl.If", new List<string> { binaryCondition }));
             Debug.WriteLine($"Added binary condition: Megl.If({binaryCondition}) pointing to LOCAL action {localActionOffset} (base={CurrentActionBase}, global={currentActionOffset})");
 
+            // Encoder-side trace: per-Megl_If payload widths so we can
+            // diff against the decoder's --diff-trace output.
+            if (CompilerCondTrace != null)
+            {
+                int hdrBits = conditionNumberBinary.Length + notBinary.Length + orSequenceBinary.Length + actionOffsetBinary.Length;
+                int payBits = leftVarType.Length + leftVarBinary.Length + rightVarType.Length + rightVarBinary.Length + operatorBinary.Length;
+                CompilerCondTrace.AppendLine(
+                    $"  enc cond #{_conditions.Count - 1} Megl.If hdr={hdrBits}b" +
+                    $" L=[tag={leftVarType} ({leftVarType.Length}b) pay={leftVarBinary.Length}b ({leftExpr})]" +
+                    $" R=[tag={rightVarType} ({rightVarType.Length}b) pay={rightVarBinary.Length}b ({rightExpr})]" +
+                    $" op={operatorBinary.Length}b total={hdrBits + payBits}b not={(isNot?1:0)}");
+            }
+
             // Increment condition count
             conditionCount++;
         }
+
+        // Per-Megl_If encoder trace (collects per-call widths). Set by the
+        // CLI harness, ignored otherwise.
+        public static System.Text.StringBuilder? CompilerCondTrace { get; set; }
 
 
 
@@ -2519,17 +4593,22 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             {
                 if (bin.IsKind(SyntaxKind.LogicalOrExpression))
                 {
-                    // OR chains use ORSequence slots
+                    // `a || b` — both halves share the SAME orSequence so the
+                    // decoder groups them as one OR-set. (Decoder logic at
+                    // FormatConditionsCSharp groups conditions by OrSequence
+                    // and OR's within a group, AND's across groups.)
                     ProcessCondition(bin.Left, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
-                    ProcessCondition(bin.Right, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence + 1, isNot);
+                    ProcessCondition(bin.Right, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
                     return;
                 }
 
                 if (bin.IsKind(SyntaxKind.LogicalAndExpression))
                 {
-                    // AND is implicit: just emit both conditions with same ORSequence
+                    // `a && b` — each half is its own AND-group; allocate
+                    // fresh orSequences so the decoder treats them as
+                    // distinct groups (AND'd across).
                     ProcessCondition(bin.Left, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
-                    ProcessCondition(bin.Right, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence, isNot);
+                    ProcessCondition(bin.Right, ref conditionCount, ref actionOffset, ref conditionOffset, orSequence + 1, isNot);
                     return;
                 }
 
@@ -2542,25 +4621,71 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             if (condition is InvocationExpressionSyntax invocation)
             {
                 string? scriptName = GetInvokedName(invocation.Expression);
-                if (string.IsNullOrWhiteSpace(scriptName))
+                var args = invocation.ArgumentList.Arguments.Select(a => TrimArg(a.Expression)).ToList();
+
+                // Member-access form: receiver.method(args) — try the
+                // trailing method name and pass the receiver as arg[0].
+                string? memberMethod = null;
+                string? memberReceiver = null;
+                if (invocation.Expression is MemberAccessExpressionSyntax ma)
                 {
-                    Debug.WriteLine("Unsupported condition invocation form.");
+                    memberMethod = ma.Name.Identifier.Text;
+                    memberReceiver = ma.Expression.ToString();
+                }
+
+                MegaloCondition cond = default;
+                bool resolved = false;
+                bool receiverInjected = false;
+                if (!string.IsNullOrWhiteSpace(scriptName))
+                {
+                    try { cond = ResolveConditionByName(scriptName); resolved = true; }
+                    catch { resolved = false; }
+                }
+                if (!resolved && !string.IsNullOrEmpty(memberMethod))
+                {
+                    try
+                    {
+                        cond = ResolveConditionByName(memberMethod);
+                        resolved = true;
+                        if (memberReceiver != null) { args.Insert(0, memberReceiver); receiverInjected = true; }
+                    }
+                    catch { resolved = false; }
+                }
+                // Member-access call (`current_object.is_of_type(monitor)`)
+                // resolved via the tail name (`is_of_type`) — the receiver
+                // (`current_object`) must be injected as arg[0] because
+                // most condition schemas have the receiver as their first
+                // (or near-first) param. Mirror ProcessInvocation's
+                // member-receiver injection so Conditions encode arg-shifted
+                // identically to Actions.
+                if (resolved && !receiverInjected && !string.IsNullOrEmpty(memberReceiver))
+                {
+                    args.Insert(0, memberReceiver);
+                    receiverInjected = true;
+                }
+
+                if (!resolved)
+                {
+                    Debug.WriteLine($"Condition '{scriptName}' not found — emitting placeholder.");
+                    EmitPlaceholderCondition(scriptName ?? "<unknown>", actionOffset, orSequence, isNot);
+                    conditionOffset++;
+                    conditionCount++;
                     return;
                 }
 
-                MegaloCondition cond;
+                List<string> paramBits;
                 try
                 {
-                    cond = ResolveConditionByName(scriptName);
+                    paramBits = EncodeMegaloConditionParams(cond, args);
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine(ex.Message);
+                    Debug.WriteLine($"Condition '{cond.Name}' param encoding failed ({ex.Message}); emitting placeholder.");
+                    EmitPlaceholderCondition($"{cond.Name}: {ex.Message}", actionOffset, orSequence, isNot);
+                    conditionOffset++;
+                    conditionCount++;
                     return;
                 }
-
-                var args = invocation.ArgumentList.Arguments.Select(a => TrimArg(a.Expression)).ToList();
-                var paramBits = EncodeMegaloConditionParams(cond, args);
 
                 string conditionNumberBinary = ConvertToBinary(cond.Id, 5);
                 string notBinary = ConvertToBinary(isNot ? 1 : 0, 1);
@@ -2578,13 +4703,98 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
 
                 _conditions.Add(new ConditionObject(cond.Name, new List<string> { binaryCondition }));
                 Debug.WriteLine($"Added condition: {scriptName}({binaryCondition}) at conditionOffset={conditionOffset} (base={CurrentActionBase}, global={actionOffset})");
+
+                if (CompilerCondTrace != null)
+                {
+                    int hdrBits = conditionNumberBinary.Length + notBinary.Length + orSequenceBinary.Length + actionOffsetBinary.Length;
+                    int payBits = paramBits.Sum(p => p?.Length ?? 0);
+                    var pbDetail = string.Join(",",
+                        cond.Params.Select((p, idx) => $"{p.Name}:{p.TypeRef}({(idx < paramBits.Count ? paramBits[idx]?.Length ?? 0 : -1)}b)"));
+                    CompilerCondTrace.AppendLine(
+                        $"  enc cond #{_conditions.Count - 1} {cond.Name}(id={cond.Id}) hdr={hdrBits}b pay={payBits}b total={hdrBits + payBits}b" +
+                        $" args=[{string.Join(", ", args)}] params=[{pbDetail}]");
+                }
+
                 conditionOffset++;
                 conditionCount++;
 
                 return;
             }
 
-            Debug.WriteLine($"Unsupported condition type: {condition.Kind()}");
+            // Receiver-only condition with no args, e.g. `current_player.is_elite`
+            // (rare — usually invoked, but Roslyn may parse it as bare access).
+            if (condition is MemberAccessExpressionSyntax bareMa)
+            {
+                string method = bareMa.Name.Identifier.Text;
+                MegaloCondition cond = default;
+                bool ok = false;
+                try { cond = ResolveConditionByName(method); ok = true; } catch { }
+                if (ok)
+                {
+                    var args = new List<string> { bareMa.Expression.ToString() };
+                    List<string> paramBits;
+                    try { paramBits = EncodeMegaloConditionParams(cond, args); }
+                    catch { paramBits = new List<string>(); ok = false; }
+
+                    if (ok)
+                    {
+                        string conditionNumberBinary = ConvertToBinary(cond.Id, 5);
+                        string notBinary = ConvertToBinary(isNot ? 1 : 0, 1);
+                        string orSequenceBinary = ConvertToBinary(orSequence, 9);
+                        int localActionOffset = GetLocalActionOffset(actionOffset);
+                        string actionOffsetBinary = ConvertToBinary(localActionOffset, 10);
+                        string binaryCondition = conditionNumberBinary
+                                               + notBinary + orSequenceBinary + actionOffsetBinary
+                                               + string.Join("", paramBits);
+                        _conditions.Add(new ConditionObject(cond.Name, new List<string> { binaryCondition }));
+                        conditionOffset++;
+                        conditionCount++;
+                        return;
+                    }
+                }
+
+                EmitPlaceholderCondition(method, actionOffset, orSequence, isNot);
+                conditionOffset++;
+                conditionCount++;
+                return;
+            }
+
+            // Identifier-only condition (e.g. a flag variable used as a
+            // boolean). Emit a placeholder so counts stay aligned.
+            if (condition is IdentifierNameSyntax || condition is ElementAccessExpressionSyntax)
+            {
+                EmitPlaceholderCondition(condition.ToString(), actionOffset, orSequence, isNot);
+                conditionOffset++;
+                conditionCount++;
+                return;
+            }
+
+            Debug.WriteLine($"Unsupported condition type: {condition.Kind()} — emitting placeholder.");
+            EmitPlaceholderCondition(condition.ToString(), actionOffset, orSequence, isNot);
+            conditionOffset++;
+            conditionCount++;
+        }
+
+        // Emit a placeholder condition with a 25-bit header (id=0/None,
+        // not, orSeq, actionOffset). Keeps condition counts aligned when
+        // we can't resolve the script-side condition name/args. Surfaces
+        // a Warning diagnostic so callers can see WHICH condition silently
+        // degraded (otherwise the encoder reports zero warnings while the
+        // bit stream rolls forward as None placeholders, breaking re-
+        // decompile alignment).
+        private void EmitPlaceholderCondition(string sourceName, int actionOffset, int orSequence, bool isNot)
+        {
+            string conditionNumberBinary = ConvertToBinary(0, 5); // condition id 0 == "None"
+            string notBinary = ConvertToBinary(isNot ? 1 : 0, 1);
+            string orSequenceBinary = ConvertToBinary(orSequence, 9);
+            int localActionOffset = GetLocalActionOffset(actionOffset);
+            string actionOffsetBinary = ConvertToBinary(localActionOffset, 10);
+            string binaryCondition = conditionNumberBinary + notBinary + orSequenceBinary + actionOffsetBinary;
+            _conditions.Add(new ConditionObject($"None /* {sourceName} */", new List<string> { binaryCondition }));
+            _encoderDiagnostics.Add(new CompilerDiagnostic(
+                CompilerDiagnosticSeverity.Warning,
+                $"Condition '{sourceName}' could not be resolved/encoded — emitted None placeholder. Re-decompile will mis-align here.",
+                1, 1));
         }
 
 
@@ -2597,68 +4807,223 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
         private string ConvertNumericTypeRefToBinary(string value, int bitSize)
         {
             value = (value ?? string.Empty).Trim();
+            string Tag6(int t) => Convert.ToString(t, 2).PadLeft(6, '0');
 
-            // Allow literals directly: NumericTypeRef(Int16) + 16-bit payload
+            // Allow literals directly: NumericTypeRef(Int16) + 16-bit payload.
             if (int.TryParse(value, out int literal))
             {
-                string typeBits = Convert.ToString((int)NumericTypeRefEnum.Int16, 2).PadLeft(6, '0');
-                string payload = ToSigned16Binary(literal);
-                string finalLit = typeBits + payload;
-                return bitSize > 0 ? finalLit.PadLeft(bitSize, '0') : finalLit;
+                return Tag6((int)NumericTypeRefEnum.Int16) + ToSigned16Binary(literal);
             }
 
-            // Define a dictionary to map input strings to their corresponding NumericTypeRefEnum values
-            var numericTypeRefMap = new Dictionary<string, NumericTypeRefEnum>(StringComparer.OrdinalIgnoreCase)
-    {
-        { "Int16", NumericTypeRefEnum.Int16 },
-        { "NoNumber", NumericTypeRefEnum.Int16 },
-        // You can add more explicit mappings here if you have "RoundTime" etc.
-    };
+            // No-payload built-in variants (script-option / round-settings).
+            // The decompiler renders these as snake_case identifiers; the
+            // schema variant names are space-separated. Normalize both.
+            // Decompiler also doubles underscores when the source had a
+            // space (so "Teams Enabled" → "teams__enabled"). Strip extras.
+            string norm = value
+                .Replace("__", "_")
+                .Replace(" ", "_")
+                .ToLowerInvariant();
+            var noPayload = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["current_round"]                = 13,
+                ["symmetric_mode"]               = 14,
+                ["symmetric_mode_writable"]      = 15,
+                ["score_to_win"]                 = 16,
+                ["fireteams_enabled"]            = 17,
+                ["teams_enabled"]                = 18,
+                ["round_time_limit"]             = 19,
+                ["round_limit"]                  = 20,
+                ["perfection_enabled"]           = 21,
+                ["early_victory_win_count"]      = 22,
+                ["sudden_death_time_limit"]      = 23,
+            };
+            if (noPayload.TryGetValue(norm, out int npVariant))
+                return Tag6(npVariant);
 
-            // Check if the input value is a GlobalNumber
+            // script_option[N]: variant 5, 4-bit option index.
+            var soMatch = System.Text.RegularExpressions.Regex.Match(value,
+                @"^script_option\s*\[\s*(\d+)\s*\]$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (soMatch.Success && int.TryParse(soMatch.Groups[1].Value, out int soIdx))
+                return Tag6(5) + Convert.ToString(soIdx & 0xF, 2).PadLeft(4, '0');
+
+            // Global.Number[N]: variant 4, 4-bit index. Accept both
+            // PascalCase (`GlobalNumber3`) and snake_case (`globalnumber3`).
             if (value.StartsWith("GlobalNumber", StringComparison.OrdinalIgnoreCase))
             {
-                int globalNumberIndex = int.Parse(value.Replace("GlobalNumber", ""));
-                // Index 0 maps to GlobalNumber0, etc.
-                if (globalNumberIndex < 0 || globalNumberIndex > 15)
-                    throw new ArgumentException($"Invalid GlobalNumber index: {globalNumberIndex}");
-
-                string numericTypeRefBinary = Convert.ToString((int)NumericTypeRefEnum.GlobalNumber, 2).PadLeft(6, '0');
-                string globalNumberIndexBinary = Convert.ToString(globalNumberIndex, 2).PadLeft(4, '0');
-                string finalBinaryString = numericTypeRefBinary + globalNumberIndexBinary;
-                return bitSize > 0 ? finalBinaryString.PadLeft(bitSize, '0') : finalBinaryString;
+                int gnIdx = int.Parse(value.Substring("GlobalNumber".Length));
+                if (gnIdx < 0 || gnIdx > 15)
+                    throw new ArgumentException($"Invalid GlobalNumber index: {gnIdx}");
+                return Tag6(4) + Convert.ToString(gnIdx, 2).PadLeft(4, '0');
             }
 
-            // Convert NumericTypeRef to its binary representation
-            if (numericTypeRefMap.TryGetValue(value, out var numericTypeRefEnum))
+            // temp_num_N — decompiler-synthesized name for a scratch-number
+            // slot. The Reach decoder reads NumericTypeRef variants 44..63
+            // (the "Unlabelled" range) as 6-bit tag + 4-bit extra-index
+            // (controlled by ScriptDecompiler._tempNumberExtraBits, default 4).
+            // Mirror that: tag=44 (canonical Unlabelled), extra=N as 4 bits.
+            if (value.StartsWith("temp_num_", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(value.Substring("temp_num_".Length), out int tempNum))
+                return Tag6(44) + Convert.ToString(tempNum & 0xF, 2).PadLeft(4, '0');
+
+            // Player.Number — `current_player.playernumberN` or
+            // `globalplayerM.playernumberN`. Variant 1: PlayerRef (5b) +
+            // slot (3b).
+            //
+            // Object.Number — `current_object.objectnumberN`. Variant 2:
+            // ObjectRef (5b) + slot (3b).
+            //
+            // Team.Number — `current_team.teamnumberN`. Variant 3:
+            // TeamRef (3b) + slot (3b).
+            int firstDot = value.IndexOf('.');
+            if (firstDot > 0)
             {
-                string numericTypeRefBinary = Convert.ToString((int)numericTypeRefEnum, 2).PadLeft(6, '0');
+                string lhs = value.Substring(0, firstDot).Trim();
+                string rhs = value.Substring(firstDot + 1).Trim();
+
+                if (rhs.StartsWith("playernumber", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("playernumber".Length), out int pSlot))
+                {
+                    string playerRef = EncodePlayerRef5(lhs);
+                    return Tag6(1) + playerRef + Convert.ToString(pSlot, 2).PadLeft(3, '0');
+                }
+                if (rhs.StartsWith("objectnumber", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("objectnumber".Length), out int oSlot))
+                {
+                    string objRef = EncodeObjectRef5(lhs);
+                    return Tag6(2) + objRef + Convert.ToString(oSlot, 2).PadLeft(3, '0');
+                }
+                if (rhs.StartsWith("teamnumber", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("teamnumber".Length), out int tSlot))
+                {
+                    string teamRef = EncodeTeamRef3(lhs);
+                    return Tag6(3) + teamRef + Convert.ToString(tSlot, 2).PadLeft(3, '0');
+                }
+
+                // Player.Score / Player.Money / Team.Score variants.
+                if (rhs.Equals("score", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (lhs.StartsWith("globalplayer", StringComparison.OrdinalIgnoreCase) || lhs.Equals("current_player", StringComparison.OrdinalIgnoreCase))
+                        return Tag6(8) + EncodePlayerRef5(lhs);
+                    return Tag6(7) + EncodeTeamRef3(lhs);
+                }
+                if (rhs.Equals("money", StringComparison.OrdinalIgnoreCase))
+                    return Tag6(9) + EncodePlayerRef5(lhs);
+                if (rhs.Equals("rating", StringComparison.OrdinalIgnoreCase))
+                    return Tag6(10) + EncodePlayerRef5(lhs);
+
+                // Player.Stat (variant 11) — `<player>.playerstats[N]`
+                //   tag(6) + PlayerRef(5b) + Statistic(2b)
+                // Team.Stat  (variant 12) — `<team>.playerstats[N]`
+                //   tag(6) + TeamRef(3b) + Statistic(2b)
+                var psM = System.Text.RegularExpressions.Regex.Match(rhs,
+                    @"^playerstats\s*\[\s*(\d+)\s*\]$",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (psM.Success && int.TryParse(psM.Groups[1].Value, out int psIdx))
+                {
+                    if (lhs.Equals("current_team", StringComparison.OrdinalIgnoreCase)
+                        || lhs.StartsWith("globalteam", StringComparison.OrdinalIgnoreCase))
+                        return Tag6(12) + EncodeTeamRef3(lhs) + Convert.ToString(psIdx & 0x3, 2).PadLeft(2, '0');
+                    return Tag6(11) + EncodePlayerRef5(lhs) + Convert.ToString(psIdx & 0x3, 2).PadLeft(2, '0');
+                }
+            }
+
+            // NoNumber / Int16 token: emit Int16 variant + 16-bit zero.
+            if (value.Equals("Int16", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("NoNumber", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("no_number", StringComparison.OrdinalIgnoreCase))
+            {
+                return Tag6((int)NumericTypeRefEnum.Int16) + ToSigned16Binary(0);
             }
 
             throw new ArgumentException($"Unsupported NumericTypeRef: {value}");
+        }
+
+        // Shared helpers used by NumericTypeRef and ObjectTypeRef encoders.
+        private static string EncodePlayerRef5(string r)
+        {
+            // PlayerRef variants (5b): 0=NoPlayer, 1..16=Player0..Player15,
+            // 17..24=GlobalPlayer[0..7], 25=CurrentPlayer, 26=HudPlayer,
+            // 27=HudTargetPlayer, 28=ObjectKiller, 29..31=Unlabelled.
+            if (Enum.TryParse(typeof(PlayerRefEnum), r, true, out var pe) && pe != null)
+                return Convert.ToString(Convert.ToInt32(pe), 2).PadLeft(5, '0');
+            if (r.StartsWith("globalplayer", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(r.Substring("globalplayer".Length), out int gp))
+                return Convert.ToString(17 + (gp & 0x7), 2).PadLeft(5, '0');
+            if (r.StartsWith("GlobalPlayer", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(r.Substring("GlobalPlayer".Length), out int gP))
+                return Convert.ToString(17 + (gP & 0x7), 2).PadLeft(5, '0');
+            if (r.Equals("current_player", StringComparison.OrdinalIgnoreCase))
+                return Convert.ToString((int)PlayerRefEnum.CurrentPlayer, 2).PadLeft(5, '0');
+            if (r.StartsWith("temp_player_", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(r.Substring("temp_player_".Length), out int tp))
+                return Convert.ToString(29 + (tp & 0x3), 2).PadLeft(5, '0');
+            return "00000";
+        }
+        private static string EncodeObjectRef5(string r)
+        {
+            if (r.Equals("current_object", StringComparison.OrdinalIgnoreCase))
+                return Convert.ToString((int)ObjectRef.CurrentObject, 2).PadLeft(5, '0');
+            if (r.StartsWith("GlobalObject", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(r.Substring("GlobalObject".Length), out int gi))
+                return Convert.ToString(gi + 1, 2).PadLeft(5, '0');
+            if (r.StartsWith("globalobject", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(r.Substring("globalobject".Length), out int gI))
+                return Convert.ToString(gI + 1, 2).PadLeft(5, '0');
+            if (r.StartsWith("temp_obj_", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(r.Substring("temp_obj_".Length), out int to))
+                return Convert.ToString(22 + (to & 0x7), 2).PadLeft(5, '0');
+            return "00000";
+        }
+        private static string EncodeTeamRef3(string r)
+        {
+            if (r.Equals("current_team", StringComparison.OrdinalIgnoreCase)) return "000";
+            if (r.StartsWith("globalteam", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(r.Substring("globalteam".Length), out int gt))
+                return Convert.ToString(gt + 1, 2).PadLeft(3, '0');
+            if (r.StartsWith("GlobalTeam", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(r.Substring("GlobalTeam".Length), out int gT))
+                return Convert.ToString(gT + 1, 2).PadLeft(3, '0');
+            return "000";
         }
 
         private string ConvertPlayerTypeRefToBinary(string value, int bitSize)
         {
             value = (value ?? string.Empty).Trim();
 
-            // Support GlobalPlayerN (similar to GlobalObject)
+            // GlobalPlayer[N] maps to PlayerRef variants 17..24 — see
+            // MegaloSchema PlayerRef table. (Variants 1..16 are Player0..Player15
+            // session slots; 0=NoPlayer; 25=CurrentPlayer.)
             if (value.StartsWith("GlobalPlayer", StringComparison.OrdinalIgnoreCase))
             {
-                int idx = int.Parse(value.Replace("GlobalPlayer", ""));
-                idx += 1; // reserve 0 for NoPlayer
-                if (idx < 0 || idx > 31) throw new ArgumentException($"Invalid GlobalPlayer index: {idx}");
+                int idx = int.Parse(value.Substring("GlobalPlayer".Length));
+                if (idx < 0 || idx > 7) throw new ArgumentException($"Invalid GlobalPlayer index: {idx}");
 
                 string typeBits = Convert.ToString((int)PlayerTypeRefEnum.Player, 2).PadLeft(2, '0');
-                string refBits = Convert.ToString(idx, 2).PadLeft(5, '0');
+                string refBits = Convert.ToString(17 + idx, 2).PadLeft(5, '0');
                 string final = typeBits + refBits;
                 return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
             }
 
-            if (value.Equals("NoPlayer", StringComparison.OrdinalIgnoreCase))
+            if (value.Equals("NoPlayer", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("no_player", StringComparison.OrdinalIgnoreCase))
             {
                 string typeBits = Convert.ToString((int)PlayerTypeRefEnum.Player, 2).PadLeft(2, '0');
                 string refBits = Convert.ToString(0, 2).PadLeft(5, '0');
+                string final = typeBits + refBits;
+                return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+            }
+
+            // temp_player_N — decompiler-synthesized scratch player slot.
+            // Decompiler renders PlayerRef variants 29..31 (the "Unlabelled"
+            // range) as `temp_player_{tag-29}`. Mirror by emitting
+            // PlayerTypeRef variant 0 (Player) + PlayerRef tag = 29+N.
+            if (value.StartsWith("temp_player_", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(value.Substring("temp_player_".Length), out int tempPl))
+            {
+                string typeBits = Convert.ToString((int)PlayerTypeRefEnum.Player, 2).PadLeft(2, '0');
+                string refBits = Convert.ToString(29 + (tempPl & 0x3), 2).PadLeft(5, '0');
                 string final = typeBits + refBits;
                 return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
             }
@@ -2670,6 +5035,26 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
                 string refBits = Convert.ToString((int)PlayerRefEnum.CurrentPlayer, 2).PadLeft(5, '0');
                 string final = typeBits + refBits;
                 return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+            }
+
+            // Dotted: receiver.member — PlayerTypeRef variants 1/2/3.
+            //   <player>.playerplayerN  → variant 1 Player.Player (5b PlayerRef + 2b slot)
+            //   <object>.objectplayerN  → variant 2 Object.Player  (5b ObjectRef + 2b slot)
+            //   <team>.teamplayerN      → variant 3 Team.Player    (3b TeamRef  + 2b slot)
+            int dot = value.IndexOf('.');
+            if (dot > 0)
+            {
+                string lhs = value.Substring(0, dot).Trim();
+                string rhs = value.Substring(dot + 1).Trim();
+                if (rhs.StartsWith("playerplayer", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("playerplayer".Length), out int sPP))
+                    return "01" + EncodePlayerRef5(lhs) + Convert.ToString(sPP, 2).PadLeft(2, '0');
+                if (rhs.StartsWith("objectplayer", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("objectplayer".Length), out int sOP))
+                    return "10" + EncodeObjectRef5(lhs) + Convert.ToString(sOP, 2).PadLeft(2, '0');
+                if (rhs.StartsWith("teamplayer", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("teamplayer".Length), out int sTP))
+                    return "11" + EncodeTeamRef3(lhs) + Convert.ToString(sTP, 2).PadLeft(2, '0');
             }
 
             // Try parsing as an enum directly (if you have names like "SomePlayerRef")
@@ -2696,23 +5081,38 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             int typeVal = 0;
             int refVal = 0;
 
+            // TeamRef variants (5b): 0=NoTeam, 1..8=Team0..Team7,
+            // 9=NeutralTeam, 10..17=GlobalTeam[0..7], 18=CurrentTeam,
+            // 23..28=Unlabelled (temp_team_0..5).
             if (value.StartsWith("GlobalTeam", StringComparison.OrdinalIgnoreCase))
             {
-                int idx = int.Parse(value.Replace("GlobalTeam", ""));
-                refVal = idx + 1;
+                int idx = int.Parse(value.Substring("GlobalTeam".Length));
+                refVal = 10 + (idx & 0x7);
             }
             else if (value.Equals("current_team", StringComparison.OrdinalIgnoreCase))
             {
-                // Best-effort: treat as Team0 for now (adjust if you have an enum)
-                refVal = 1;
+                refVal = 18;
             }
-            else if (value.Equals("NoTeam", StringComparison.OrdinalIgnoreCase))
+            else if (value.Equals("neutral_team", StringComparison.OrdinalIgnoreCase)
+                  || value.Equals("NeutralTeam", StringComparison.OrdinalIgnoreCase))
+            {
+                refVal = 9;
+            }
+            else if (value.Equals("NoTeam", StringComparison.OrdinalIgnoreCase)
+                     || value.Equals("no_team", StringComparison.OrdinalIgnoreCase))
             {
                 refVal = 0;
             }
+            // temp_team_N — decompiler-synthesized scratch team slot.
+            // Decompiler renders TeamRef variants 23..28 as `temp_team_{tag-23}`.
+            else if (value.StartsWith("temp_team_", StringComparison.OrdinalIgnoreCase)
+                     && int.TryParse(value.Substring("temp_team_".Length), out int tempTm))
+            {
+                refVal = 23 + (tempTm & 0x7);
+            }
             else if (value.StartsWith("Team", StringComparison.OrdinalIgnoreCase) && int.TryParse(value.Replace("Team", ""), out int t))
             {
-                refVal = t + 1;
+                refVal = 1 + (t & 0x7);
             }
             else
             {
@@ -2724,7 +5124,8 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
                 catch { refVal = 0; }
             }
 
-            string typeBits = ConvertToBinary(typeVal, 2);
+            // TeamTypeRef per MegaloSchema: 3-bit variant tag + payload.
+            string typeBits = ConvertToBinary(typeVal, 3);
             string refBits = ConvertToBinary(refVal, 5);
             string final = typeBits + refBits;
             return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
@@ -2734,30 +5135,82 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
         {
             value = (value ?? string.Empty).Trim();
 
-            // Fallback encoding: [2-bit type][5-bit ref]
-            int typeVal = 0;
-            int refVal = 0;
+            // TimerTypeRef per MegaloSchema: 3-bit variant tag + payload.
+            //   0=Timer            : 3-bit globaltimer slot
+            //   1=Player.Timer     : PlayerRef(5) + 2-bit playertimer slot
+            //   2=Team.Timer       : TeamRef(3) + 2-bit teamtimer slot
+            //   3=Object.Timer     : ObjectRef(5) + 2-bit objecttimer slot
+            //   4=GameRoundTimer   : (no payload)
+            //   5=SuddenDeathTimer : (no payload)
+            //   6=OvertimeTimer    : (no payload)
+            //   7=Unlabelled       : (no payload)
+            string Tag3(int t) => Convert.ToString(t, 2).PadLeft(3, '0');
 
+            // Dotted forms: <ref>.playertimerN / .teamtimerN / .objecttimerN
+            int firstDot = value.IndexOf('.');
+            if (firstDot > 0)
+            {
+                string lhs = value.Substring(0, firstDot).Trim();
+                string rhs = value.Substring(firstDot + 1).Trim();
+                if (rhs.StartsWith("playertimer", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("playertimer".Length), out int pSlot))
+                {
+                    string playerRef = EncodePlayerRef5(lhs);
+                    string final = Tag3(1) + playerRef + Convert.ToString(pSlot & 0x3, 2).PadLeft(2, '0');
+                    return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+                }
+                if (rhs.StartsWith("teamtimer", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("teamtimer".Length), out int tSlot))
+                {
+                    string teamRef = EncodeTeamRef3(lhs);
+                    string final = Tag3(2) + teamRef + Convert.ToString(tSlot & 0x3, 2).PadLeft(2, '0');
+                    return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+                }
+                if (rhs.StartsWith("objecttimer", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("objecttimer".Length), out int oSlot))
+                {
+                    string objRef = EncodeObjectRef5(lhs);
+                    string final = Tag3(3) + objRef + Convert.ToString(oSlot & 0x3, 2).PadLeft(2, '0');
+                    return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+                }
+            }
+
+            // No-payload built-in variants.
+            string norm = value.Replace("__", "_").Replace(" ", "_").ToLowerInvariant();
+            switch (norm)
+            {
+                case "round_timer":
+                case "game_round_timer":
+                case "gameroundtimer":
+                    return Tag3(4);
+                case "sudden_death_timer":
+                case "suddendeathtimer":
+                    return Tag3(5);
+                case "overtime_timer":
+                case "overtimetimer":
+                    return Tag3(6);
+            }
+
+            // Variant 0 (Timer): 3-bit globaltimer slot.
+            int refVal = 0;
             if (value.StartsWith("GlobalTimer", StringComparison.OrdinalIgnoreCase))
             {
-                int idx = int.Parse(value.Replace("GlobalTimer", ""));
+                int idx = int.Parse(value.Substring("GlobalTimer".Length));
+                refVal = idx + 1; // reserve 0 for NoTimer
+            }
+            else if (value.StartsWith("globaltimer", StringComparison.OrdinalIgnoreCase))
+            {
+                int idx = int.Parse(value.Substring("globaltimer".Length));
                 refVal = idx + 1;
             }
-            else if (value.Equals("NoTimer", StringComparison.OrdinalIgnoreCase))
+            else if (!value.Equals("NoTimer", StringComparison.OrdinalIgnoreCase)
+                  && int.TryParse(value, out int n))
             {
-                refVal = 0;
-            }
-            else
-            {
-                // Try numeric token
-                if (int.TryParse(value, out int n))
-                    refVal = n;
+                refVal = n;
             }
 
-            string typeBits = ConvertToBinary(typeVal, 2);
-            string refBits = ConvertToBinary(refVal, 5);
-            string final = typeBits + refBits;
-            return bitSize > 0 ? final.PadLeft(bitSize, '0') : final;
+            string finalDefault = Tag3(0) + Convert.ToString(refVal & 0x7, 2).PadLeft(3, '0');
+            return bitSize > 0 ? finalDefault.PadLeft(bitSize, '0') : finalDefault;
         }
 
         private string ConvertVarTypeToBinary(string token, int bitSize)
@@ -2809,24 +5262,121 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
             }
             else
             {
-                // Support direct object/player tokens for VarType:
-                // - current_player.biped -> object
-                // - current_player -> player
-                if (token.Equals("current_player", StringComparison.OrdinalIgnoreCase))
+                // Dotted member access: route by trailing member-name.
+                int dot = token.IndexOf('.');
+                if (dot > 0)
                 {
-                    kindBits = ConvertToBinary(1, 3);
-                    payloadBits = ConvertPlayerTypeRefToBinary("current_player", 0);
+                    string rhs = token.Substring(dot + 1);
+                    if (rhs.StartsWith("playernumber", StringComparison.OrdinalIgnoreCase)
+                        || rhs.StartsWith("objectnumber", StringComparison.OrdinalIgnoreCase)
+                        || rhs.StartsWith("teamnumber", StringComparison.OrdinalIgnoreCase)
+                        || rhs.Equals("score", StringComparison.OrdinalIgnoreCase)
+                        || rhs.Equals("money", StringComparison.OrdinalIgnoreCase)
+                        || rhs.Equals("rating", StringComparison.OrdinalIgnoreCase)
+                        || System.Text.RegularExpressions.Regex.IsMatch(rhs,
+                            @"^playerstats\s*\[\s*\d+\s*\]$",
+                            System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                    {
+                        kindBits = ConvertToBinary(0, 3);
+                        payloadBits = ConvertNumericTypeRefToBinary(token, 0);
+                    }
+                    else if (rhs.StartsWith("playerplayer", StringComparison.OrdinalIgnoreCase)
+                          || rhs.StartsWith("objectplayer", StringComparison.OrdinalIgnoreCase)
+                          || rhs.StartsWith("teamplayer", StringComparison.OrdinalIgnoreCase))
+                    {
+                        kindBits = ConvertToBinary(1, 3);
+                        payloadBits = ConvertPlayerTypeRefToBinary(token, 0);
+                    }
+                    else if (rhs.StartsWith("playerteam", StringComparison.OrdinalIgnoreCase)
+                          || rhs.StartsWith("objectteam", StringComparison.OrdinalIgnoreCase)
+                          || rhs.StartsWith("teamteam", StringComparison.OrdinalIgnoreCase))
+                    {
+                        kindBits = ConvertToBinary(3, 3);
+                        payloadBits = ConvertTeamTypeRefToBinary(token, 0);
+                    }
+                    else if (rhs.StartsWith("playertimer", StringComparison.OrdinalIgnoreCase)
+                          || rhs.StartsWith("objecttimer", StringComparison.OrdinalIgnoreCase)
+                          || rhs.StartsWith("teamtimer", StringComparison.OrdinalIgnoreCase))
+                    {
+                        kindBits = ConvertToBinary(4, 3);
+                        payloadBits = ConvertTimerTypeRefToBinary(token, 0);
+                    }
+                    else if (rhs.StartsWith("playerobject", StringComparison.OrdinalIgnoreCase)
+                          || rhs.StartsWith("objectobject", StringComparison.OrdinalIgnoreCase)
+                          || rhs.StartsWith("teamobject", StringComparison.OrdinalIgnoreCase)
+                          || rhs.Equals("biped", StringComparison.OrdinalIgnoreCase))
+                    {
+                        kindBits = ConvertToBinary(2, 3);
+                        payloadBits = ConvertObjectTypeRefToBinary(token, 0, 1);
+                    }
+                    else
+                    {
+                        kindBits = ConvertToBinary(0, 3);
+                        payloadBits = ConvertNumericTypeRefToBinary("0", 0);
+                    }
                 }
-                else if (token.Equals("current_player.biped", StringComparison.OrdinalIgnoreCase)
-                      || token.Equals("current_object", StringComparison.OrdinalIgnoreCase))
+                // temp_X_N synthesized identifiers — route by prefix.
+                else if (token.StartsWith("temp_num_", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(0, 3);
+                    payloadBits = ConvertNumericTypeRefToBinary(token, 0);
+                }
+                else if (token.StartsWith("temp_obj_", StringComparison.OrdinalIgnoreCase))
                 {
                     kindBits = ConvertToBinary(2, 3);
                     payloadBits = ConvertObjectTypeRefToBinary(token, 0, 1);
                 }
+                else if (token.StartsWith("temp_player_", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(1, 3);
+                    payloadBits = ConvertPlayerTypeRefToBinary(token, 0);
+                }
+                else if (token.StartsWith("temp_team_", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(3, 3);
+                    payloadBits = ConvertTeamTypeRefToBinary(token, 0);
+                }
+                // Bare built-in identifiers.
+                else if (token.Equals("current_player", StringComparison.OrdinalIgnoreCase)
+                      || token.Equals("no_player", StringComparison.OrdinalIgnoreCase)
+                      || token.StartsWith("globalplayer", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(1, 3);
+                    payloadBits = ConvertPlayerTypeRefToBinary(token, 0);
+                }
+                else if (token.Equals("current_object", StringComparison.OrdinalIgnoreCase)
+                      || token.Equals("no_object", StringComparison.OrdinalIgnoreCase)
+                      || token.StartsWith("globalobject", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(2, 3);
+                    payloadBits = ConvertObjectTypeRefToBinary(token, 0, 1);
+                }
+                else if (token.Equals("current_team", StringComparison.OrdinalIgnoreCase)
+                      || token.Equals("no_team", StringComparison.OrdinalIgnoreCase)
+                      || token.StartsWith("globalteam", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(3, 3);
+                    payloadBits = ConvertTeamTypeRefToBinary(token, 0);
+                }
+                else if (token.Equals("no_timer", StringComparison.OrdinalIgnoreCase)
+                      || token.StartsWith("globaltimer", StringComparison.OrdinalIgnoreCase))
+                {
+                    kindBits = ConvertToBinary(4, 3);
+                    payloadBits = ConvertTimerTypeRefToBinary(token, 0);
+                }
                 else
                 {
-                    kindBits = ConvertToBinary(0, 3);
-                    payloadBits = ConvertNumericTypeRefToBinary("0", 0);
+                    // Try to encode as a NumericTypeRef built-in / script_option.
+                    try
+                    {
+                        kindBits = ConvertToBinary(0, 3);
+                        payloadBits = ConvertNumericTypeRefToBinary(token, 0);
+                    }
+                    catch
+                    {
+                        kindBits = ConvertToBinary(0, 3);
+                        payloadBits = ConvertNumericTypeRefToBinary("0", 0);
+                    }
                 }
             }
 
@@ -2836,59 +5386,168 @@ void ProcessAssignment(AssignmentExpressionSyntax assignment, ref int actionOffs
 
         private string ConvertObjectTypeRefToBinary(string value, int bitSize, int locality)
         {
-            // Define a dictionary to map input strings to their corresponding ObjectTypeRefEnum values
-            var objectTypeRefMap = new Dictionary<string, ObjectTypeRefEnum>
-            {
-                { "current_player.biped", ObjectTypeRefEnum.PlayerBiped },
-                { "NoObject", ObjectTypeRefEnum.ObjectRef },
-                {"current_object", ObjectTypeRefEnum.ObjectRef }
-                // Add more mappings as needed
-            };
+            // ObjectTypeRef per MegaloSchema (3-bit tag + variant payload):
+            //   0=ObjectRef           : ObjectRef (5b)
+            //   1=Player.Object       : PlayerRef (5b) + slot (2b)
+            //   2=Object.Object       : ObjectRef (5b) + slot (2b)
+            //   3=Team.Object         : TeamRef  (3b) + slot (3b)
+            //   4=Player.Biped        : PlayerRef (5b)
+            //   5=Player.Player.Biped : PlayerRef (5b) + slot (2b)
+            //   6=Object.Player.Biped : ObjectRef (5b) + slot (2b)
+            //   7=Team.Player.Biped   : TeamRef  (3b) + slot (2b)
+            //
+            // We accept the script forms the decompiler emits.
+            string v = (value ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(v)) v = "NoObject";
 
-            // Check if the input value is a GlobalObject
-            if (value.StartsWith("GlobalObject"))
+            // Patterns:
+            //   "GlobalObjectN" or just "globalobjectN" → variant 0, ObjectRef slot = N+1 (NoObject is slot 0)
+            //   "current_object"                       → variant 0, ObjectRef = CurrentObject
+            //   "NoObject"                             → variant 0, ObjectRef = NoObject (slot 0)
+            //   "current_player.biped"                 → variant 4, PlayerRef = CurrentPlayer
+            //   "current_player.playerobjectN"         → variant 1, PlayerRef = CurrentPlayer, slot = N
+            //   "current_player.playerplayerN.biped"   → variant 5, PlayerRef = CurrentPlayer, slot = N
+            //   "current_object.objectobjectN"         → variant 2, ObjectRef = CurrentObject, slot = N
+            //   "playerobjectN" / "objectobjectN" / "teamobjectN" — scope-implicit form
+            //                                          → bare slot — fall back to current_player/current_object/current_team
+            string Tag(int t) => Convert.ToString(t, 2).PadLeft(3, '0');
+            string PlayerRef5(string r)
             {
-                int globalObjectIndex = int.Parse(value.Replace("GlobalObject", ""));
-                globalObjectIndex += 1; // Increment the index by 1 to account for the NoObject case
-                if (globalObjectIndex < 0 || globalObjectIndex > 15)
+                // PlayerRef variants (5b): 0=NoPlayer, 1..16=Player0..Player15,
+                // 17..24=GlobalPlayer[0..7], 25=CurrentPlayer, 26..28 (HUD/killer),
+                // 29..31 = Unlabelled (temp_player_0..2).
+                if (Enum.TryParse(typeof(PlayerRefEnum), r, true, out var pe) && pe != null)
+                    return Convert.ToString(Convert.ToInt32(pe), 2).PadLeft(5, '0');
+                if (r.StartsWith("globalplayer", StringComparison.OrdinalIgnoreCase) && int.TryParse(r.Substring("globalplayer".Length), out int gp))
+                    return Convert.ToString(17 + (gp & 0x7), 2).PadLeft(5, '0');
+                if (r.Equals("current_player", StringComparison.OrdinalIgnoreCase))
+                    return Convert.ToString((int)PlayerRefEnum.CurrentPlayer, 2).PadLeft(5, '0');
+                if (r.StartsWith("temp_player_", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(r.Substring("temp_player_".Length), out int tp))
+                    return Convert.ToString(29 + (tp & 0x3), 2).PadLeft(5, '0');
+                return "00000";
+            }
+            string ObjRef5(string r)
+            {
+                if (r.Equals("current_object", StringComparison.OrdinalIgnoreCase))
+                    return Convert.ToString((int)ObjectRef.CurrentObject, 2).PadLeft(5, '0');
+                if (r.StartsWith("GlobalObject", StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new ArgumentException($"Invalid GlobalObject index: {globalObjectIndex}");
+                    int.TryParse(r.Substring("GlobalObject".Length), out int gi);
+                    return Convert.ToString(gi + 1, 2).PadLeft(5, '0');
+                }
+                if (r.StartsWith("globalobject", StringComparison.OrdinalIgnoreCase))
+                {
+                    int.TryParse(r.Substring("globalobject".Length), out int gi);
+                    return Convert.ToString(gi + 1, 2).PadLeft(5, '0');
+                }
+                if (r.StartsWith("temp_obj_", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(r.Substring("temp_obj_".Length), out int to))
+                    return Convert.ToString(22 + (to & 0x7), 2).PadLeft(5, '0'); // Unlabelled range 22-29
+                if (r.Equals("NoObject", StringComparison.OrdinalIgnoreCase)) return "00000";
+                return "00000";
+            }
+            string TeamRef3(string r)
+            {
+                if (r.Equals("current_team", StringComparison.OrdinalIgnoreCase)) return "000";
+                if (r.StartsWith("globalteam", StringComparison.OrdinalIgnoreCase) && int.TryParse(r.Substring("globalteam".Length), out int gt))
+                    return Convert.ToString(gt + 1, 2).PadLeft(3, '0');
+                if (r.StartsWith("temp_team_", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(r.Substring("temp_team_".Length), out int tt))
+                    return Convert.ToString(tt & 0x7, 2).PadLeft(3, '0'); // best-effort: low 3 bits
+                return "000";
+            }
+
+            // Dotted: receiver.member[.suffix]?
+            int firstDot = v.IndexOf('.');
+            if (firstDot >= 0)
+            {
+                string lhs = v.Substring(0, firstDot).Trim();
+                string rhs = v.Substring(firstDot + 1).Trim();
+
+                // current_player.biped (variant 4)
+                if (rhs.Equals("biped", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Tag(4) + PlayerRef5(lhs);
                 }
 
-                // Convert the ObjectTypeRef to its binary representation
-                string objectTypeRefBinary = Convert.ToString((int)ObjectTypeRefEnum.ObjectRef, 2).PadLeft(3, '0');
-
-                // Convert the global object index to its binary representation
-                string globalObjectIndexBinary = Convert.ToString(globalObjectIndex, 2).PadLeft(5, '0');
-
-                // Concatenate the binary representations to form the final binary string
-                string finalBinaryString = objectTypeRefBinary + globalObjectIndexBinary;
-                return finalBinaryString;
-            }
-            else if (objectTypeRefMap.TryGetValue(value, out var objectTypeRefEnum))
-            {
-                // Convert the ObjectTypeRef to its binary representation
-                string objectTypeRefBinary = Convert.ToString((int)objectTypeRefEnum, 2).PadLeft(3, '0');
-
-                // Handle specific cases for parameters
-                List<string> parameterBinaries = new List<string>();
-                if (value == "current_player.biped")
+                // playerN.playerN.biped (variant 5)
+                int dot2 = rhs.IndexOf('.');
+                if (dot2 > 0 && rhs.Substring(dot2 + 1).Trim().Equals("biped", StringComparison.OrdinalIgnoreCase))
                 {
-                    parameterBinaries.Add(Convert.ToString((int)PlayerRefEnum.CurrentPlayer, 2).PadLeft(5, '0'));
-                }
-                else if (value == "current_object")
-                {
-                    parameterBinaries.Add(Convert.ToString((int)ObjectRef.CurrentObject, 2).PadLeft(5, '0'));
+                    string inner = rhs.Substring(0, dot2).Trim();
+                    if (inner.StartsWith("playerplayer", StringComparison.OrdinalIgnoreCase)
+                        && int.TryParse(inner.Substring("playerplayer".Length), out int slotPP))
+                    {
+                        return Tag(5) + PlayerRef5(lhs) + Convert.ToString(slotPP, 2).PadLeft(2, '0');
+                    }
+                    if (inner.StartsWith("objectplayer", StringComparison.OrdinalIgnoreCase)
+                        && int.TryParse(inner.Substring("objectplayer".Length), out int slotOP))
+                    {
+                        return Tag(6) + ObjRef5(lhs) + Convert.ToString(slotOP, 2).PadLeft(2, '0');
+                    }
+                    if (inner.StartsWith("teamplayer", StringComparison.OrdinalIgnoreCase)
+                        && int.TryParse(inner.Substring("teamplayer".Length), out int slotTP))
+                    {
+                        return Tag(7) + TeamRef3(lhs) + Convert.ToString(slotTP, 2).PadLeft(2, '0');
+                    }
                 }
 
-                // Concatenate the binary representations to form the final binary string
-                string finalBinaryString = objectTypeRefBinary + string.Join("", parameterBinaries);
-                return finalBinaryString;
+                // current_player.playerobjectN (variant 1)
+                if (rhs.StartsWith("playerobject", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("playerobject".Length), out int slotPO))
+                {
+                    return Tag(1) + PlayerRef5(lhs) + Convert.ToString(slotPO, 2).PadLeft(2, '0');
+                }
+                // current_object.objectobjectN (variant 2)
+                if (rhs.StartsWith("objectobject", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("objectobject".Length), out int slotOO))
+                {
+                    return Tag(2) + ObjRef5(lhs) + Convert.ToString(slotOO, 2).PadLeft(2, '0');
+                }
+                // current_team.teamobjectN (variant 3)
+                if (rhs.StartsWith("teamobject", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(rhs.Substring("teamobject".Length), out int slotTO))
+                {
+                    return Tag(3) + TeamRef3(lhs) + Convert.ToString(slotTO, 2).PadLeft(3, '0');
+                }
             }
-            else
-            {
-                throw new ArgumentException($"Unsupported ObjectTypeRef: {value}");
-            }
+
+            // Bare names — accept both Pascal and snake_case forms.
+            if (v.Equals("NoObject", StringComparison.OrdinalIgnoreCase)
+                || v.Equals("no_object", StringComparison.OrdinalIgnoreCase))
+                return Tag(0) + "00000";
+            if (v.Equals("current_object", StringComparison.OrdinalIgnoreCase)
+                || v.Equals("CurrentObject", StringComparison.OrdinalIgnoreCase))
+                return Tag(0) + Convert.ToString((int)ObjectRef.CurrentObject, 2).PadLeft(5, '0');
+
+            // temp_obj_N — decompiler-synthesized name for a scratch object
+            // slot. Decompiler renders ObjectRef variants 22..29 (the
+            // "Unlabelled" range) as `temp_obj_{tag-22}`. Mirror by emitting
+            // ObjectTypeRef variant 0 (ObjectRef) + ObjectRef tag = 22+N.
+            if (v.StartsWith("temp_obj_", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(v.Substring("temp_obj_".Length), out int tempObj))
+                return Tag(0) + Convert.ToString(22 + (tempObj & 0x7), 2).PadLeft(5, '0');
+
+            // GlobalObjectN — variant 0 (ObjectRef + slot)
+            if (v.StartsWith("GlobalObject", StringComparison.OrdinalIgnoreCase))
+                return Tag(0) + ObjRef5(v);
+            if (v.StartsWith("globalobject", StringComparison.OrdinalIgnoreCase))
+                return Tag(0) + ObjRef5(v);
+
+            // Scope-implicit shorthand the decompiler sometimes emits
+            // when the receiver is current_*: `playerobjectN` etc.
+            if (v.StartsWith("playerobject", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(v.Substring("playerobject".Length), out int implicitPO))
+                return Tag(1) + PlayerRef5("current_player") + Convert.ToString(implicitPO, 2).PadLeft(2, '0');
+            if (v.StartsWith("objectobject", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(v.Substring("objectobject".Length), out int implicitOO))
+                return Tag(2) + ObjRef5("current_object") + Convert.ToString(implicitOO, 2).PadLeft(2, '0');
+            if (v.StartsWith("teamobject", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(v.Substring("teamobject".Length), out int implicitTO))
+                return Tag(3) + TeamRef3("current_team") + Convert.ToString(implicitTO, 2).PadLeft(3, '0');
+
+            throw new ArgumentException($"Unsupported ObjectTypeRef: {value}");
         }
 
 

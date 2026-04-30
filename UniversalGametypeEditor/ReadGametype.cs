@@ -27,6 +27,20 @@ namespace UniversalGametypeEditor
 
     public class ReadGametype
     {
+        // Last decompiled script text from the most recent ReadBinary call.
+        // Exposed so the headless --decompile CLI (and future tests) can
+        // inspect the decoder output without scraping Debug.WriteLine.
+        public string? LastDecompiledScript;
+
+        // The raw bit string that was fed into ScriptDecompiler.Decompile
+        // during the most recent ReadBinary call. Captured BEFORE the
+        // decoder consumed it so the UI's "Decompile Script" button can
+        // re-render with a different output style without having to
+        // re-parse the whole file.
+        public string? LastScriptBits;
+
+        // Lets the CLI expose ReadBinary's internal bit cursor.
+        public int ScriptOffsetForCli => scriptOffset;
 
         public class Gametype
         {
@@ -2365,11 +2379,15 @@ namespace UniversalGametypeEditor
             }
             if (gametypeString != "mpvr")
             {
-                binaryString = GetBinaryString(binaryData, 128, binaryData.Length * 7);
+                // Read all bits from byte offset 128 to end of file.
+                // (Legacy code used `binaryData.Length * 7` here which
+                // truncated the stream by 1/8 and caused every downstream
+                // section to desync.)
+                binaryString = GetBinaryString(binaryData, 128, (binaryData.Length - 128) * 8);
             }
             else
             {
-                binaryString = GetBinaryString(binaryData, 752, binaryData.Length * 7);
+                binaryString = GetBinaryString(binaryData, 752, (binaryData.Length - 752) * 8);
             }
             int originalLength = binaryString.Length;
             //Read FileHeader
@@ -3027,7 +3045,9 @@ namespace UniversalGametypeEditor
 
             //gametypeItems.Add(gt);
 
+            LastScriptBits = binaryString;
             string scriptContent = ScriptDecompiler.Decompile(binaryString);
+            LastDecompiledScript = scriptContent;
             Debug.WriteLine("Decompiled Script!");
 
             //Read Actions
@@ -4723,6 +4743,14 @@ namespace UniversalGametypeEditor
         private int scriptOffset = 0;
         private string GetValue(int bits)
         {
+            // Reverted to original throwing behavior. The earlier
+            // zero-pad-on-overflow variant let the legacy walker progress
+            // past EOF following garbage counts, which froze the UI on
+            // h2a_invasion.bin (a 2.8-billion-iteration loop fed by a
+            // partially-read count). The original ArgumentOutOfRangeException
+            // is harmless here — MainWindow.Decompile() wraps ReadBinary in
+            // a try/catch (line ~1456) and renders whatever was decoded up
+            // to that point.
             scriptOffset += bits;
             string value = binaryString.Substring(0, bits);
             binaryString = binaryString.Substring(bits);

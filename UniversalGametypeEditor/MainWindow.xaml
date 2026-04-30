@@ -775,25 +775,25 @@
         <Grid Grid.Row="2" Grid.Column="0" Background="{StaticResource AccentColor}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="0"/>
-                <ColumnDefinition Width="167.535"/>
-                <ColumnDefinition Width="430"/>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="200" />
-                <ColumnDefinition Width="192.14"/>
-                <ColumnDefinition Width="207.86"/>
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*" MinWidth="400"/>
+                <ColumnDefinition Width="0" />
+                <ColumnDefinition Width="0" />
+                <ColumnDefinition Width="0"/>
+                <ColumnDefinition Width="0"/>
+                <ColumnDefinition Width="0" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="30"/>
             </Grid.RowDefinitions>
 
-            <!-- Script input area -->
-            <StackPanel x:Name="ScriptEditor" Grid.Column="3" Grid.Row="0" Margin="10,100,20,20" Orientation="Vertical" Visibility="Visible">
-                <TextBlock Text="Script Input: EXPERIMENTAL" Foreground="{StaticResource TextColor}" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
-                <avalonedit:TextEditor x:Name="ScriptInputTextEditor" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" 
-                           Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}" FontSize="15" Height="300" Width="500" WordWrap="True" BorderBrush="{StaticResource TextColor}" BorderThickness="1"/>
-            </StackPanel>
+            <!-- Script input area (kept but hidden; content is routed to the
+                 Script tab inside the DataTabs TabControl below). The tab
+                 hosts ScriptInputTextEditor directly so avalonedit's bindings
+                 keep working and CompileScript/DecompileScript keep reading
+                 from the same control. -->
+            <StackPanel x:Name="ScriptEditor" Grid.Column="3" Grid.Row="0" Margin="10,100,20,20" Orientation="Vertical" Visibility="Collapsed"/>
 
 
             <StackPanel Orientation="Vertical" HorizontalAlignment="Left" MaxWidth="500" Grid.Column="1" Margin="7,0,0,0">
@@ -960,7 +960,7 @@
 
             </StackPanel>
 
-            <StackPanel Grid.Column="3" HorizontalAlignment="Center" Orientation="Vertical">
+            <StackPanel Grid.Column="3" HorizontalAlignment="Center" Orientation="Vertical" Visibility="Collapsed">
                 <Grid Margin="20 0 0 0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50" />
@@ -1046,30 +1046,79 @@
                 </Grid>
             </StackPanel>
 
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Hidden" Margin="10,140,0,20" Height="380" PanningMode="VerticalOnly" PanningDeceleration="0.1" Width="Auto">
-                <ListView x:Name="GametypeScroller" Background="Transparent" BorderBrush="Transparent" MaxHeight="380" Width="Auto"
-              ScrollViewer.VerticalScrollBarVisibility="Hidden" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard">
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
+            <DockPanel Grid.Column="2" Grid.ColumnSpan="6" Grid.RowSpan="2" Margin="10,140,20,10" LastChildFill="True" ClipToBounds="True" HorizontalAlignment="Stretch">
+                <!-- Bottom-docked button bar: always visible regardless of tab content size. -->
+                <Border DockPanel.Dock="Bottom" Background="#2D2D2D" BorderBrush="#505050" BorderThickness="0,1,0,0" Padding="8,6">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Click="HandleLoadClick" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="28" Style="{DynamicResource ButtonsStyle}" Visibility="Hidden" Width="110" Margin="0,0,8,0"/>
+                        <Button Click="CompileGametype" x:Name="Compile" Content="Compile" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="28" Style="{DynamicResource ButtonsStyle}" Width="110" Margin="0,0,8,0"/>
+                        <Button Click="CompileScript_Click" x:Name="CompileScriptBtn" Content="Compile Script" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="28" Style="{DynamicResource ButtonsStyle}" Width="130" Margin="0,0,8,0"/>
+                        <Button Click="DecompileScript_Click" x:Name="DecompileScriptBtn" Content="Decompile Script" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="28" Style="{DynamicResource ButtonsStyle}" Width="130"/>
+                    </StackPanel>
+                </Border>
+
+                <TabControl x:Name="DataTabs" Background="{StaticResource AccentColor}" Foreground="{StaticResource TextColor}" BorderBrush="#505050">
+                    <TabControl.Resources>
+                        <Style TargetType="TabItem">
+                            <Setter Property="Background" Value="#1E1E1E"/>
+                            <Setter Property="Foreground" Value="#B8B8B8"/>
+                            <Setter Property="BorderBrush" Value="#505050"/>
+                            <Setter Property="BorderThickness" Value="1,1,1,0"/>
+                            <Setter Property="Padding" Value="16,6"/>
+                            <Setter Property="FontSize" Value="13"/>
+                            <Setter Property="Margin" Value="0,0,2,0"/>
                             <Setter Property="Template">
                                 <Setter.Value>
-                                    <ControlTemplate TargetType="ListViewItem">
-                                        <Border Background="{TemplateBinding Background}">
-                                            <ContentPresenter />
+                                    <ControlTemplate TargetType="TabItem">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" CornerRadius="3,3,0,0">
+                                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.Foreground="{TemplateBinding Foreground}" TextBlock.FontWeight="{TemplateBinding FontWeight}"/>
                                         </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#2A2A2A"/>
+                                                <Setter Property="Foreground" Value="#E8E8E8"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#3D3D3D"/>
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#7AB8FF"/>
+                                                <Setter TargetName="Bd" Property="BorderThickness" Value="1,2,1,0"/>
+                                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>
                         </Style>
-                    </ListView.ItemContainerStyle>
-                </ListView>
-            </ScrollViewer>
-
-            <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Background="Transparent">
-                <Button Click="HandleLoadClick" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" x:Name="LoadGametype" Content="Load" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Visibility="Hidden" Margin="0,0,50,0" Width="130" HorizontalAlignment="Right"></Button>
-                <Button Click="CompileGametype" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="Compile" Content="Compile" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0" Width="130"/>
-                <Button Click="CompileScript_Click" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" x:Name="CompileScriptBtn" Content="Compile Script" Background="Transparent" Foreground="{StaticResource TextColor}" FontSize="12" Height="30" Style="{DynamicResource ButtonsStyle}" Margin="0,0,50,0" Width="130"/>
-            </StackPanel>
+                    </TabControl.Resources>
+                    <TabItem Header="Gametype Data">
+                        <ScrollViewer Grid.IsSharedSizeScope="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly" PanningDeceleration="0.1">
+                            <ItemsControl x:Name="GametypeScroller" Background="Transparent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel IsItemsHost="True" HorizontalAlignment="Stretch"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </TabItem>
+                    <TabItem Header="Script">
+                        <Grid ClipToBounds="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Decompiled script. Edit and click Compile Script to persist."
+                                       Foreground="{StaticResource TextColor}" FontSize="12" Margin="5,5,5,5" TextWrapping="Wrap"/>
+                            <avalonedit:TextEditor x:Name="ScriptInputTextEditor" Grid.Row="1"
+                                                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                                   Foreground="{StaticResource TextColor}" Background="{StaticResource AccentColor}"
+                                                   FontSize="14" WordWrap="True" BorderBrush="#505050" BorderThickness="1" Margin="5"
+                                                   HorizontalAlignment="Stretch" ClipToBounds="True"/>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </DockPanel>
 
         </Grid>
 

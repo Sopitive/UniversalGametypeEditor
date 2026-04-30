@@ -23,6 +23,26 @@ namespace UniversalGametypeEditor
             => lf.ReturnType != null && lf.ReturnType.ToString() == "void";
 
         /// <summary>
+        /// Walk top-level GlobalStatements and route any LocalDeclarationStatements
+        /// (`Number x = 0;`, `Object o;`, etc.) through ProcessLocalDeclaration
+        /// BEFORE the inline-function prepass touches any function body. This
+        /// guarantees the decompiler's top-of-file global declaration block
+        /// owns slots 0..N, and any later shadow re-declarations inside
+        /// trigger bodies are recognized as references rather than fresh
+        /// allocations (see ProcessLocalDeclaration's existing-variable branch).
+        /// </summary>
+        private void Prepass_RegisterTopLevelVariables(CompilationUnitSyntax root)
+        {
+            int dummyActCount = 0, dummyActOffset = 0;
+            foreach (var member in root.Members)
+            {
+                if (member is not GlobalStatementSyntax gs) continue;
+                if (gs.Statement is not LocalDeclarationStatementSyntax local) continue;
+                ProcessLocalDeclaration(local, ref dummyActCount, ref dummyActOffset);
+            }
+        }
+
+        /// <summary>
         /// Call once in Compile(...) AFTER analyzer and BEFORE ProcessMember(...) loop.
         /// This version supports recursion + mutual recursion.
         /// </summary>
@@ -56,6 +76,12 @@ namespace UniversalGametypeEditor
 
             string name = lf.Identifier.Text;
 
+            // Event-wrapper functions (`local`, `init`, `__OnTick_N`, etc.)
+            // are NOT inline funcs — they become Do+attribute top-level
+            // triggers in ProcessMember. Skip them here.
+            if (TryMapEventWrapper(name, out _))
+                return;
+
             if (_inlineFuncs.ContainsKey(name))
                 throw new Exception($"Duplicate inline function '{name}'.");
 
@@ -82,6 +108,7 @@ namespace UniversalGametypeEditor
 
             if (IsTriggerLocalFunction(lf)) return;
             if (!IsInlineFunctionLocalFunction(lf)) return;
+            if (TryMapEventWrapper(lf.Identifier.Text, out _)) return;
 
             CompileAndResolveInlineFunction(lf);
         }

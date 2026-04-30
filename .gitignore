@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Project-local scratch / round-trip dumps
+_roundtrip_out/
+_scratch/
+scratch_roundtrip/
+scratch/
+roundtrip*/

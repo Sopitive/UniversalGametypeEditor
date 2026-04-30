@@ -1312,11 +1312,188 @@ namespace UniversalGametypeEditor
             CompileScript(rg.gt.scriptOffset, script);
         }
 
+        private async void DecompileScript_Click(object sender, RoutedEventArgs e)
+        {
+            // Decompile the currently-loaded variant into the Script editor.
+            // Heavy work (GametypeReader walk + DecompileAsScript C# pipeline
+            // with recursive trigger inlining + variable analysis) is run on
+            // a background thread; the UI is updated when the work completes.
+            // Otherwise the button blocks the dispatcher and freezes WPF.
+            //
+            // A timestamped trace is written to %TEMP%/uge_decompile.log so we
+            // can see where the pipeline silently bails out (missing megl
+            // section, empty script bits, throw inside DecompileAsScript, …).
+            string logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "uge_decompile.log");
+            void Log(string msg)
+            {
+                try
+                {
+                    System.IO.File.AppendAllText(
+                        logPath,
+                        $"[{DateTime.Now:HH:mm:ss.fff}] {msg}{Environment.NewLine}");
+                }
+                catch { /* logging must never break the button */ }
+                Debug.WriteLine("[Decompile] " + msg);
+            }
+
+            Log("=== Decompile Script clicked ===");
+
+            if (string.IsNullOrEmpty(Settings.Default.FilePath)
+                || string.IsNullOrEmpty(Settings.Default.Selected))
+            {
+                Log("No gametype loaded (FilePath or Selected is empty).");
+                UpdateLastEvent("Decompile: no gametype is loaded.");
+                return;
+            }
+
+            string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
+            Log($"Target file: {filePath}");
+            if (!File.Exists(filePath))
+            {
+                Log("File does not exist on disk.");
+                UpdateLastEvent($"Decompile: file not found: {filePath}");
+                return;
+            }
+
+            long fileBytes = new FileInfo(filePath).Length;
+            Log($"File size: {fileBytes} bytes");
+
+            UpdateLastEvent($"Decompile: working... (log: {logPath})");
+            string script;
+            bool ok;
+            int scriptBitsLen;
+            int diagCount;
+            string firstDiag;
+            // Hook ScriptDecompiler's per-stage progress messages into our log
+            // so we can see exactly where DecompileAsScript spends its time.
+            ScriptDecompiler.ProgressLog = msg => Log("[stage] " + msg);
+            try
+            {
+                var result = await System.Threading.Tasks.Task.Run(() =>
+                {
+                    Log("Background task: starting GametypeReader.Read");
+                    var reader = new UniversalGametypeEditor.GametypeReader();
+                    var r = reader.Read(filePath);
+                    Log($"GametypeReader.Read: ok={r.Ok}, "
+                        + $"totalFileBits={r.TotalFileBits}, bitsConsumed={r.BitsConsumed}, "
+                        + $"scriptBits={(r.ScriptBits?.Length ?? -1)}, "
+                        + $"detailedScript={(r.DecompiledScript?.Length ?? -1)}, "
+                        + $"diagnostics={r.Diagnostics.Count}, "
+                        + $"game={r.Game}");
+                    for (int i = 0; i < Math.Min(r.Diagnostics.Count, 8); i++)
+                        Log($"  diag[{i}]: {r.Diagnostics[i]}");
+
+                    string s = string.Empty;
+                    if (!string.IsNullOrEmpty(r.ScriptBits))
+                    {
+                        Log($"Calling DecompileAsScript on {r.ScriptBits.Length}-bit stream (game={r.Game})");
+                        try
+                        {
+                            s = ScriptDecompiler.DecompileAsScript(r.ScriptBits, labelNames: r.Labels, game: r.Game, stringTable: r.StringTable);
+                            Log($"DecompileAsScript returned {s?.Length ?? 0} chars");
+                        }
+                        catch (Exception ex)
+                        {
+                            Log($"DecompileAsScript THREW: {ex.GetType().Name}: {ex.Message}");
+                            Log(ex.StackTrace ?? "(no stack)");
+                        }
+                    }
+                    else
+                    {
+                        Log("Skipping DecompileAsScript: no ScriptBits");
+                    }
+                    // No fallback to r.DecompiledScript — that's the legacy
+                    // comment-splattered debug form and the user has been
+                    // explicit that it shouldn't appear in the editor.
+                    // If DecompileAsScript produced nothing the click handler
+                    // will surface an error instead of substituting comments.
+                    return (Script: s, Ok: r.Ok,
+                            BitsLen: r.ScriptBits?.Length ?? 0,
+                            DiagCount: r.Diagnostics.Count,
+                            FirstDiag: r.Diagnostics.Count > 0 ? r.Diagnostics[0] : "(none)");
+                });
+                script = result.Script;
+                ok = result.Ok;
+                scriptBitsLen = result.BitsLen;
+                diagCount = result.DiagCount;
+                firstDiag = result.FirstDiag;
+            }
+            catch (Exception ex)
+            {
+                Log($"Outer task threw: {ex.GetType().Name}: {ex.Message}");
+                Log(ex.StackTrace ?? "(no stack)");
+                UpdateLastEvent($"Decompile failed: {ex.Message}");
+                return;
+            }
+            finally { ScriptDecompiler.ProgressLog = null; }
+
+            Log($"Final: scriptLen={script?.Length ?? 0}, ok={ok}, "
+                + $"bitsLen={scriptBitsLen}, diagCount={diagCount}, firstDiag='{firstDiag}'");
+
+            if (string.IsNullOrEmpty(script))
+            {
+                UpdateLastEvent($"Decompile: no script bits captured (bitsLen={scriptBitsLen}, diag='{firstDiag}'). See {logPath}.");
+                return;
+            }
+
+            ScriptInputTextEditor.Text = script;
+            UpdateLastEvent($"Decompile: produced {script.Length} chars of script ({(ok ? "ok" : "desynced")}). Log: {logPath}");
+        }
+
 
         private void CompileScript(int bitOffset, string script)
         {
+            // Refresh `rg` from disk before every compile. Two reasons:
+            //   1) The Decompile Script button uses a NEW GametypeReader and
+            //      doesn't touch the shared `rg` field, so `rg.LastScriptBits`
+            //      may be empty/stale on first compile after using that path.
+            //   2) On subsequent compiles, the file's compiled-section
+            //      boundary has SHIFTED by (newCompile - origCompile) bits.
+            //      Without this refresh, the splice would cut `tailBits` at
+            //      the original boundary against the post-compile file —
+            //      producing a corrupt write that looks like "the edit
+            //      didn't take effect" because the tail bits get mangled.
+            try
+            {
+                string refreshPath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
+                if (File.Exists(refreshPath))
+                    rg.ReadBinary(refreshPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"CompileScript: rg refresh failed: {ex.Message}");
+            }
+
             // Compile first. Do NOT touch the file unless we succeed.
             ScriptCompiler sc = new();
+
+            // Populate the compiler's LabelTable so quoted forge label
+            // names (`with label "ffa_only"`) round-trip through the
+            // encoder. Names come from a fresh GametypeReader walk of
+            // the on-disk file (Reach reads the StringTable + post-megl
+            // Labels CountSection — see ReadReachForgeLabels).
+            try
+            {
+                string labelPath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
+                if (File.Exists(labelPath))
+                {
+                    var labelRead = new GametypeReader().Read(labelPath);
+                    if (labelRead.Labels != null)
+                    {
+                        sc.LabelTable.Clear();
+                        sc.LabelTable.AddRange(labelRead.Labels);
+                    }
+                    if (labelRead.StringTable != null)
+                    {
+                        sc.StringTable.Clear();
+                        sc.StringTable.AddRange(labelRead.StringTable);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"CompileScript: LabelTable populate failed: {ex.Message}");
+            }
 
             var result = sc.TryCompileScript(script);
             if (!result.Success || string.IsNullOrWhiteSpace(result.BinaryString))
@@ -1348,7 +1525,19 @@ namespace UniversalGametypeEditor
                 return;
             }
 
-            string binaryOutput = result.BinaryString;
+            // ScriptCompiler.GetBinaryString() appends a synthesized
+            // placeholder tail (stats=0, MegaloVars, weapon tunings + ~4500
+            // bits of zeros) AFTER the real compiled section. The in-place
+            // file write needs ONLY the compiled section — we splice it
+            // into the original file in place of the original compiled
+            // section and keep the original tail (string table, forge
+            // labels, etc.) untouched. Truncate result.BinaryString to the
+            // exact compiled-section bit length so the synthesized junk
+            // doesn't leak into the file and corrupt the post-script tail.
+            int compiledLen = sc.GetCompiledSectionBits();
+            string binaryOutput = compiledLen > 0 && compiledLen <= result.BinaryString.Length
+                ? result.BinaryString.Substring(0, compiledLen)
+                : result.BinaryString;
 
             // Read the file at offset 0x2F0
             string filePath = $"{Settings.Default.FilePath}\\{Settings.Default.Selected}";
@@ -1362,27 +1551,109 @@ namespace UniversalGametypeEditor
             // Where to write (you already had this)
             int scriptBitOffset = rg.gt.scriptOffset;
 
+            // Locate the original boundary between the compiled section (conds
+            // + actions + triggers) and the post-trigger tail (stats,
+            // MegaloVars, widgets, entry points, MP types, forge labels, …).
+            // We MUST preserve the tail unchanged: the compiler doesn't emit
+            // it yet, and the StringTable / forge labels live there. The
+            // previous code re-stitched at `scriptBitOffset + binaryOutput.Length`,
+            // which when the new compile was shorter than the original
+            // compiled section left mid-stream original bits sitting at the
+            // wrong bit alignment — corrupting the file (StringTable failed
+            // to decompress).
+            string? origScriptBits = rg.LastScriptBits;
+            if (string.IsNullOrEmpty(origScriptBits))
+            {
+                UpdateLastEvent("Compilation succeeded, but no original script bits are cached — load a file first.");
+                return;
+            }
+            var origDetailed = ScriptDecompiler.DecompileDetailed(
+                origScriptBits,
+                labelNames: null,
+                game: Settings.Default.IsGvar ? GameVariant.H2A : GameVariant.Reach);
+            int origCompiledLen = origDetailed.TriggerSectionBits;
+            if (origCompiledLen <= 0)
+            {
+                UpdateLastEvent("Compilation succeeded, but couldn't determine the original trigger-section boundary — refusing to write.");
+                return;
+            }
+
             // Bounds checks
             if (scriptBitOffset < 0 || scriptBitOffset > fileBinaryString.Length)
             {
                 UpdateLastEvent($"Compilation succeeded, but scriptOffset is out of range: {scriptBitOffset} (max {fileBinaryString.Length}).");
                 return;
             }
-            if (scriptBitOffset + binaryOutput.Length > fileBinaryString.Length)
+            if (scriptBitOffset + origCompiledLen > fileBinaryString.Length)
             {
-                UpdateLastEvent($"Compilation succeeded, but compiled script ({binaryOutput.Length} bits) doesn't fit at offset {scriptBitOffset} (max {fileBinaryString.Length}).");
+                UpdateLastEvent($"Compilation succeeded, but original compiled section ({origCompiledLen} bits) extends past file end (offset {scriptBitOffset}, max {fileBinaryString.Length}).");
                 return;
             }
 
             // Debug peek
-            string binaryStringAtOffset = fileBinaryString.Substring(scriptBitOffset, binaryOutput.Length);
+            string binaryStringAtOffset = fileBinaryString.Substring(scriptBitOffset, Math.Min(origCompiledLen, binaryOutput.Length));
             Debug.WriteLine($"Binary string at scriptOffset: {binaryStringAtOffset}");
 
-            // Insert compiled script bits
-            string modifiedBinaryString =
-                fileBinaryString.Substring(0, scriptBitOffset) +
-                binaryOutput +
-                fileBinaryString.Substring(scriptBitOffset + binaryOutput.Length);
+            // Backup before write — first successful write per session.
+            try
+            {
+                string backupPath = filePath + ".bak";
+                if (!File.Exists(backupPath))
+                    File.Copy(filePath, backupPath, overwrite: false);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Backup failed: {ex.Message}");
+            }
+
+            // Replace the compiled section [scriptBitOffset .. scriptBitOffset+origCompiledLen)
+            // with the new compile, AND replace the original MegaloVars
+            // segment with a freshly-encoded one so changes to variable
+            // declarations (`[Priority]` / initial values) take effect.
+            // Layout in the original script bits:
+            //   [triggers (origCompiledLen)]
+            //   [stats (3-bit count + 12 bits/record)]
+            //   [MegaloVars (varsStart..varsEnd)]
+            //   [HUD widgets, entries, MP types, forge labels,
+            //    string table, weapon tunings]   ← preserved verbatim
+            //
+            // varsStart and varsEnd are computed against the ORIGINAL bits
+            // (rg.LastScriptBits, refreshed at top of this method). We:
+            //   1) keep origBits[0..varsStart) BUT replace its leading
+            //      origCompiledLen bits with the new compile (so triggers
+            //      change and stats stay verbatim for now);
+            //   2) replace origBits[varsStart..varsEnd) with newMegaloVars;
+            //   3) keep origBits[varsEnd..) verbatim.
+            (int varsStart, int varsEnd) = ScriptDecompiler.LocateReachMegaloVars(
+                origScriptBits,
+                Settings.Default.IsGvar ? GameVariant.H2A : GameVariant.Reach);
+            string newMegaloVars = ScriptCompiler.EncodeReachMegaloVars(script);
+
+            // Original bits (relative to scriptBitOffset, since origScriptBits
+            // is the post-script-offset region) — slice between trigger end
+            // and MegaloVars start (the stats segment) verbatim. After
+            // MegaloVars, slice the rest of the tail verbatim too.
+            string statsSegment    = origScriptBits.Substring(origCompiledLen,           varsStart - origCompiledLen);
+            string postVarsSegment = origScriptBits.Substring(varsEnd);
+
+            string head = fileBinaryString.Substring(0, scriptBitOffset);
+            string modifiedBinaryString = head
+                + binaryOutput        // re-encoded triggers
+                + statsSegment        // verbatim stats
+                + newMegaloVars       // re-encoded MegaloVars
+                + postVarsSegment;    // verbatim HUD widgets / labels / strings / weapon tunings
+            string tailBits = statsSegment + newMegaloVars + postVarsSegment;
+            int compileDelta = (binaryOutput.Length + newMegaloVars.Length)
+                             - (origCompiledLen + (varsEnd - varsStart));
+            int origVarsLen = varsEnd - varsStart;
+
+            // Pad to a byte boundary so we don't drop the last 1-7 bits when
+            // packing back into bytes. Trailing zero bits are benign — the
+            // megalo readers and the post-megalo tail stop at their declared
+            // section lengths, so pad bits are never interpreted.
+            int rem = modifiedBinaryString.Length % 8;
+            if (rem != 0)
+                modifiedBinaryString += new string('0', 8 - rem);
 
             // Convert back to bytes
             byte[] modifiedBytes = Enumerable.Range(0, modifiedBinaryString.Length / 8)
@@ -1395,7 +1666,21 @@ namespace UniversalGametypeEditor
             Array.Copy(modifiedBytes, 0, newFileBytes, offset, modifiedBytes.Length);
             File.WriteAllBytes(filePath, newFileBytes);
 
-            UpdateLastEvent("Compilation succeeded and script was written to the file.");
+            var ok = new StringBuilder();
+            ok.AppendLine("Compilation succeeded and script was written to the file.");
+            ok.AppendLine($"  compiled : {binaryOutput.Length} bits ({sc.DiagConditionCount} conds, {sc.DiagActionCount} actions, {sc.DiagTriggerCount} triggers)");
+            ok.AppendLine($"  original : {origCompiledLen} bits in compiled section ({origDetailed.ConditionCount} conds, {origDetailed.ActionCount} actions, {origDetailed.TriggerCount} triggers)");
+            ok.AppendLine($"  vars     : {newMegaloVars.Length} bits MegaloVars (was {origVarsLen} bits) — variable declarations re-encoded");
+            ok.AppendLine($"  stats    : {statsSegment.Length} bits stats (verbatim from original)");
+            ok.AppendLine($"  delta    : {(compileDelta >= 0 ? "+" : "")}{compileDelta} bits (triggers + vars vs original)");
+            ok.AppendLine($"  tail     : {postVarsSegment.Length} bits appended verbatim from original (HUD widgets, forge labels, string table, weapon tunings)");
+            ok.AppendLine($"  backup   : {filePath}.bak (created if not present)");
+            // Build stamp so we can tell from the user-facing log whether the
+            // running GUI actually picked up the new MainWindow.CompileScript
+            // logic. If this string isn't present in the on-screen message,
+            // the WPF .exe is stale (rebuild blocked because the GUI was open).
+            ok.AppendLine($"  build    : 2026-04-26-megalovars-encoder");
+            UpdateLastEvent(ok.ToString());
         }
 
 

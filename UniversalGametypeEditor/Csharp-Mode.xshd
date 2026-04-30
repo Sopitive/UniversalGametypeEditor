@@ -29,6 +29,14 @@
 	<Color name="TypeKeywords" fontWeight="bold" foreground="#4EC9B0" exampleText="if (x is int) { a = x as int; type = typeof(int); size = sizeof(int); c = new object(); }"/>
 	<Color name="SemanticKeywords" fontWeight="bold" foreground="#4EC9B0" exampleText="if (args == null) throw new ArgumentNullException(nameof(args));" />
 
+	<!-- Megalo-specific palette -->
+	<Color name="MegaloPriority"   fontWeight="bold" foreground="#C586C0" exampleText="high int num1 += 5;" />
+	<Color name="MegaloType"       fontWeight="bold" foreground="#4EC9B0" exampleText="timer player.tmr1 = 5;" />
+	<Color name="MegaloBuiltin"    fontWeight="bold" foreground="#9CDCFE" exampleText="current_player.set_loadout_palette(2);" />
+	<Color name="MegaloLoopKeyword" fontWeight="bold" foreground="#C586C0" exampleText="foreach object with label &quot;ffa_only&quot; { ... }" />
+	<Color name="MegaloSlot"       foreground="#9CDCFE" exampleText="num1 += 5;" />
+	<Color name="MegaloEnum"       foreground="#D7BA7D" exampleText="rate_minus_100, SuppressEffect, none" />
+
 	<Property name="DocCommentMarker" value="///" />
 	
 	<RuleSet name="CommentMarkerSet">
@@ -227,7 +235,6 @@
 			<Word>class</Word>
 			<Word>interface</Word>
 			<Word>delegate</Word>
-			<Word>object</Word>
 			<Word>string</Word>
 			<Word>void</Word>
 			<Word>Trigger</Word>
@@ -287,6 +294,85 @@
 		<Keywords color="SemanticKeywords">
 			<Word>nameof</Word>
 		</Keywords>
+
+		<!-- Megalo network-priority / scope keywords -->
+		<Keywords color="MegaloPriority">
+			<Word>low</Word>
+			<Word>high</Word>
+			<Word>local</Word>
+			<Word>locked</Word>
+		</Keywords>
+
+		<!-- Megalo type keywords (lowercase) -->
+		<Keywords color="MegaloType">
+			<Word>timer</Word>
+			<Word>player</Word>
+			<Word>object</Word>
+			<Word>team</Word>
+			<Word>Number</Word>
+			<Word>Timer</Word>
+			<Word>Player</Word>
+			<Word>Object</Word>
+			<Word>Team</Word>
+		</Keywords>
+
+		<!-- Megalo built-in scope/iterator references -->
+		<Keywords color="MegaloBuiltin">
+			<Word>current_player</Word>
+			<Word>current_object</Word>
+			<Word>current_team</Word>
+			<Word>no_player</Word>
+			<Word>no_object</Word>
+			<Word>no_team</Word>
+			<Word>hud_player</Word>
+			<Word>hud_target_player</Word>
+			<Word>target_object</Word>
+			<Word>killed_object</Word>
+			<Word>killer_object</Word>
+			<Word>object_killer</Word>
+			<Word>neutral_team</Word>
+		</Keywords>
+
+		<!-- Megalo loop-header keywords -->
+		<Keywords color="MegaloLoopKeyword">
+			<Word>with</Word>
+			<Word>filter</Word>
+			<Word>randomly</Word>
+		</Keywords>
+
+		<!-- Megalo enum-like literal values (rate_*, SuppressEffect, none, etc.) -->
+		<Keywords color="MegaloEnum">
+			<Word>none</Word>
+			<Word>None</Word>
+			<Word>suppress_effect</Word>
+			<Word>never_garbage_collect</Word>
+			<Word>absolute_orientation</Word>
+			<Word>SuppressEffect</Word>
+			<Word>NeverGarbageCollect</Word>
+			<Word>AbsoluteOrientation</Word>
+			<Word>spartan</Word>
+			<Word>elite</Word>
+			<Word>monitor</Word>
+		</Keywords>
+
+		<!-- Megalo global-pool slots (num1, tmr2, plr3, obj4, tm5) and
+		     rate_/score_/team_ enum literals — short prefixes followed by
+		     digits or identifier tail. -->
+		<Rule color="MegaloSlot">
+			\b(num|tmr|plr|obj|tm)\d+\b
+		</Rule>
+		<Rule color="MegaloEnum">
+			\brate_(zero|[a-z_]*\d*)\b
+		</Rule>
+		<Rule color="MegaloEnum">
+			\b(team\d+|globalplayer\d+|globalobject\d+|globalteam\d+|globalnumber\d+|globaltimer\d+)\b
+		</Rule>
+		<Rule color="MegaloSlot">
+			\b(temp_player_\d+|temp_obj_\d+|temp_team_\d+)\b
+		</Rule>
+		<Rule color="MegaloEnum">
+			\b(label|script_option|playerstats|str)\[\d+\]
+		</Rule>
 
 		<!-- Mark previous rule-->
 		<Rule color="MethodCall">
