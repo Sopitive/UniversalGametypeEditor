@@ -12,6 +12,9 @@
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 		<AppConfig>app.config</AppConfig>
+		<Version>3.1.0</Version>
+		<AssemblyVersion>3.1.0.0</AssemblyVersion>
+		<FileVersion>3.1.0.0</FileVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
